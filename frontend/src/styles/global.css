@@ -1,0 +1,185 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'JetBrains Mono', 'Fira Code', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #0a0e17;
+  color: #f3f4f6;
+}
+
+.app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1f2e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #30384d;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00d4ff;
+}
+
+/* Selection styling */
+::selection {
+  background-color: rgba(0, 212, 255, 0.3);
+  color: #fff;
+}
+
+/* Focus styling */
+*:focus-visible {
+  outline: 2px solid #00d4ff;
+  outline-offset: 2px;
+}
+
+/* Ant Design overrides */
+.ant-btn {
+  font-family: inherit;
+}
+
+.ant-input,
+.ant-select,
+.ant-textarea {
+  font-family: inherit;
+  background-color: #1a1f2e !important;
+  border-color: #30384d !important;
+  color: #f3f4f6 !important;
+}
+
+.ant-input:hover,
+.ant-input:focus,
+.ant-select:hover .ant-select-selector,
+.ant-select-focused .ant-select-selector {
+  border-color: #00d4ff !important;
+}
+
+.ant-card {
+  background-color: #1a1f2e;
+  border-color: #30384d;
+}
+
+.ant-card-head {
+  background-color: #252b3d;
+  border-bottom-color: #30384d;
+  color: #00d4ff;
+}
+
+/* CSS Variables for theming */
+:root {
+  --color-primary: #00d4ff;
+  --color-secondary: #1a1f2e;
+  --color-accent: #00d4ff;
+  --color-background: #0a0e17;
+  --color-surface: #1a1f2e;
+  --color-text: #f3f4f6;
+  --color-text-muted: #9ca3af;
+  --color-border: #30384d;
+  --color-error: #ff4444;
+  --color-warning: #ffaa00;
+  --color-success: #00ff88;
+  --font-size-base: 16px;
+}
+
+/* Theme classes */
+.theme-dark {
+  --color-primary: #00d4ff;
+  --color-secondary: #1a1f2e;
+  --color-accent: #00d4ff;
+  --color-background: #0a0e17;
+  --color-surface: #1a1f2e;
+  --color-text: #f3f4f6;
+  --color-text-muted: #9ca3af;
+  --color-border: #30384d;
+}
+
+.theme-light {
+  --color-primary: #0066cc;
+  --color-secondary: #f3f4f6;
+  --color-accent: #0066cc;
+  --color-background: #ffffff;
+  --color-surface: #f9fafb;
+  --color-text: #1f2937;
+  --color-text-muted: #6b7280;
+  --color-border: #e5e7eb;
+}
+
+/* Font size classes */
+.font-small {
+  font-size: 14px;
+}
+
+.font-medium {
+  font-size: 16px;
+}
+
+.font-large {
+  font-size: 18px;
+}
+
+/* Compact mode */
+.compact-mode .ant-btn {
+  padding: 4px 12px;
+}
+
+.compact-mode .ant-input {
+  padding: 4px 8px;
+}
+
+.compact-mode .ant-card {
+  margin-bottom: 8px;
+}
+
+/* Animations disabled */
+.animations-disabled * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+/* Sci-fi glow effects */
+.sci-fi-glow {
+  box-shadow: 0 0 10px var(--color-accent), 0 0 20px var(--color-accent);
+}
+
+/* Scanline effect */
+.scanlines::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 1;
+}

@@ -1,0 +1,7 @@
+build/bin
+node_modules
+frontend/dist
+.gocache
+.helloagents
+go.mod
+go.sum
