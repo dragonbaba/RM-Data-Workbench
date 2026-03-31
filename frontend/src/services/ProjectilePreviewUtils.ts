@@ -100,6 +100,17 @@ export const findDataEntryById = (data: unknown[] | null, id: number): RecordLik
   return null;
 };
 
+export const shouldUseStaticActorPreviewFrame = (entry: unknown): boolean => {
+  if (!entry || typeof entry !== 'object') return false;
+
+  const meta = (entry as RecordLike).meta;
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) {
+    return false;
+  }
+
+  return (meta as RecordLike).isStaticImage === true;
+};
+
 export const resolveActorProjectileOffset = (actor: unknown, weapon: unknown): { x: number; y: number } => {
   if (!actor || typeof actor !== 'object' || !weapon || typeof weapon !== 'object') {
     return { x: 0, y: 0 };

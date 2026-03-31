@@ -7,6 +7,7 @@ import {
   resolveActorProjectileOffset,
   resolveEnemyProjectileOffset,
   segmentDurationToMs,
+  shouldUseStaticActorPreviewFrame,
   toDurationFrameDisplay,
 } from './ProjectilePreviewUtils';
 import type { TrajectorySegment } from '../types';
@@ -66,5 +67,23 @@ describe('ProjectilePreviewUtils', () => {
   it('normalizes legacy battler type values', () => {
     expect(normalizeBattlerType('角色', 'enemy')).toBe('actor');
     expect(normalizeBattlerType('敌人', 'actor')).toBe('enemy');
+  });
+
+  it('detects actor static preview flag from meta.isStaticImage', () => {
+    expect(shouldUseStaticActorPreviewFrame({
+      id: 1,
+      meta: {
+        isStaticImage: true,
+      },
+    })).toBe(true);
+    expect(shouldUseStaticActorPreviewFrame({
+      id: 2,
+      meta: {
+        isStaticImage: false,
+      },
+    })).toBe(false);
+    expect(shouldUseStaticActorPreviewFrame({
+      id: 3,
+    })).toBe(false);
   });
 });

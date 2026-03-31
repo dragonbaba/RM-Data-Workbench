@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
-  createDefaultGameEffect,
-  createDefaultGameEffectConfig,
   createDefaultOpRow,
+  createGameEffectConfig,
   createGameEffectTemplate,
-  ensureItemGameEffects,
+  ensureItemEffects,
   getAllowedStatIds,
   getGameEffectTypeDefinition,
   getGameEffectTypeDefinitions,
   getOpOptions,
   getStatOptions,
+  normalizeGameEffectEntry,
+  normalizeEffectRegistry,
   parseOpsToRows,
   serializeRowsToOps,
   validateEffectOpRows,
@@ -18,34 +19,45 @@ import {
 } from './GameEffectService';
 
 describe('GameEffectService', () => {
-  it('缺少 gameEffects 时会自动补空数组', () => {
-    const result = ensureItemGameEffects({
+  const systemData = {
+    elements: ['', '通常', '火炎', '冷气', '电气', '音波', '瓦斯', '激光'],
+    terms: {
+      params: ['体力', '驾驶', '攻击', '防御', '战斗', '修理', '速度', '幸运', '命中', '回避'],
+    },
+  };
+  const wrappedSystemData = [null, systemData];
+
+  it('缺少 effects 时会自动补空数组', () => {
+    const result = ensureItemEffects({
       id: 1,
       name: '史莱姆',
     });
 
     expect(result.changed).toBe(true);
-    expect(result.item.gameEffects).toEqual([]);
+    expect(result.item.effects).toEqual([]);
   });
 
-  it('缺少 effectType 的旧效果会被直接剔除', () => {
-    const result = ensureItemGameEffects({
+  it('effects 引用会去重并转成整型数组', () => {
+    const result = ensureItemEffects({
       id: 1,
       name: '药草',
-      gameEffects: [{ name: '恢复' }],
+      effects: [3, 3, 2, 2.8],
     });
 
     expect(result.changed).toBe(true);
-    expect(result.item.gameEffects).toEqual([]);
+    expect(result.item.effects).toEqual([3, 2]);
   });
 
-  it('模板注册表只暴露当前共享 effectType', () => {
+  it('模板注册表只暴露当前集中式 effectType', () => {
     const definitions = getGameEffectTypeDefinitions();
 
     expect(definitions.map((definition) => definition.effectType)).toEqual([
       'equip_stat_bonus',
       'runtime_stat_bonus',
       'owner_stat_bonus',
+      'owner_scalar_bonus',
+      'owner_param_rate_bonus',
+      'owner_element_rate_bonus',
       'single_engine_bonus',
       'single_cunit_bonus',
       'equip_count_bonus',
@@ -55,32 +67,29 @@ describe('GameEffectService', () => {
       'pair_same_cunit_owner_bonus',
       'cunit_owner_stat_bonus',
       'cunit_slot_action_repeat_bonus',
+      'equip_id_set_bonus',
     ]);
   });
 
-  it('模板定义会暴露新的 selector 字段面板，不再包含旧 selector 字段', () => {
-    const ownerDefinition = getGameEffectTypeDefinition('owner_stat_bonus');
-    const cunitRepeatDefinition = getGameEffectTypeDefinition('cunit_slot_action_repeat_bonus');
+  it('模板定义会按 effectType 暴露 selector 和 args 面板', () => {
+    const ownerParamDefinition = getGameEffectTypeDefinition('owner_param_rate_bonus');
+    const equipSetDefinition = getGameEffectTypeDefinition('equip_id_set_bonus');
 
-    expect(ownerDefinition.selectorMode).toBe('none');
-    expect(ownerDefinition.argsMode).toBe('ops');
-    expect(ownerDefinition.selectorFields).toEqual([]);
-    expect(ownerDefinition.allowIsStaticToggle).toBe(true);
+    expect(ownerParamDefinition.selectorMode).toBe('none');
+    expect(ownerParamDefinition.argsMode).toBe('ops');
+    expect(ownerParamDefinition.selectorFields).toEqual([]);
+    expect(ownerParamDefinition.allowIsStaticToggle).toBe(false);
 
-    expect(cunitRepeatDefinition.selectorMode).toBe('equip');
-    expect(cunitRepeatDefinition.selectorFields).toEqual([
-      'slotIndexes',
-      'etypeIds',
-      'wtypeIds',
-      'atypeIds',
-    ]);
-    expect(cunitRepeatDefinition.argsFields).toEqual(['ops']);
+    expect(equipSetDefinition.selectorMode).toBe('none');
+    expect(equipSetDefinition.argsMode).toBe('id-set+ops');
+    expect(equipSetDefinition.selectorFields).toEqual([]);
+    expect(equipSetDefinition.argsFields).toEqual(['weaponIds', 'armorIds', 'ops']);
   });
 
-  it('模板默认示例会直接给共享模块完整数据', () => {
-    expect(createDefaultGameEffect()).toEqual({
+  it('模板默认示例会直接给 Effects.json 条目完整数据', () => {
+    expect(createGameEffectTemplate('equip_stat_bonus')).toEqual({
       name: '主炮支援',
-      description: '给命中的装备实例增加静态属性',
+      description: ['给命中的装备实例增加静态属性'],
       effectType: 'equip_stat_bonus',
       isStatic: true,
       config: {
@@ -96,7 +105,7 @@ describe('GameEffectService', () => {
       },
     });
 
-    expect(createDefaultGameEffectConfig('pair_same_engine_bonus')).toEqual({
+    expect(createGameEffectConfig('pair_same_engine_bonus')).toEqual({
       selector: {},
       args: {
         requiredCount: 2,
@@ -108,7 +117,7 @@ describe('GameEffectService', () => {
   it('创建模板时会直接生成共享 effectType 数据', () => {
     expect(createGameEffectTemplate('cunit_slot_action_repeat_bonus')).toEqual({
       name: '主炮追加发射',
-      description: 'C 装置给指定槽位武器追加发射次数',
+      description: ['C 装置给指定槽位武器追加发射次数'],
       effectType: 'cunit_slot_action_repeat_bonus',
       isStatic: true,
       config: {
@@ -125,69 +134,49 @@ describe('GameEffectService', () => {
     });
   });
 
-  it('旧 effectType 和旧字段不会再做兼容迁移，非法模板会被直接剔除', () => {
-    const result = ensureItemGameEffects({
-      id: 1,
-      name: '坦克',
-      gameEffects: [{
-        name: '旧效果',
-        description: '旧版本',
-        effectType: 'custom_script_effect',
-        isStatic: false,
+  it('效果注册表会丢弃非法条目并补齐 id', () => {
+    const result = normalizeEffectRegistry([
+      null,
+      {
+        name: '经验增益',
+        description: ['经验 +10%'],
+        effectType: 'owner_scalar_bonus',
+        isStatic: true,
         config: {
-          selector: {
-            etypeIds: [10],
-            tags: ['support-core'],
-          },
+          selector: {},
           args: {
-            value: 3,
-            sameBaseId: true,
+            ops: [[103, 1, 0.1]],
           },
         },
-      }],
-    });
+      },
+      {
+        name: '非法效果',
+        effectType: 'custom_script_effect',
+      },
+    ], systemData);
 
-    expect(result.changed).toBe(true);
-    expect(result.item.gameEffects).toEqual([]);
+    expect(result[1]).toMatchObject({
+      id: 1,
+      effectType: 'owner_scalar_bonus',
+    });
+    expect(result[2]).toBeNull();
   });
 
-  it('会删除 sameBaseId 和不符合严格协议的 selector/args 字段类型', () => {
-    const result = ensureItemGameEffects({
-      id: 1,
-      name: '战车',
-      gameEffects: [{
-        name: '旧双同型效果',
-        description: '旧版本',
-        effectType: 'pair_same_engine_bonus',
-        isStatic: false,
-        config: {
-          selector: {
-            etypeIds: 10,
-            slotIndexes: [1],
-          },
-          args: {
-            requiredCount: '2',
-            sameBaseId: true,
-            ops: [[101, 1, 5000]],
-          },
-        },
-      }],
-    });
-
-    expect(result.changed).toBe(true);
-    expect(result.item.gameEffects).toEqual([{
-      name: '旧双同型效果',
-      description: '旧版本',
-      effectType: 'pair_same_engine_bonus',
+  it('会把旧字符串描述归一化为 description 数组', () => {
+    expect(normalizeGameEffectEntry({
+      name: '经验增益',
+      description: '经验 +10%\n战斗结算生效',
+      effectType: 'owner_scalar_bonus',
       isStatic: true,
       config: {
         selector: {},
         args: {
-          requiredCount: 2,
-          ops: [[101, 1, 5000]],
+          ops: [[103, 1, 0.1]],
         },
       },
-    }]);
+    })).toMatchObject({
+      description: ['经验 +10%', '战斗结算生效'],
+    });
   });
 
   it('会把 ops 三元组转换为结构化行，再序列化回运行时格式', () => {
@@ -204,18 +193,37 @@ describe('GameEffectService', () => {
   it('会按 effectType 暴露 statId/opId 选项和默认操作行', () => {
     expect(getAllowedStatIds('single_engine_bonus')).toEqual([101, 102]);
     expect(getStatOptions('single_engine_bonus')).toEqual([
-      { value: 101, label: '101 | loadValue | 载重' },
-      { value: 102, label: '102 | carryValue | 承重量' },
+      { value: 101, label: '载重' },
+      { value: 102, label: '承重量' },
     ]);
+    expect(getStatOptions('owner_param_rate_bonus', systemData)).toContainEqual({
+      value: 200,
+      label: '体力',
+    });
+    expect(getStatOptions('owner_element_rate_bonus', systemData)).toContainEqual({
+      value: 302,
+      label: '火炎',
+    });
     expect(getOpOptions()).toEqual([
-      { value: 1, label: '1 | add | 加算' },
-      { value: 2, label: '2 | mul | 乘算' },
-      { value: 3, label: '3 | set | 设定值' },
+      { value: 1, label: '加算' },
+      { value: 2, label: '乘算' },
+      { value: 3, label: '设定值' },
     ]);
     expect(createDefaultOpRow('cunit_slot_action_repeat_bonus')).toEqual({
       statId: 7,
       opId: 1,
       value: 0,
+    });
+  });
+
+  it('会正确读取编辑器缓存中的 System.json 包装结构', () => {
+    expect(getStatOptions('owner_param_rate_bonus', wrappedSystemData)).toContainEqual({
+      value: 200,
+      label: '体力',
+    });
+    expect(getStatOptions('owner_element_rate_bonus', wrappedSystemData)).toContainEqual({
+      value: 302,
+      label: '火炎',
     });
   });
 
@@ -306,6 +314,29 @@ describe('GameEffectService', () => {
     })).toEqual({
       valid: false,
       message: 'args.ops 必须是合法的三元组数组，且 statId 必须符合当前模板约束',
+    });
+  });
+
+  it('装备合集模板会校验 weaponIds 和 armorIds', () => {
+    expect(validateGameEffectConfig('equip_id_set_bonus', {
+      selector: {},
+      args: {
+        weaponIds: [1],
+        armorIds: [2, 5, 10],
+        ops: [[103, 2, 2]],
+      },
+    }, systemData)).toEqual({ valid: true });
+
+    expect(validateGameEffectConfig('equip_id_set_bonus', {
+      selector: {},
+      args: {
+        weaponIds: '1',
+        armorIds: [2],
+        ops: [[103, 2, 2]],
+      },
+    }, systemData)).toEqual({
+      valid: false,
+      message: 'args.weaponIds 必须是数字数组',
     });
   });
 

@@ -11,6 +11,7 @@ import {
   resolveActorProjectileOffset,
   resolveEnemyProjectileOffset,
   segmentDurationToMs,
+  shouldUseStaticActorPreviewFrame,
 } from '../../services/ProjectilePreviewUtils';
 
 interface ProjectileCanvasProps {
@@ -105,28 +106,40 @@ const alignSpriteToBattleBase = (sprite: PIXI.Sprite, baseX: number, baseY: numb
   sprite.position.set(baseX, baseY);
 };
 
-// 获取角色/敌人图片路径
-const getCharacterImagePath = (type: 'actor' | 'enemy', id: number, dataPath: string): string | null => {
-  if (!id || id <= 0) return null;
+const getBattlerPreviewImageSpec = (
+  type: 'actor' | 'enemy',
+  id: number,
+  dataPath: string,
+): { imagePath: string | null; useStaticFrame: boolean } => {
+  if (!id || id <= 0) {
+    return { imagePath: null, useStaticFrame: false };
+  }
   
   const data = type === 'actor' 
     ? DataLoaderService.getCachedDataByName('Actors.json')
     : DataLoaderService.getCachedDataByName('Enemies.json');
   
   const item = findDataEntryById(data, id) as Record<string, unknown> | null;
-  if (!item) return null;
+  if (!item) {
+    return { imagePath: null, useStaticFrame: false };
+  }
   
   // 角色与敌人均使用战斗图（sv_actors / sv_enemies）
   const imageName = (item.battlerName as string) || '';
-  if (!imageName) return null;
+  if (!imageName) {
+    return { imagePath: null, useStaticFrame: false };
+  }
   
   const basePath = dataPath.replace(/[\\/]+$/, '').replace(/[\\/]data$/, '');
   const imageType = type === 'actor' ? 'sv_actors' : 'sv_enemies';
-  return `${basePath.replace(/\\/g, '/')}/img/${imageType}/${imageName}.png`;
+  return {
+    imagePath: `${basePath.replace(/\\/g, '/')}/img/${imageType}/${imageName}.png`,
+    useStaticFrame: type === 'actor' && shouldUseStaticActorPreviewFrame(item),
+  };
 };
 
-// 加载并裁剪角色精灵图（9x6，取第一帧）
-const loadActorSpriteFrame = async (imagePath: string): Promise<PIXI.Texture | null> => {
+// 加载角色战斗图：普通 actor 取 9x6 首帧；静态 actor 直接使用整张图。
+const loadActorSpriteFrame = async (imagePath: string, useStaticFrame: boolean): Promise<PIXI.Texture | null> => {
   try {
     const dataURL = await ReadImageFile(imagePath);
     if (!dataURL) return null;
@@ -139,6 +152,10 @@ const loadActorSpriteFrame = async (imagePath: string): Promise<PIXI.Texture | n
     });
     
     if (!baseTexture.valid) return null;
+
+    if (useStaticFrame) {
+      return new PIXI.Texture(baseTexture);
+    }
     
     // 9x6 精灵图，取第一帧
     const frameWidth = baseTexture.width / 9;
@@ -320,10 +337,13 @@ export const ProjectileCanvas = memo(({
   const loadBattlerTexture = useCallback(async (type: 'actor' | 'enemy', id: number) => {
     if (id <= 0) return { key: '', texture: null as PIXI.Texture | null };
 
-    const imagePath = getCharacterImagePath(type, id, dataPath);
+    const { imagePath, useStaticFrame } = getBattlerPreviewImageSpec(type, id, dataPath);
     if (!imagePath) return { key: '', texture: null as PIXI.Texture | null };
 
-    const cacheKey = `${type}:${imagePath}`;
+    const renderMode = type === 'actor'
+      ? (useStaticFrame ? 'static' : 'sheet')
+      : 'static';
+    const cacheKey = `${type}:${renderMode}:${imagePath}`;
     const cached = textureCacheRef.current.get(cacheKey);
     if (cached && !cached.destroyed) {
       textureCacheRef.current.delete(cacheKey);
@@ -332,7 +352,7 @@ export const ProjectileCanvas = memo(({
     }
 
     const loaded = type === 'actor'
-      ? await loadActorSpriteFrame(imagePath)
+      ? await loadActorSpriteFrame(imagePath, useStaticFrame)
       : await loadEnemyTexture(imagePath);
     if (!loaded) {
       return { key: '', texture: null as PIXI.Texture | null };

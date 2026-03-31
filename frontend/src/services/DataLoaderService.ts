@@ -16,6 +16,7 @@ const DATA_FILE_MANIFEST = [
   'Armors.json',
   'Classes.json',
   'CommonEvents.json',
+  'Effects.json',
   'Enemies.json',
   'Items.json',
   'Projectiles.json',

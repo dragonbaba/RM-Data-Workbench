@@ -29,6 +29,7 @@ const DATA_MENU_LABELS: Record<string, string> = {
   armors: 'Armors.json',
   classes: 'Classes.json',
   commonEvents: 'CommonEvents.json',
+  effects: 'Effects.json',
   enemies: 'Enemies.json',
   items: 'Items.json',
   projectiles: 'Projectiles.json',
@@ -43,6 +44,7 @@ const DATA_MENU_LABELS: Record<string, string> = {
 const MAP_INFOS_FILE_NAME = 'MapInfos.json';
 const ACTORS_FILE_NAME = 'Actors.json';
 const ENEMIES_FILE_NAME = 'Enemies.json';
+const EFFECTS_FILE_NAME = 'Effects.json';
 const WEAPONS_FILE_NAME = 'Weapons.json';
 const EQUIP_EXTENSIONS_FILE_NAME = 'EquipExtensions.json';
 
@@ -670,9 +672,17 @@ export function useFileOperations() {
 
       if (mode === 'effect') {
         const state = useEditorStore.getState();
-        if (state.currentFileType !== 'data' || !state.currentData) {
-          ToastManager.error('效果模式仅支持普通数据库条目');
+        const dataPath = state.config.dataPath;
+        if (!dataPath) {
+          ToastManager.error('请先打开项目');
           return;
+        }
+        const currentFileName = getFileName(state.currentFilePath || state.currentFile);
+        if (currentFileName.toLowerCase() !== EFFECTS_FILE_NAME.toLowerCase() || !state.currentData) {
+          const loaded = await loadStandardFile(EFFECTS_FILE_NAME, 'data', dataPath);
+          if (!loaded) {
+            return;
+          }
         }
         useEditorStore.getState().setMode('effect');
         return;

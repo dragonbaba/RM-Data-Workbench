@@ -1,6 +1,9 @@
 export type GameEffectType =
   | 'equip_stat_bonus'
   | 'owner_stat_bonus'
+  | 'owner_scalar_bonus'
+  | 'owner_param_rate_bonus'
+  | 'owner_element_rate_bonus'
   | 'runtime_stat_bonus'
   | 'single_engine_bonus'
   | 'single_cunit_bonus'
@@ -10,11 +13,13 @@ export type GameEffectType =
   | 'pair_same_cunit_bonus'
   | 'pair_same_cunit_owner_bonus'
   | 'cunit_owner_stat_bonus'
-  | 'cunit_slot_action_repeat_bonus';
+  | 'cunit_slot_action_repeat_bonus'
+  | 'equip_id_set_bonus';
 
 export interface GameEffectEntry {
+  id?: number;
   name: string;
-  description: string;
+  description: string[];
   effectType: GameEffectType;
   isStatic: boolean;
   config: Record<string, unknown>;
@@ -27,13 +32,23 @@ export interface RPGItem {
   note?: string;
   meta?: Record<string, unknown>;
   price?: number;
-  gameEffects?: GameEffectEntry[];
+  effects?: number[];
   params?: number[];
   floatParams?: number[];
   customParams?: Record<string, { value?: number; floatValue?: number } | number>;
   scripts?: Record<string, string>;
   attackSkillId?: number;
   attackElementId?: number;
+  targetCamp?: number;
+  targetLifeState?: number;
+  selectMode?: number;
+  areaMode?: number;
+  shapeType?: number;
+  areaTargetCount?: number;
+  shapeParams?: Record<string, Record<string, number>>;
+  repeatTime?: number;
+  repeatTimeFloat?: number;
+  areaOverride?: number;
   wtypeId?: number;
   atypeId?: number;
   etypeId?: number;

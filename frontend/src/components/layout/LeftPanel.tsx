@@ -48,10 +48,14 @@ export function LeftPanel() {
       return mapItems.filter((item) => (item.name || '').toLowerCase().includes(term));
     }
 
-    const itemsWithIndex = items.map((item, index) => ({
-      item,
-      actualIndex: index + 1,
-    }));
+    const itemsWithIndex = items.flatMap((item, index) => (
+      uiMode === 'effect' && !item
+        ? []
+        : [{
+          item,
+          actualIndex: index + 1,
+        }]
+    ));
 
     if (!searchTerm) return itemsWithIndex;
 
@@ -143,7 +147,7 @@ export function LeftPanel() {
       <div className="px-4 py-3 border-b border-[#30384d]">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold" style={{ color: 'var(--color-accent)' }}>
-            {uiMode === 'map' ? '地图列表' : uiMode === 'drop' ? '敌人列表' : '项目列表'}
+            {uiMode === 'map' ? '地图列表' : uiMode === 'drop' ? '敌人列表' : uiMode === 'effect' ? '效果列表' : '项目列表'}
           </h2>
           {isCurrentFileDirty && (
             <Badge 
