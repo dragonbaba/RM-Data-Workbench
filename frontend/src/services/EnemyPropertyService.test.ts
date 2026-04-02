@@ -14,6 +14,7 @@ describe('EnemyPropertyService', () => {
       isBoss: true,
       bounty: 3000,
       attackAnimationId: 5,
+      reactionSkillId: 16,
     });
 
     expect(values).toMatchObject({
@@ -23,6 +24,7 @@ describe('EnemyPropertyService', () => {
       isBoss: true,
       bounty: 3000,
       attackAnimationId: 5,
+      reactionSkillId: 16,
     });
   });
 
@@ -42,6 +44,7 @@ describe('EnemyPropertyService', () => {
         isBoss: true,
         bounty: 5000,
         attackAnimationId: 8,
+        reactionSkillId: 24,
       },
     );
 
@@ -52,7 +55,7 @@ describe('EnemyPropertyService', () => {
       isBoss: true,
       bounty: 5000,
       attackAnimationId: 8,
-      reactionSkillId: 16,
+      reactionSkillId: 24,
       note: '',
       meta: {},
     });
@@ -69,6 +72,7 @@ describe('EnemyPropertyService', () => {
         isBoss: false,
         bounty: 0,
         attackAnimationId: 1,
+        reactionSkillId: 7,
       },
       {
         classId: 25,
@@ -77,6 +81,7 @@ describe('EnemyPropertyService', () => {
         isBoss: false,
         bounty: 0,
         attackAnimationId: 1,
+        reactionSkillId: 7,
       },
     )).toBe(false);
   });

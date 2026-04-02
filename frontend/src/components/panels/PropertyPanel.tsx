@@ -212,6 +212,7 @@ const ENEMY_LEVEL_SCOPE_FIELD_KEY = 'enemyLevelScope';
 const ENEMY_IS_BOSS_FIELD_KEY = 'enemyIsBoss';
 const ENEMY_BOUNTY_FIELD_KEY = 'enemyBounty';
 const ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY = 'enemyAttackAnimationId';
+const ENEMY_REACTION_SKILL_ID_FIELD_KEY = 'enemyReactionSkillId';
 
 const TARGET_CAMP_OPTIONS = [
   { value: 1, label: '1 : 敌方' },
@@ -491,6 +492,7 @@ export function PropertyPanel() {
   const watchedAreaOverride = Form.useWatch(AREA_OVERRIDE_FIELD_KEY, form) ?? 0;
   const watchedEnemyClassId = Form.useWatch(ENEMY_CLASS_ID_FIELD_KEY, form) ?? 0;
   const watchedEnemyAttackAnimationId = Form.useWatch(ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY, form) ?? 0;
+  const watchedEnemyReactionSkillId = Form.useWatch(ENEMY_REACTION_SKILL_ID_FIELD_KEY, form) ?? 0;
   const systemData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown>(SYSTEM_FILE_NAME),
     [currentFilePath, currentItem, referenceRevision],
@@ -538,6 +540,10 @@ export function PropertyPanel() {
   const enemyAnimationOptions = useMemo(
     () => getEnemyReferenceValue(animationsData, '未选择动画', watchedEnemyAttackAnimationId, '动画'),
     [animationsData, watchedEnemyAttackAnimationId],
+  );
+  const enemyReactionSkillOptions = useMemo(
+    () => getEnemyReferenceValue(skillsData, '未选择迎击技能', watchedEnemyReactionSkillId, '技能'),
+    [skillsData, watchedEnemyReactionSkillId],
   );
   const equipExtensionsFilePath = useMemo(() => {
     return DataLoaderService.getFilePathByName(EQUIP_EXTENSIONS_FILE_NAME)
@@ -620,6 +626,7 @@ export function PropertyPanel() {
         baseFormValues[ENEMY_IS_BOSS_FIELD_KEY] = enemyValues.isBoss;
         baseFormValues[ENEMY_BOUNTY_FIELD_KEY] = enemyValues.bounty;
         baseFormValues[ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY] = enemyValues.attackAnimationId;
+        baseFormValues[ENEMY_REACTION_SKILL_ID_FIELD_KEY] = enemyValues.reactionSkillId;
       }
 
       const custom: CustomAttribute[] = [];
@@ -829,6 +836,7 @@ export function PropertyPanel() {
           isBoss: values[ENEMY_IS_BOSS_FIELD_KEY],
           bounty: values[ENEMY_BOUNTY_FIELD_KEY],
           attackAnimationId: values[ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY],
+          reactionSkillId: values[ENEMY_REACTION_SKILL_ID_FIELD_KEY],
         }
       : null;
     const nextCommonRangeValues = supportsCommonRange ? normalizeCommonRangeValues(values) : null;
@@ -1332,6 +1340,19 @@ export function PropertyPanel() {
                   options={enemyAnimationOptions}
                   className="w-full"
                   placeholder="选择攻击动画"
+                  showSearch
+                  optionFilterProp="label"
+                />
+              </Form.Item>
+              <Form.Item
+                name={ENEMY_REACTION_SKILL_ID_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">迎击技能</span>}
+                className="mb-0"
+              >
+                <Select
+                  options={enemyReactionSkillOptions}
+                  className="w-full"
+                  placeholder="选择迎击技能"
                   showSearch
                   optionFilterProp="label"
                 />

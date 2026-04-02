@@ -7,6 +7,7 @@ export const KNOWN_ENEMY_PROPERTY_KEYS = [
   'isBoss',
   'bounty',
   'attackAnimationId',
+  'reactionSkillId',
 ] as const;
 
 export interface EnemyEditorValues {
@@ -16,6 +17,7 @@ export interface EnemyEditorValues {
   isBoss: boolean;
   bounty: number;
   attackAnimationId: number;
+  reactionSkillId: number;
 }
 
 export interface EnemyEditorInput {
@@ -25,6 +27,7 @@ export interface EnemyEditorInput {
   isBoss?: unknown;
   bounty?: unknown;
   attackAnimationId?: unknown;
+  reactionSkillId?: unknown;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
@@ -90,6 +93,7 @@ export function normalizeEnemyEditorValues(enemy: unknown): EnemyEditorValues {
       isBoss: false,
       bounty: 0,
       attackAnimationId: 0,
+      reactionSkillId: 0,
     };
   }
 
@@ -100,6 +104,7 @@ export function normalizeEnemyEditorValues(enemy: unknown): EnemyEditorValues {
     isBoss: toBooleanFlag(enemy.isBoss),
     bounty: toIntOrZero(enemy.bounty),
     attackAnimationId: toIntOrZero(enemy.attackAnimationId),
+    reactionSkillId: toIntOrZero(enemy.reactionSkillId),
   };
 }
 
@@ -111,7 +116,8 @@ export function hasEnemyEditorChanges(sourceItem: RPGEnemy, nextValues: EnemyEdi
     || currentValues.levelScope !== toIntOrZero(nextValues.levelScope)
     || currentValues.isBoss !== toBooleanFlag(nextValues.isBoss)
     || currentValues.bounty !== toIntOrZero(nextValues.bounty)
-    || currentValues.attackAnimationId !== toIntOrZero(nextValues.attackAnimationId);
+    || currentValues.attackAnimationId !== toIntOrZero(nextValues.attackAnimationId)
+    || currentValues.reactionSkillId !== toIntOrZero(nextValues.reactionSkillId);
 }
 
 export function buildEnemySaveData(sourceItem: RPGEnemy, nextValues: EnemyEditorInput): RPGEnemy {
@@ -123,6 +129,7 @@ export function buildEnemySaveData(sourceItem: RPGEnemy, nextValues: EnemyEditor
     isBoss: toBooleanFlag(nextValues.isBoss),
     bounty: toIntOrZero(nextValues.bounty),
     attackAnimationId: toIntOrZero(nextValues.attackAnimationId),
+    reactionSkillId: toIntOrZero(nextValues.reactionSkillId),
     note: '',
     meta: {},
   };
