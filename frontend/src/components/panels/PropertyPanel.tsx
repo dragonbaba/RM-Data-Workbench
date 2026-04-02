@@ -1,4 +1,4 @@
-import { Card, Input, InputNumber, Button, Form, Space, Select } from 'antd';
+import { Card, Input, InputNumber, Button, Form, Space, Select, Switch } from 'antd';
 import { SaveOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
@@ -7,7 +7,20 @@ import { DataLoaderService } from '../../services/DataLoaderService';
 import { EventSystem } from '../../core/EventSystem';
 import { getEquipTypeOptions, getSystemRecord } from '../../services/EquipDataService';
 import { EQUIP_EXTENSIONS_FILE_NAME, getWeaponEquipTypeAtIndex, type EquipExtensionsData } from '../../services/EquipExtensionsService';
-import type { RPGItem } from '../../types';
+import {
+  buildEnemySaveData,
+  getEnemyReferenceValue,
+  hasEnemyEditorChanges,
+  normalizeEnemyEditorValues,
+} from '../../services/EnemyPropertyService';
+import type {
+  EquipExtraParamMap,
+  EquipUpgradeParamMap,
+  EquipVehicleParamMap,
+  ParamTemplate,
+  RPGEnemy,
+  RPGItem,
+} from '../../types';
 import { normalizeEffectIdList } from '../../services/GameEffectService';
 
 interface CustomAttribute {
@@ -26,6 +39,12 @@ interface PendingDraftState {
 }
 
 type ShapeParams = Record<string, Record<string, number>>;
+type FixedParamGroupKey = 'extraParams' | 'vehicleParams' | 'upgradeParams';
+
+interface FixedParamFieldDefinition {
+  key: string;
+  label: string;
+}
 
 const BASE_ATTRIBUTES: Array<{
   key: string;
@@ -42,6 +61,59 @@ const BASE_ATTRIBUTES: Array<{
   { key: 'luk', label: '幸运', floatLabel: '幸运波动' },
 ];
 
+const EXTRA_PARAM_FIELDS: FixedParamFieldDefinition[] = [
+  { key: 'interceptRate', label: '迎击率' },
+  { key: 'evadeRate', label: '回避率' },
+  { key: 'critRate', label: '暴击率' },
+  { key: 'critDamage', label: '暴伤' },
+  { key: 'hitRate', label: '命中率' },
+  { key: 'finalDamage', label: '最终伤害' },
+];
+
+const VEHICLE_PARAM_FIELDS: FixedParamFieldDefinition[] = [
+  { key: 'weight', label: '重量' },
+  { key: 'carryValue', label: '承重' },
+  { key: 'loadValue', label: '载重' },
+  { key: 'durability', label: '耐久度' },
+  { key: 'ammoCapacity', label: '弹舱' },
+  { key: 'shellPrice', label: '弹药价格' },
+  { key: 'repeat', label: '连发' },
+];
+
+const UPGRADE_PARAM_FIELDS: FixedParamFieldDefinition[] = [
+  { key: 'times', label: '强化次数' },
+  { key: 'atk', label: '强化攻击力' },
+  { key: 'def', label: '强化防御力' },
+];
+
+const LEGACY_BUSINESS_CUSTOM_PARAM_KEYS = new Set(
+  [
+    '迎击率', '强化迎击率',
+    '回避率', '强化回避率',
+    '暴击率', '强化暴击率',
+    '暴伤', '强化暴伤',
+    '命中率', '强化命中率',
+    '最终伤害', '强化最终伤害',
+    '重量', '强化重量',
+    '承重', '强化承重',
+    '载重', '强化载重量',
+    '耐久度', '强化耐久度',
+    '弹舱', '强化弹舱数',
+    '弹药价格',
+    '连发',
+    '强化次数',
+    '强化攻击力',
+    '强化防御力',
+  ],
+);
+
+const EMPTY_PARAM_TEMPLATE: ParamTemplate = Object.freeze({
+  value: 0,
+  floatValue: 0,
+  upgradeValue: 0,
+  upgradeFloatValue: 0,
+});
+
 const toIntOrZero = (value: unknown): number => {
   const n = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(n)) return 0;
@@ -53,6 +125,57 @@ const toFloatOrZero = (value: unknown): number => {
   if (!Number.isFinite(n)) return 0;
   return n;
 };
+
+const hasOwn = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key);
+
+const normalizeParamTemplate = (value: unknown): ParamTemplate => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { ...EMPTY_PARAM_TEMPLATE };
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    value: toFloatOrZero(record.value),
+    floatValue: toFloatOrZero(record.floatValue),
+    upgradeValue: toFloatOrZero(record.upgradeValue),
+    upgradeFloatValue: toFloatOrZero(record.upgradeFloatValue),
+  };
+};
+
+const buildGroupFormValues = (
+  groupValue: unknown,
+  fields: FixedParamFieldDefinition[],
+) => {
+  const groupRecord = groupValue && typeof groupValue === 'object' && !Array.isArray(groupValue)
+    ? groupValue as Record<string, unknown>
+    : {};
+  const result: Record<string, ParamTemplate> = {};
+  for (const field of fields) {
+    result[field.key] = hasOwn(groupRecord, field.key)
+      ? normalizeParamTemplate(groupRecord[field.key])
+      : { ...EMPTY_PARAM_TEMPLATE };
+  }
+  return result;
+};
+
+const normalizeGroupValues = <T extends Record<string, ParamTemplate>>(
+  value: unknown,
+  fields: FixedParamFieldDefinition[],
+): T => {
+  const source = value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+  const result: Record<string, ParamTemplate> = {};
+  for (const field of fields) {
+    result[field.key] = normalizeParamTemplate(source[field.key]);
+  }
+  return result as T;
+};
+
+const areParamGroupsEqual = (
+  left: unknown,
+  right: Record<string, ParamTemplate>,
+  fields: FixedParamFieldDefinition[],
+) => JSON.stringify(normalizeGroupValues(left, fields)) === JSON.stringify(right);
 
 const readRangeFieldValue = (raw: Record<string, unknown>, key: string, defaultValue: number): number => {
   const value = raw[key];
@@ -80,6 +203,15 @@ const ARMORS_FILE_NAME = 'Armors.json';
 const SKILLS_FILE_NAME = 'Skills.json';
 const SYSTEM_FILE_NAME = 'System.json';
 const EFFECTS_FILE_NAME = 'Effects.json';
+const ENEMIES_FILE_NAME = 'Enemies.json';
+const CLASSES_FILE_NAME = 'Classes.json';
+const ANIMATIONS_FILE_NAME = 'Animations.json';
+const ENEMY_CLASS_ID_FIELD_KEY = 'enemyClassId';
+const ENEMY_LEVEL_FIELD_KEY = 'enemyLevel';
+const ENEMY_LEVEL_SCOPE_FIELD_KEY = 'enemyLevelScope';
+const ENEMY_IS_BOSS_FIELD_KEY = 'enemyIsBoss';
+const ENEMY_BOUNTY_FIELD_KEY = 'enemyBounty';
+const ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY = 'enemyAttackAnimationId';
 
 const TARGET_CAMP_OPTIONS = [
   { value: 1, label: '1 : 敌方' },
@@ -348,6 +480,8 @@ export function PropertyPanel() {
   const isWeaponItem = currentFileName === WEAPONS_FILE_NAME.toLowerCase();
   const isArmorItem = currentFileName === ARMORS_FILE_NAME.toLowerCase();
   const isSkillFile = currentFileName === SKILLS_FILE_NAME.toLowerCase();
+  const isEnemyFile = currentFileName === ENEMIES_FILE_NAME.toLowerCase();
+  const supportsTemplateParams = isWeaponItem || isArmorItem;
   const supportsPrice = isItemFile || isWeaponItem || isArmorItem;
   const supportsCommonRange = isItemFile || isSkillFile;
   const watchedTargetCamp = Form.useWatch(TARGET_CAMP_FIELD_KEY, form) ?? 1;
@@ -355,6 +489,8 @@ export function PropertyPanel() {
   const watchedAreaMode = Form.useWatch(AREA_MODE_FIELD_KEY, form) ?? 1;
   const watchedShapeType = Form.useWatch(SHAPE_TYPE_FIELD_KEY, form) ?? 0;
   const watchedAreaOverride = Form.useWatch(AREA_OVERRIDE_FIELD_KEY, form) ?? 0;
+  const watchedEnemyClassId = Form.useWatch(ENEMY_CLASS_ID_FIELD_KEY, form) ?? 0;
+  const watchedEnemyAttackAnimationId = Form.useWatch(ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY, form) ?? 0;
   const systemData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown>(SYSTEM_FILE_NAME),
     [currentFilePath, currentItem, referenceRevision],
@@ -369,6 +505,14 @@ export function PropertyPanel() {
   );
   const effectsData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown[]>(EFFECTS_FILE_NAME),
+    [currentFilePath, currentItem, referenceRevision],
+  );
+  const classesData = useMemo(
+    () => DataLoaderService.getCachedDataByName<unknown[]>(CLASSES_FILE_NAME),
+    [currentFilePath, currentItem, referenceRevision],
+  );
+  const animationsData = useMemo(
+    () => DataLoaderService.getCachedDataByName<unknown[]>(ANIMATIONS_FILE_NAME),
     [currentFilePath, currentItem, referenceRevision],
   );
   const equipTypeOptions = useMemo(
@@ -386,6 +530,14 @@ export function PropertyPanel() {
   const effectOptions = useMemo(
     () => buildEffectReferenceOptions(effectsData),
     [effectsData],
+  );
+  const enemyClassOptions = useMemo(
+    () => getEnemyReferenceValue(classesData, '未选择职业', watchedEnemyClassId, '职业'),
+    [classesData, watchedEnemyClassId],
+  );
+  const enemyAnimationOptions = useMemo(
+    () => getEnemyReferenceValue(animationsData, '未选择动画', watchedEnemyAttackAnimationId, '动画'),
+    [animationsData, watchedEnemyAttackAnimationId],
   );
   const equipExtensionsFilePath = useMemo(() => {
     return DataLoaderService.getFilePathByName(EQUIP_EXTENSIONS_FILE_NAME)
@@ -405,7 +557,14 @@ export function PropertyPanel() {
       const fileName = payload && typeof payload === 'object' && !Array.isArray(payload) && 'fileName' in payload
         ? String((payload as { fileName?: unknown }).fileName || '').toLowerCase()
         : '';
-      if (!fileName || [EQUIP_EXTENSIONS_FILE_NAME.toLowerCase(), SYSTEM_FILE_NAME.toLowerCase(), SKILLS_FILE_NAME.toLowerCase(), EFFECTS_FILE_NAME.toLowerCase()].includes(fileName)) {
+      if (!fileName || [
+        EQUIP_EXTENSIONS_FILE_NAME.toLowerCase(),
+        SYSTEM_FILE_NAME.toLowerCase(),
+        SKILLS_FILE_NAME.toLowerCase(),
+        EFFECTS_FILE_NAME.toLowerCase(),
+        CLASSES_FILE_NAME.toLowerCase(),
+        ANIMATIONS_FILE_NAME.toLowerCase(),
+      ].includes(fileName)) {
         setReferenceRevision((value) => value + 1);
       }
     };
@@ -453,10 +612,22 @@ export function PropertyPanel() {
       if (supportsCommonRange) {
         Object.assign(baseFormValues, getCommonRangeValues(item));
       }
+      if (isEnemyFile) {
+        const enemyValues = normalizeEnemyEditorValues(item as RPGEnemy);
+        baseFormValues[ENEMY_CLASS_ID_FIELD_KEY] = enemyValues.classId;
+        baseFormValues[ENEMY_LEVEL_FIELD_KEY] = enemyValues.level;
+        baseFormValues[ENEMY_LEVEL_SCOPE_FIELD_KEY] = enemyValues.levelScope;
+        baseFormValues[ENEMY_IS_BOSS_FIELD_KEY] = enemyValues.isBoss;
+        baseFormValues[ENEMY_BOUNTY_FIELD_KEY] = enemyValues.bounty;
+        baseFormValues[ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY] = enemyValues.attackAnimationId;
+      }
 
       const custom: CustomAttribute[] = [];
       const customParams = item.customParams || {};
       Object.entries(customParams).forEach(([name, data]) => {
+        if (LEGACY_BUSINESS_CUSTOM_PARAM_KEYS.has(name)) {
+          return;
+        }
         if (typeof data === 'object' && data !== null) {
           const d = data as any;
           custom.push({
@@ -477,7 +648,19 @@ export function PropertyPanel() {
       const pendingDraft = pendingDraftRef.current;
       const nextBaseValues = pendingDraft?.baseValues
         ? { ...baseFormValues, ...pendingDraft.baseValues }
-        : baseFormValues;
+        : {
+            ...baseFormValues,
+            ...(supportsTemplateParams ? {
+              extraParams: buildGroupFormValues(item.extraParams, EXTRA_PARAM_FIELDS),
+              vehicleParams: buildGroupFormValues(item.vehicleParams, VEHICLE_PARAM_FIELDS),
+              upgradeParams: buildGroupFormValues(item.upgradeParams, UPGRADE_PARAM_FIELDS),
+            } : {}),
+          };
+      if (supportsTemplateParams && !pendingDraft?.baseValues) {
+        nextBaseValues.extraParams = buildGroupFormValues(item.extraParams, EXTRA_PARAM_FIELDS);
+        nextBaseValues.vehicleParams = buildGroupFormValues(item.vehicleParams, VEHICLE_PARAM_FIELDS);
+        nextBaseValues.upgradeParams = buildGroupFormValues(item.upgradeParams, UPGRADE_PARAM_FIELDS);
+      }
       const nextCustomFields = pendingDraft?.customFields ?? custom;
       const savedEffectIds = normalizeEffectIdList(item.effects);
       const nextEffectIds = pendingDraft?.effectIds ?? savedEffectIds;
@@ -490,7 +673,7 @@ export function PropertyPanel() {
       setHasCustomChanges(pendingDraft?.hasCustomChanges ?? false);
       pendingDraftRef.current = null;
     }
-  }, [currentItem, currentItemIndex, equipExtensionsData, form, isWeaponItem, supportsCommonRange, supportsPrice]);
+  }, [currentItem, currentItemIndex, equipExtensionsData, form, isEnemyFile, isWeaponItem, supportsCommonRange, supportsPrice, supportsTemplateParams]);
 
   useEffect(() => {
     if (!supportsCommonRange) {
@@ -557,14 +740,14 @@ export function PropertyPanel() {
   const buildCustomParams = (): Record<string, { value: number; floatValue: number }> => {
     const customParams: Record<string, { value: number; floatValue: number }> = {};
     customFields.forEach(({ name, value, floatValue }) => {
-      if (name) {
+      if (name && !LEGACY_BUSINESS_CUSTOM_PARAM_KEYS.has(name)) {
         customParams[name] = { value, floatValue };
       }
     });
     return customParams;
   };
 
-  const updateCurrentItem = (updatedItem: Record<string, unknown>) => {
+  const updateCurrentItem = (updatedItem: RPGItem | RPGEnemy | Record<string, unknown>) => {
     if (!currentData || currentItemIndex < 0) return;
     const newData = [...currentData];
     newData[currentItemIndex] = updatedItem as any;
@@ -638,8 +821,27 @@ export function PropertyPanel() {
     const nextPrice = supportsPrice ? toIntOrZero(values[PRICE_FIELD_KEY]) : 0;
     const nextAttackSkillId = isWeaponItem ? toIntOrZero(values[ATTACK_SKILL_FIELD_KEY]) : 0;
     const nextAttackElementId = isWeaponItem ? toIntOrZero(values[ATTACK_ELEMENT_FIELD_KEY]) : 0;
+    const nextEnemyValues = isEnemyFile
+      ? {
+          classId: values[ENEMY_CLASS_ID_FIELD_KEY],
+          level: values[ENEMY_LEVEL_FIELD_KEY],
+          levelScope: values[ENEMY_LEVEL_SCOPE_FIELD_KEY],
+          isBoss: values[ENEMY_IS_BOSS_FIELD_KEY],
+          bounty: values[ENEMY_BOUNTY_FIELD_KEY],
+          attackAnimationId: values[ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY],
+        }
+      : null;
     const nextCommonRangeValues = supportsCommonRange ? normalizeCommonRangeValues(values) : null;
     const nextWeaponRangeValues = isWeaponItem ? normalizeWeaponRangeValues(values) : null;
+    const nextExtraParams = supportsTemplateParams
+      ? normalizeGroupValues<EquipExtraParamMap>(values.extraParams, EXTRA_PARAM_FIELDS)
+      : null;
+    const nextVehicleParams = supportsTemplateParams
+      ? normalizeGroupValues<EquipVehicleParamMap>(values.vehicleParams, VEHICLE_PARAM_FIELDS)
+      : null;
+    const nextUpgradeParams = supportsTemplateParams
+      ? normalizeGroupValues<EquipUpgradeParamMap>(values.upgradeParams, UPGRADE_PARAM_FIELDS)
+      : null;
 
     const sourceItem = currentData[currentItemIndex] as RPGItem | null;
     if (!sourceItem) return;
@@ -671,7 +873,11 @@ export function PropertyPanel() {
         || currentWeaponRangeValues.repeatTime !== nextWeaponRangeValues.repeatTime
         || currentWeaponRangeValues.repeatTimeFloat !== nextWeaponRangeValues.repeatTimeFloat
         || !areShapeParamsEqual(sourceItem.shapeParams, nextWeaponRangeValues.shapeParams)
-      ));
+      ))
+      || (supportsTemplateParams && nextExtraParams !== null && !areParamGroupsEqual(sourceItem.extraParams, nextExtraParams, EXTRA_PARAM_FIELDS))
+      || (supportsTemplateParams && nextVehicleParams !== null && !areParamGroupsEqual(sourceItem.vehicleParams, nextVehicleParams, VEHICLE_PARAM_FIELDS))
+      || (supportsTemplateParams && nextUpgradeParams !== null && !areParamGroupsEqual(sourceItem.upgradeParams, nextUpgradeParams, UPGRADE_PARAM_FIELDS))
+      || (isEnemyFile && nextEnemyValues !== null && hasEnemyEditorChanges(sourceItem as RPGEnemy, nextEnemyValues));
     const nextEquipTypeId = isWeaponItem ? toIntOrZero(values[EQUIP_TYPE_FIELD_KEY]) : 0;
 
     if (shouldUpdateItem) {
@@ -685,18 +891,27 @@ export function PropertyPanel() {
           }
         : null;
 
-      updateCurrentItem({
+      const nextItem = {
         ...sourceItem,
         ...(supportsPrice ? { price: nextPrice } : {}),
         ...(isWeaponItem ? {
           attackSkillId: nextAttackSkillId,
           attackElementId: nextAttackElementId,
         } : {}),
+        ...(supportsTemplateParams && nextExtraParams ? { extraParams: nextExtraParams } : {}),
+        ...(supportsTemplateParams && nextVehicleParams ? { vehicleParams: nextVehicleParams } : {}),
+        ...(supportsTemplateParams && nextUpgradeParams ? { upgradeParams: nextUpgradeParams } : {}),
         ...(supportsCommonRange && nextCommonRangeValues ? nextCommonRangeValues : {}),
         ...(isWeaponItem && nextWeaponRangeValues ? nextWeaponRangeValues : {}),
         params: newParams,
         floatParams: newFloatParams,
-      });
+      };
+
+      updateCurrentItem(
+        isEnemyFile && nextEnemyValues !== null
+          ? buildEnemySaveData(nextItem as RPGEnemy, nextEnemyValues)
+          : nextItem,
+      );
     }
 
     const extensionChanged = isWeaponItem ? updateWeaponEquipType(nextEquipTypeId) : false;
@@ -840,6 +1055,76 @@ export function PropertyPanel() {
         。运行时只读取当前 `shapeType` 对应的一套参数。
       </div>
     </div>
+  );
+
+  const renderFixedParamCard = (
+    title: string,
+    groupKey: FixedParamGroupKey,
+    fields: FixedParamFieldDefinition[],
+    description: string,
+  ) => (
+    <Card
+      title={title}
+      className="mb-4"
+      headStyle={{
+        backgroundColor: '#252b3d',
+        borderBottom: '1px solid var(--color-border)',
+        color: 'var(--color-accent)',
+      }}
+      bodyStyle={{ backgroundColor: '#1a1f2e' }}
+    >
+      <div className="text-xs text-gray-500 mb-4">{description}</div>
+      <div className="grid grid-cols-5 gap-x-4 gap-y-4 items-start">
+        <div className="text-xs text-gray-400">属性</div>
+        <div className="text-xs text-gray-400">基础值</div>
+        <div className="text-xs text-gray-400">基础浮动</div>
+        <div className="text-xs text-gray-400">强化值</div>
+        <div className="text-xs text-gray-400">强化浮动</div>
+        {fields.flatMap((field) => [
+          (
+            <div key={`${groupKey}-${field.key}-label`} className="text-sm text-gray-200 pt-2">
+              {field.label}
+            </div>
+          ),
+          (
+            <Form.Item
+              key={`${groupKey}-${field.key}-value`}
+              name={[groupKey, field.key, 'value']}
+              className="mb-0"
+            >
+              <InputNumber className="w-full" style={{ width: '100%' }} step={1} />
+            </Form.Item>
+          ),
+          (
+            <Form.Item
+              key={`${groupKey}-${field.key}-floatValue`}
+              name={[groupKey, field.key, 'floatValue']}
+              className="mb-0"
+            >
+              <InputNumber className="w-full" style={{ width: '100%' }} step={0.1} />
+            </Form.Item>
+          ),
+          (
+            <Form.Item
+              key={`${groupKey}-${field.key}-upgradeValue`}
+              name={[groupKey, field.key, 'upgradeValue']}
+              className="mb-0"
+            >
+              <InputNumber className="w-full" style={{ width: '100%' }} step={1} />
+            </Form.Item>
+          ),
+          (
+            <Form.Item
+              key={`${groupKey}-${field.key}-upgradeFloatValue`}
+              name={[groupKey, field.key, 'upgradeFloatValue']}
+              className="mb-0"
+            >
+              <InputNumber className="w-full" style={{ width: '100%' }} step={0.1} />
+            </Form.Item>
+          ),
+        ])}
+      </div>
+    </Card>
   );
 
   if (!currentItem) {
@@ -988,6 +1273,80 @@ export function PropertyPanel() {
             ) : null}
           </div>
         </Card>
+
+        {isEnemyFile ? (
+          <Card
+            title="敌人扩展"
+            className="mb-4"
+            headStyle={{
+              backgroundColor: '#252b3d',
+              borderBottom: '1px solid var(--color-border)',
+              color: 'var(--color-accent)',
+            }}
+            bodyStyle={{ backgroundColor: '#1a1f2e' }}
+          >
+            <div className="text-xs text-gray-500 mb-4">
+              这里直接维护敌人顶层扩展字段，保存时会写回敌人数据本体，并保持 `note/meta` 为空。
+            </div>
+            <div className="grid grid-cols-4 gap-x-4 gap-y-4">
+              <Form.Item
+                name={ENEMY_CLASS_ID_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">敌人职业</span>}
+                className="mb-0"
+              >
+                <Select
+                  options={enemyClassOptions}
+                  className="w-full"
+                  placeholder="选择职业"
+                  showSearch
+                  optionFilterProp="label"
+                />
+              </Form.Item>
+              <Form.Item
+                name={ENEMY_LEVEL_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">等级</span>}
+                className="mb-0"
+              >
+                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                name={ENEMY_LEVEL_SCOPE_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">等级范围</span>}
+                className="mb-0"
+              >
+                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                name={ENEMY_BOUNTY_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">赏金值</span>}
+                className="mb-0"
+              >
+                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                name={ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">攻击动画</span>}
+                className="mb-0"
+              >
+                <Select
+                  options={enemyAnimationOptions}
+                  className="w-full"
+                  placeholder="选择攻击动画"
+                  showSearch
+                  optionFilterProp="label"
+                />
+              </Form.Item>
+              <Form.Item
+                name={ENEMY_IS_BOSS_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">是否 Boss</span>}
+                className="mb-0"
+                valuePropName="checked"
+              >
+                <Switch checkedChildren="Boss" unCheckedChildren="普通" />
+              </Form.Item>
+            </div>
+          </Card>
+        ) : null}
 
         {supportsCommonRange ? (
           <Card
@@ -1142,6 +1501,27 @@ export function PropertyPanel() {
             ) : null}
           </Card>
         ) : null}
+
+        {supportsTemplateParams ? renderFixedParamCard(
+          '额外统一属性',
+          'extraParams',
+          EXTRA_PARAM_FIELDS,
+          '固定维护命中、回避、暴击、暴伤、迎击与最终伤害。业务属性已迁移到统一模板，不再通过自定义属性名称保存。',
+        ) : null}
+
+        {supportsTemplateParams ? renderFixedParamCard(
+          '车属性',
+          'vehicleParams',
+          VEHICLE_PARAM_FIELDS,
+          '固定维护重量、承重、载重、耐久、弹舱、弹药价格和连发。即使当前条目用不到，也统一保留字段结构。',
+        ) : null}
+
+        {supportsTemplateParams ? renderFixedParamCard(
+          '基础强化',
+          'upgradeParams',
+          UPGRADE_PARAM_FIELDS,
+          '承接强化次数、强化攻击力、强化防御力这类不属于 extra/vehicle 的固定业务字段。',
+        ) : null}
       </Form>
 
       <Card
@@ -1219,7 +1599,7 @@ export function PropertyPanel() {
       <Card
         title={
           <div className="flex justify-between items-center">
-            <span>自定义属性</span>
+            <span>自定义属性（保留）</span>
             <Button
               type="dashed"
               size="small"
@@ -1237,6 +1617,9 @@ export function PropertyPanel() {
         }}
         bodyStyle={{ backgroundColor: '#1a1f2e' }}
       >
+        <div className="text-xs text-gray-500 mb-4">
+          这里只保留非业务扩展字段。命中、回避、暴击、暴伤、载重、承重、连发、弹舱等固定属性请改上方模板。
+        </div>
         {customFields.length === 0 ? (
           <p className="text-gray-500 text-center py-4">暂无自定义属性</p>
         ) : (

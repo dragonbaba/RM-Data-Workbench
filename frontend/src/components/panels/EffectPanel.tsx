@@ -5,7 +5,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { DataLoaderService } from '../../services/DataLoaderService';
 import { ToastManager } from '../common/ToastManager';
 import type { EffectOpRow, GameEffectSelectorFieldKey, GameEffectTypeDefinition } from '../../services/GameEffectService';
-import type { GameEffectEntry, GameEffectType } from '../../types';
+import type { GameEffectEntry, GameEffectOpGroup, GameEffectType } from '../../types';
 import {
   createDefaultOpRow,
   createGameEffectConfig,
@@ -13,8 +13,9 @@ import {
   EFFECTS_FILE_NAME,
   getGameEffectTypeDefinition,
   getGameEffectTypeDefinitions,
+  getGroupOptions,
+  getKeyOptions,
   getOpOptions,
-  getStatOptions,
   normalizeGameEffectEntry,
   parseOpsToRows,
   serializeRowsToOps,
@@ -202,9 +203,9 @@ export function EffectPanel() {
     return definitionMap.get(effect.effectType) || getGameEffectTypeDefinition(effect.effectType);
   }, [definitionMap, effect]);
 
-  const statOptions = useMemo(
-    () => (effect ? getStatOptions(effect.effectType, systemData) : []),
-    [effect, systemData],
+  const groupOptions = useMemo(
+    () => (effect ? getGroupOptions(effect.effectType) : []),
+    [effect],
   );
 
   const replaceWithTemplate = (effectType: GameEffectType, keepId = true) => {
@@ -215,6 +216,11 @@ export function EffectPanel() {
     setEffect(template);
     setDescriptionText(stringifyDescription(template.description));
     setOpRows(parseOpsToRows(asRecord(template.config.args)?.ops || []));
+  };
+
+  const getDefaultKeyForGroup = (effectType: GameEffectType, group: GameEffectOpGroup): string => {
+    const [firstKey] = getKeyOptions(effectType, group, systemData);
+    return firstKey?.value || '';
   };
 
   const handleAddEffect = (effectType: GameEffectType) => {
@@ -552,7 +558,7 @@ export function EffectPanel() {
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <div className="text-xs text-gray-400">属性操作</div>
-                  <div className="text-xs text-gray-500 mt-1">每一行代表一条 [statId, opId, value]</div>
+                  <div className="text-xs text-gray-500 mt-1">每一行代表一条 {`{ group, key, op, value }`}</div>
                 </div>
                 <Button
                   icon={<PlusOutlined />}
@@ -562,7 +568,8 @@ export function EffectPanel() {
                 </Button>
               </div>
 
-              <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1fr)_80px] gap-3 text-xs text-gray-400 mb-2">
+              <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.8fr)_minmax(0,1.2fr)_minmax(0,1fr)_80px] gap-3 text-xs text-gray-400 mb-2">
+                <div>分组</div>
                 <div>属性</div>
                 <div>操作</div>
                 <div>数值</div>
@@ -576,32 +583,56 @@ export function EffectPanel() {
               ) : (
                 <Space direction="vertical" className="w-full">
                   {opRows.map((row, rowIndex) => {
-                    const statInvalid = !statOptions.some((option) => option.value === row.statId);
+                    const keyOptions = getKeyOptions(effect.effectType, row.group, systemData);
+                    const groupInvalid = !groupOptions.some((option) => option.value === row.group);
+                    const keyInvalid = !keyOptions.some((option) => option.value === row.key);
                     return (
                       <div
                         key={rowIndex}
-                        className="grid grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1fr)_80px] gap-3 items-start"
+                        className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.8fr)_minmax(0,1.2fr)_minmax(0,1fr)_80px] gap-3 items-start"
                       >
                         <div>
                           <Select
-                            value={row.statId}
+                            value={row.group}
                             onChange={(value) => setOpRows((rows) => rows.map((entry, index) => (
-                              index === rowIndex ? { ...entry, statId: value } : entry
+                              index === rowIndex
+                                ? {
+                                  ...entry,
+                                  group: value as GameEffectOpGroup,
+                                  key: getDefaultKeyForGroup(effect.effectType, value as GameEffectOpGroup),
+                                }
+                                : entry
                             )))}
-                            options={statOptions}
+                            options={groupOptions}
                             className="w-full"
-                            status={statInvalid ? 'error' : ''}
+                            status={groupInvalid ? 'error' : ''}
                           />
-                          {statInvalid ? (
+                          {groupInvalid ? (
                             <div className="mt-1 text-xs text-red-400">
-                              当前模板不允许使用 statId={row.statId}
+                              当前模板不允许使用分组 {row.group}
+                            </div>
+                          ) : null}
+                        </div>
+                        <div>
+                          <Select
+                            value={row.key}
+                            onChange={(value) => setOpRows((rows) => rows.map((entry, index) => (
+                              index === rowIndex ? { ...entry, key: value } : entry
+                            )))}
+                            options={keyOptions}
+                            className="w-full"
+                            status={keyInvalid ? 'error' : ''}
+                          />
+                          {keyInvalid ? (
+                            <div className="mt-1 text-xs text-red-400">
+                              当前模板不允许使用 {row.group}.{row.key}
                             </div>
                           ) : null}
                         </div>
                         <Select
-                          value={row.opId}
+                          value={row.op}
                           onChange={(value) => setOpRows((rows) => rows.map((entry, index) => (
-                            index === rowIndex ? { ...entry, opId: value } : entry
+                            index === rowIndex ? { ...entry, op: value } : entry
                           )))}
                           options={opOptions}
                           className="w-full"

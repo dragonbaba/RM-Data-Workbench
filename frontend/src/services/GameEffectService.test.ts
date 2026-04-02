@@ -4,11 +4,11 @@ import {
   createGameEffectConfig,
   createGameEffectTemplate,
   ensureItemEffects,
-  getAllowedStatIds,
   getGameEffectTypeDefinition,
   getGameEffectTypeDefinitions,
+  getGroupOptions,
+  getKeyOptions,
   getOpOptions,
-  getStatOptions,
   normalizeGameEffectEntry,
   normalizeEffectRegistry,
   parseOpsToRows,
@@ -28,30 +28,19 @@ describe('GameEffectService', () => {
   const wrappedSystemData = [null, systemData];
 
   it('缺少 effects 时会自动补空数组', () => {
-    const result = ensureItemEffects({
-      id: 1,
-      name: '史莱姆',
-    });
-
+    const result = ensureItemEffects({ id: 1, name: '史莱姆' });
     expect(result.changed).toBe(true);
     expect(result.item.effects).toEqual([]);
   });
 
   it('effects 引用会去重并转成整型数组', () => {
-    const result = ensureItemEffects({
-      id: 1,
-      name: '药草',
-      effects: [3, 3, 2, 2.8],
-    });
-
+    const result = ensureItemEffects({ id: 1, name: '药草', effects: [3, 3, 2, 2.8] });
     expect(result.changed).toBe(true);
     expect(result.item.effects).toEqual([3, 2]);
   });
 
-  it('模板注册表只暴露当前集中式 effectType', () => {
-    const definitions = getGameEffectTypeDefinitions();
-
-    expect(definitions.map((definition) => definition.effectType)).toEqual([
+  it('模板注册表只暴露集中式 effectType', () => {
+    expect(getGameEffectTypeDefinitions().map((definition) => definition.effectType)).toEqual([
       'equip_stat_bonus',
       'runtime_stat_bonus',
       'owner_stat_bonus',
@@ -71,7 +60,7 @@ describe('GameEffectService', () => {
     ]);
   });
 
-  it('模板定义会按 effectType 暴露 selector 和 args 面板', () => {
+  it('模板定义会暴露 selector、args 和分组限制', () => {
     const ownerParamDefinition = getGameEffectTypeDefinition('owner_param_rate_bonus');
     const equipSetDefinition = getGameEffectTypeDefinition('equip_id_set_bonus');
 
@@ -79,28 +68,28 @@ describe('GameEffectService', () => {
     expect(ownerParamDefinition.argsMode).toBe('ops');
     expect(ownerParamDefinition.selectorFields).toEqual([]);
     expect(ownerParamDefinition.allowIsStaticToggle).toBe(false);
+    expect(ownerParamDefinition.allowedGroups).toEqual([{ group: 'paramRate', keys: null }]);
 
-    expect(equipSetDefinition.selectorMode).toBe('none');
-    expect(equipSetDefinition.argsMode).toBe('id-set+ops');
-    expect(equipSetDefinition.selectorFields).toEqual([]);
     expect(equipSetDefinition.argsFields).toEqual(['weaponIds', 'armorIds', 'ops']);
+    expect(equipSetDefinition.allowedGroups.map((entry) => entry.group)).toEqual([
+      'extraParams',
+      'vehicleParams',
+      'scalar',
+      'paramRate',
+      'elementRate',
+    ]);
   });
 
-  it('模板默认示例会直接给 Effects.json 条目完整数据', () => {
+  it('默认模板会直接生成新对象协议', () => {
     expect(createGameEffectTemplate('equip_stat_bonus')).toEqual({
       name: '主炮支援',
       description: ['给命中的装备实例增加静态属性'],
       effectType: 'equip_stat_bonus',
       isStatic: true,
       config: {
-        selector: {
-          slotIndexes: [],
-          etypeIds: [],
-          wtypeIds: [],
-          atypeIds: [],
-        },
+        selector: { slotIndexes: [], etypeIds: [], wtypeIds: [], atypeIds: [] },
         args: {
-          ops: [[1, 1, 1]],
+          ops: [{ group: 'vehicleParams', key: 'repeat', op: 'add', value: 1 }],
         },
       },
     });
@@ -109,27 +98,7 @@ describe('GameEffectService', () => {
       selector: {},
       args: {
         requiredCount: 2,
-        ops: [[101, 1, 5000]],
-      },
-    });
-  });
-
-  it('创建模板时会直接生成共享 effectType 数据', () => {
-    expect(createGameEffectTemplate('cunit_slot_action_repeat_bonus')).toEqual({
-      name: '主炮追加发射',
-      description: ['C 装置给指定槽位武器追加发射次数'],
-      effectType: 'cunit_slot_action_repeat_bonus',
-      isStatic: true,
-      config: {
-        selector: {
-          slotIndexes: [],
-          etypeIds: [10],
-          wtypeIds: [],
-          atypeIds: [],
-        },
-        args: {
-          ops: [[7, 1, 1]],
-        },
+        ops: [{ group: 'vehicleParams', key: 'loadValue', op: 'add', value: 5000 }],
       },
     });
   });
@@ -142,23 +111,12 @@ describe('GameEffectService', () => {
         description: ['经验 +10%'],
         effectType: 'owner_scalar_bonus',
         isStatic: true,
-        config: {
-          selector: {},
-          args: {
-            ops: [[103, 1, 0.1]],
-          },
-        },
+        config: { selector: {}, args: { ops: [{ group: 'scalar', key: 'expRate', op: 'add', value: 0.1 }] } },
       },
-      {
-        name: '非法效果',
-        effectType: 'custom_script_effect',
-      },
+      { name: '非法效果', effectType: 'custom_script_effect' },
     ], systemData);
 
-    expect(result[1]).toMatchObject({
-      id: 1,
-      effectType: 'owner_scalar_bonus',
-    });
+    expect(result[1]).toMatchObject({ id: 1, effectType: 'owner_scalar_bonus' });
     expect(result[2]).toBeNull();
   });
 
@@ -168,85 +126,57 @@ describe('GameEffectService', () => {
       description: '经验 +10%\n战斗结算生效',
       effectType: 'owner_scalar_bonus',
       isStatic: true,
-      config: {
-        selector: {},
-        args: {
-          ops: [[103, 1, 0.1]],
-        },
-      },
-    })).toMatchObject({
-      description: ['经验 +10%', '战斗结算生效'],
-    });
+      config: { selector: {}, args: { ops: [{ group: 'scalar', key: 'expRate', op: 'add', value: 0.1 }] } },
+    })).toMatchObject({ description: ['经验 +10%', '战斗结算生效'] });
   });
 
-  it('会把 ops 三元组转换为结构化行，再序列化回运行时格式', () => {
-    const rows = parseOpsToRows([[101, 1, 3000], [4, 2, 1.5]]);
+  it('会把对象 ops 转为面板行，再序列化回配置格式', () => {
+    const rows = parseOpsToRows([
+      { group: 'vehicleParams', key: 'loadValue', op: 'add', value: 3000 },
+      { group: 'extraParams', key: 'critDamage', op: 'mul', value: 1.5 },
+    ]);
 
     expect(rows).toEqual([
-      { statId: 101, opId: 1, value: 3000 },
-      { statId: 4, opId: 2, value: 1.5 },
+      { group: 'vehicleParams', key: 'loadValue', op: 'add', value: 3000 },
+      { group: 'extraParams', key: 'critDamage', op: 'mul', value: 1.5 },
     ]);
-    expect(serializeRowsToOps(rows)).toEqual([[101, 1, 3000], [4, 2, 1.5]]);
+    expect(serializeRowsToOps(rows)).toEqual(rows);
     expect(parseOpsToRows('invalid')).toEqual([]);
   });
 
-  it('会按 effectType 暴露 statId/opId 选项和默认操作行', () => {
-    expect(getAllowedStatIds('single_engine_bonus')).toEqual([101, 102]);
-    expect(getStatOptions('single_engine_bonus')).toEqual([
-      { value: 101, label: '载重' },
-      { value: 102, label: '承重量' },
+  it('会按 effectType 暴露 group/key/op 选项和默认操作行', () => {
+    expect(getGroupOptions('single_engine_bonus')).toEqual([{ value: 'vehicleParams', label: '车辆属性' }]);
+    expect(getKeyOptions('single_engine_bonus', 'vehicleParams')).toEqual([
+      { value: 'loadValue', label: '载重' },
+      { value: 'carryValue', label: '承重量' },
     ]);
-    expect(getStatOptions('owner_param_rate_bonus', systemData)).toContainEqual({
-      value: 200,
-      label: '体力',
-    });
-    expect(getStatOptions('owner_element_rate_bonus', systemData)).toContainEqual({
-      value: 302,
-      label: '火炎',
-    });
+    expect(getKeyOptions('owner_param_rate_bonus', 'paramRate', systemData)).toContainEqual({ value: 'mhp', label: '体力' });
+    expect(getKeyOptions('owner_element_rate_bonus', 'elementRate', systemData)).toContainEqual({ value: '2', label: '火炎' });
     expect(getOpOptions()).toEqual([
-      { value: 1, label: '加算' },
-      { value: 2, label: '乘算' },
-      { value: 3, label: '设定值' },
+      { value: 'add', label: '加算' },
+      { value: 'mul', label: '乘算' },
+      { value: 'set', label: '设定值' },
     ]);
     expect(createDefaultOpRow('cunit_slot_action_repeat_bonus')).toEqual({
-      statId: 7,
-      opId: 1,
+      group: 'vehicleParams',
+      key: 'actionRepeat',
+      op: 'add',
       value: 0,
     });
   });
 
   it('会正确读取编辑器缓存中的 System.json 包装结构', () => {
-    expect(getStatOptions('owner_param_rate_bonus', wrappedSystemData)).toContainEqual({
-      value: 200,
-      label: '体力',
-    });
-    expect(getStatOptions('owner_element_rate_bonus', wrappedSystemData)).toContainEqual({
-      value: 302,
-      label: '火炎',
-    });
+    expect(getKeyOptions('owner_param_rate_bonus', 'paramRate', wrappedSystemData)).toContainEqual({ value: 'mhp', label: '体力' });
+    expect(getKeyOptions('owner_element_rate_bonus', 'elementRate', wrappedSystemData)).toContainEqual({ value: '2', label: '火炎' });
   });
 
-  it('会在行级校验中阻止空 ops、非法 statId 和非法 value', () => {
-    expect(validateEffectOpRows('equip_stat_bonus', [])).toEqual({
+  it('会在行级校验中阻止空 ops、非法 group/key 和非法 value', () => {
+    expect(validateEffectOpRows('equip_stat_bonus', [])).toEqual({ valid: false, message: '至少需要一条属性操作' });
+    expect(validateEffectOpRows('equip_stat_bonus', [{ group: 'scalar', key: 'expRate', op: 'add', value: 1 }])).toEqual({
       valid: false,
-      message: '至少需要一条属性操作',
+      message: '当前模板不允许使用分组 scalar',
     });
-
-    expect(validateEffectOpRows('equip_stat_bonus', [{
-      statId: 101,
-      opId: 1,
-      value: 300,
-    }])).toEqual({
-      valid: false,
-      message: '当前模板不允许使用 statId=101',
-    });
-
-    expect(validateEffectOpRows('single_engine_bonus', [{
-      statId: 101,
-      opId: 1,
-      value: Number.NaN,
-    }])).toEqual({
+    expect(validateEffectOpRows('single_engine_bonus', [{ group: 'vehicleParams', key: 'loadValue', op: 'add', value: Number.NaN }])).toEqual({
       valid: false,
       message: '第 1 条操作的 value 不是合法数字',
     });
@@ -254,66 +184,39 @@ describe('GameEffectService', () => {
 
   it('保存前会校验 selector 和 args 必须存在且为对象', () => {
     expect(validateGameEffectConfig('equip_stat_bonus', {
-      selector: {
-        slotIndexes: [],
-        etypeIds: [],
-        wtypeIds: [],
-        atypeIds: [],
-      },
-      args: {
-        ops: [[1, 1, 1]],
-      },
+      selector: { slotIndexes: [], etypeIds: [], wtypeIds: [], atypeIds: [] },
+      args: { ops: [{ group: 'vehicleParams', key: 'repeat', op: 'add', value: 1 }] },
     })).toEqual({ valid: true });
 
-    expect(validateGameEffectConfig('equip_stat_bonus', {
-      args: {},
-    })).toEqual({
+    expect(validateGameEffectConfig('equip_stat_bonus', { args: {} })).toEqual({
       valid: false,
       message: '配置缺少 selector 对象',
     });
 
-    expect(validateGameEffectConfig('equip_stat_bonus', {
-      selector: {},
-      args: 'invalid',
-    })).toEqual({
+    expect(validateGameEffectConfig('equip_stat_bonus', { selector: {}, args: 'invalid' })).toEqual({
       valid: false,
       message: '配置缺少 args 对象',
     });
   });
 
-  it('共享模板会拒绝未定义字段和错误 statId', () => {
+  it('共享模板会拒绝未定义字段和错误 key', () => {
     expect(validateGameEffectEntry({
       name: '测试',
       description: '',
       effectType: 'owner_stat_bonus',
       isStatic: true,
-      config: {
-        selector: {
-          etypeIds: [10],
-        },
-        args: {
-          ops: [[8, 1, 0.2]],
-        },
-      },
-    })).toEqual({
-      valid: false,
-      message: 'selector 存在未定义字段: etypeIds',
-    });
+      config: { selector: { etypeIds: [10] }, args: { ops: [{ group: 'extraParams', key: 'finalDamage', op: 'add', value: 0.2 }] } },
+    })).toEqual({ valid: false, message: 'selector 存在未定义字段: etypeIds' });
 
     expect(validateGameEffectEntry({
       name: '载重补正',
       description: '',
       effectType: 'equip_stat_bonus',
       isStatic: true,
-      config: {
-        selector: {},
-        args: {
-          ops: [[101, 1, 300]],
-        },
-      },
+      config: { selector: {}, args: { ops: [{ group: 'vehicleParams', key: 'loadValue', op: 'add', value: 300 }] } },
     })).toEqual({
       valid: false,
-      message: 'args.ops 必须是合法的三元组数组，且 statId 必须符合当前模板约束',
+      message: 'args.ops 必须是合法的对象数组，且属性分组与 key 必须符合当前模板约束',
     });
   });
 
@@ -323,7 +226,7 @@ describe('GameEffectService', () => {
       args: {
         weaponIds: [1],
         armorIds: [2, 5, 10],
-        ops: [[103, 2, 2]],
+        ops: [{ group: 'scalar', key: 'expRate', op: 'mul', value: 2 }],
       },
     }, systemData)).toEqual({ valid: true });
 
@@ -332,43 +235,26 @@ describe('GameEffectService', () => {
       args: {
         weaponIds: '1',
         armorIds: [2],
-        ops: [[103, 2, 2]],
+        ops: [{ group: 'scalar', key: 'expRate', op: 'mul', value: 2 }],
       },
-    }, systemData)).toEqual({
-      valid: false,
-      message: 'args.weaponIds 必须是数字数组',
-    });
+    }, systemData)).toEqual({ valid: false, message: 'args.weaponIds 必须是数字数组' });
   });
 
-  it('固定 isStatic 的共享模板会拒绝错误值，但 owner_stat_bonus 允许切换', () => {
+  it('固定 isStatic 的模板会拒绝错误值，但 owner_stat_bonus 允许切换', () => {
     expect(validateGameEffectEntry({
       name: '双同型引擎',
       description: '',
       effectType: 'pair_same_engine_bonus',
       isStatic: false,
-      config: {
-        selector: {},
-        args: {
-          requiredCount: 2,
-          ops: [[101, 1, 5000]],
-        },
-      },
-    })).toEqual({
-      valid: false,
-      message: '模板 pair_same_engine_bonus 的 isStatic 必须为 true',
-    });
+      config: { selector: {}, args: { requiredCount: 2, ops: [{ group: 'vehicleParams', key: 'loadValue', op: 'add', value: 5000 }] } },
+    })).toEqual({ valid: false, message: '模板 pair_same_engine_bonus 的 isStatic 必须为 true' });
 
     expect(validateGameEffectEntry({
       name: '行动时暴伤强化',
       description: '',
       effectType: 'owner_stat_bonus',
       isStatic: false,
-      config: {
-        selector: {},
-        args: {
-          ops: [[8, 1, 0.2]],
-        },
-      },
+      config: { selector: {}, args: { ops: [{ group: 'extraParams', key: 'finalDamage', op: 'add', value: 0.2 }] } },
     })).toEqual({ valid: true });
   });
 });

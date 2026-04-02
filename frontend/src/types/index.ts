@@ -16,14 +16,130 @@ export type GameEffectType =
   | 'cunit_slot_action_repeat_bonus'
   | 'equip_id_set_bonus';
 
+export type GameEffectOpKind = 'add' | 'mul' | 'set';
+export type GameEffectOpGroup =
+  | 'extraParams'
+  | 'vehicleParams'
+  | 'scalar'
+  | 'paramRate'
+  | 'elementRate';
+
+export type GameEffectParamRateKey =
+  | 'mhp'
+  | 'mmp'
+  | 'atk'
+  | 'def'
+  | 'mat'
+  | 'mdf'
+  | 'agi'
+  | 'luk';
+
+export type GameEffectElementRateKey = string;
+
+export interface GameEffectSelector {
+  slotIndexes?: number[];
+  etypeIds?: number[];
+  wtypeIds?: number[];
+  atypeIds?: number[];
+}
+
+export interface GameEffectBaseOp {
+  op: GameEffectOpKind;
+  value: number;
+}
+
+export interface GameEffectExtraParamOp extends GameEffectBaseOp {
+  group: 'extraParams';
+  key: EquipExtraParamKey;
+}
+
+export interface GameEffectVehicleParamOp extends GameEffectBaseOp {
+  group: 'vehicleParams';
+  key: GameEffectVehicleParamKey;
+}
+
+export interface GameEffectScalarOp extends GameEffectBaseOp {
+  group: 'scalar';
+  key: 'expRate';
+}
+
+export interface GameEffectParamRateOp extends GameEffectBaseOp {
+  group: 'paramRate';
+  key: GameEffectParamRateKey;
+}
+
+export interface GameEffectElementRateOp extends GameEffectBaseOp {
+  group: 'elementRate';
+  key: GameEffectElementRateKey;
+}
+
+export type GameEffectAttributeOp =
+  | GameEffectExtraParamOp
+  | GameEffectVehicleParamOp
+  | GameEffectScalarOp
+  | GameEffectParamRateOp
+  | GameEffectElementRateOp;
+
+export interface GameEffectArgs {
+  ops?: GameEffectAttributeOp[];
+  requiredCount?: number;
+  weaponIds?: number[];
+  armorIds?: number[];
+}
+
+export interface GameEffectConfig {
+  selector: GameEffectSelector;
+  args: GameEffectArgs;
+}
+
 export interface GameEffectEntry {
   id?: number;
   name: string;
   description: string[];
   effectType: GameEffectType;
   isStatic: boolean;
-  config: Record<string, unknown>;
+  config: GameEffectConfig;
 }
+
+export interface ParamTemplate {
+  value?: number;
+  floatValue?: number;
+  upgradeValue?: number;
+  upgradeFloatValue?: number;
+}
+
+export type EquipExtraParamKey =
+  | 'interceptRate'
+  | 'evadeRate'
+  | 'critRate'
+  | 'critDamage'
+  | 'hitRate'
+  | 'finalDamage';
+
+export type EquipVehicleParamKey =
+  | 'weight'
+  | 'carryValue'
+  | 'loadValue'
+  | 'durability'
+  | 'ammoCapacity'
+  | 'shellPrice'
+  | 'repeat'
+  | 'actionRepeat';
+
+export type GameEffectVehicleParamKey =
+  | 'repeat'
+  | 'actionRepeat'
+  | 'loadValue'
+  | 'carryValue';
+
+export type EquipUpgradeParamKey =
+  | 'times'
+  | 'atk'
+  | 'def';
+
+export type EquipExtraParamMap = Partial<Record<EquipExtraParamKey, ParamTemplate>>;
+export type EquipVehicleParamMap = Partial<Record<EquipVehicleParamKey, ParamTemplate>>;
+export type EquipUpgradeParamMap = Partial<Record<EquipUpgradeParamKey, ParamTemplate>>;
 
 export interface RPGItem {
   id: number;
@@ -35,6 +151,9 @@ export interface RPGItem {
   effects?: number[];
   params?: number[];
   floatParams?: number[];
+  extraParams?: EquipExtraParamMap;
+  vehicleParams?: EquipVehicleParamMap;
+  upgradeParams?: EquipUpgradeParamMap;
   customParams?: Record<string, { value?: number; floatValue?: number } | number>;
   scripts?: Record<string, string>;
   attackSkillId?: number;
@@ -64,6 +183,13 @@ export interface EnemyDropEntry {
 }
 
 export interface RPGEnemy extends RPGItem {
+  classId?: number;
+  level?: number;
+  levelScope?: number;
+  isBoss?: boolean;
+  bounty?: number;
+  attackAnimationId?: number;
+  reactionSkillId?: number;
   enemyDrops?: EnemyDropEntry[];
 }
 
