@@ -1,6 +1,6 @@
 import { Badge, Button, Card, Dropdown, Empty, Input, InputNumber, Select, Space, Switch } from 'antd';
-import { DeleteOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
-import { useEffect, useMemo, useState } from 'react';
+import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { DataLoaderService } from '../../services/DataLoaderService';
 import { ToastManager } from '../common/ToastManager';
@@ -127,6 +127,7 @@ export function EffectPanel() {
   const [originalDescriptionText, setOriginalDescriptionText] = useState('');
   const [opRows, setOpRows] = useState<EffectOpRow[]>([]);
   const [originalOpRows, setOriginalOpRows] = useState<EffectOpRow[]>([]);
+  const lastAutoSaveFailedSignatureRef = useRef('');
 
   const definitions = useMemo(
     () => getGameEffectTypeDefinitions(),
@@ -255,15 +256,29 @@ export function EffectPanel() {
     ToastManager.success(`已删除效果 #${currentItemIndex}`);
   };
 
-  const handleSave = () => {
+  const persistEffectChanges = (silent = false): boolean => {
     if (!currentData || !effect || currentItemIndex <= 0) {
-      return;
+      return false;
+    }
+
+    const currentSignature = JSON.stringify({
+      effect,
+      descriptionText,
+      opRows,
+    });
+    if (silent && lastAutoSaveFailedSignatureRef.current === currentSignature) {
+      return false;
     }
 
     const opValidation = validateEffectOpRows(effect.effectType, opRows, systemData);
     if (!opValidation.valid) {
-      ToastManager.error(opValidation.message || '属性操作无效');
-      return;
+      if (!silent) {
+        ToastManager.error(opValidation.message || '属性操作无效');
+      }
+      if (silent) {
+        lastAutoSaveFailedSignatureRef.current = currentSignature;
+      }
+      return false;
     }
 
     const rawArgs = asRecord(effect.config.args) || {};
@@ -292,13 +307,23 @@ export function EffectPanel() {
     };
     const validation = validateGameEffectEntry(nextEntry, systemData);
     if (!validation.valid) {
-      ToastManager.error(validation.message || '效果配置无效');
-      return;
+      if (!silent) {
+        ToastManager.error(validation.message || '效果配置无效');
+      }
+      if (silent) {
+        lastAutoSaveFailedSignatureRef.current = currentSignature;
+      }
+      return false;
     }
     const normalized = normalizeGameEffectEntry(nextEntry, systemData);
     if (!normalized) {
-      ToastManager.error('effectType 无效');
-      return;
+      if (!silent) {
+        ToastManager.error('effectType 无效');
+      }
+      if (silent) {
+        lastAutoSaveFailedSignatureRef.current = currentSignature;
+      }
+      return false;
     }
     normalized.id = effect.id || currentItemIndex;
     const nextData = [...currentData];
@@ -315,8 +340,22 @@ export function EffectPanel() {
     setOriginalDescriptionText(stringifyDescription(normalized.description));
     setOpRows(nextRows);
     setOriginalOpRows(nextRows);
-    ToastManager.success('效果已保存');
+    lastAutoSaveFailedSignatureRef.current = '';
+    if (!silent) {
+      ToastManager.success('效果已保存');
+    }
+    return true;
   };
+
+  useEffect(() => {
+    if (!hasChanges) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      persistEffectChanges(true);
+    }, 160);
+    return () => window.clearTimeout(timer);
+  }, [hasChanges, effect, descriptionText, opRows, currentData, currentItemIndex, currentFilePath, systemData]);
 
   if (!isEffectsFile) {
     return (
@@ -385,15 +424,7 @@ export function EffectPanel() {
           >
             删除效果
           </Button>
-          <Button
-            type="primary"
-            icon={<SaveOutlined />}
-            onClick={handleSave}
-            disabled={!hasChanges}
-            style={{ backgroundColor: hasChanges ? 'var(--color-accent)' : undefined }}
-          >
-            保存效果
-          </Button>
+          <span className="text-xs text-gray-500">自动记录变更并标记脏文件</span>
         </Space>
       </div>
 

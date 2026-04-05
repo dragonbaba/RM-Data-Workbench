@@ -108,6 +108,14 @@ export interface ParamTemplate {
   upgradeFloatValue?: number;
 }
 
+export interface BattleOrderEffects {
+  userNext?: number;
+  targetCurrent?: number;
+  targetNext?: number;
+  targetFollow?: boolean;
+  speedConvert?: number;
+}
+
 export type EquipExtraParamKey =
   | 'interceptRate'
   | 'evadeRate'
@@ -168,6 +176,10 @@ export interface RPGItem {
   repeatTime?: number;
   repeatTimeFloat?: number;
   areaOverride?: number;
+  orderEffects?: BattleOrderEffects;
+  elementRates?: number[];
+  elementRateFloats?: number[];
+  qualityLock?: boolean;
   wtypeId?: number;
   atypeId?: number;
   etypeId?: number;

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { Card, Input, Button, Select, Checkbox, Collapse, Space, Tag, Badge, InputNumber, Popconfirm } from 'antd';
-import { PlusOutlined, DeleteOutlined, SaveOutlined, CopyOutlined } from '@ant-design/icons';
+import { Card, Input, Button, Select, Checkbox, Collapse, Space, Tag, InputNumber, Popconfirm } from 'antd';
+import { PlusOutlined, DeleteOutlined, CopyOutlined } from '@ant-design/icons';
 import { useEditorStore } from '../../stores/editorStore';
 import type { RPGQuest, QuestObjective, QuestReward, QuestRequirement, SwitchAction, VariableAction } from '../../types';
 import { ToastManager } from '../common/ToastManager';
@@ -124,9 +124,9 @@ export function QuestPanel() {
   const currentData = useEditorStore((state) => state.currentData);
   const currentItemIndex = useEditorStore((state) => state.currentItemIndex);
   const markFileDirty = useEditorStore((state) => state.markFileDirty);
+  const markItemDirty = useEditorStore((state) => state.markItemDirty);
   const currentFilePath = useEditorStore((state) => state.currentFilePath);
   const config = useEditorStore((state) => state.config);
-  const [hasChanges, setHasChanges] = useState(false);
   const [activeKeys, setActiveKeys] = useState<string[]>(['template', 'basic', 'actions', 'chain', 'objectives', 'rewards']);
   const [dataOptions, setDataOptions] = useState({
     actors: [] as DataItem[],
@@ -255,8 +255,11 @@ export function QuestPanel() {
     const clamped = Math.min(Math.max(nextIndex, 1), Math.max(nextData.length - 1, 1));
     selectItem(clamped);
     setDataOptions((prev) => ({ ...prev, quests: extractDataItems(nextData as unknown[]) }));
-    setHasChanges(true);
-  }, [currentFilePath]);
+    if (currentFilePath) {
+      markFileDirty(currentFilePath);
+      markItemDirty(currentFilePath, clamped);
+    }
+  }, [currentFilePath, markFileDirty, markItemDirty]);
 
   const updateQuest = useCallback((updates: Partial<RPGQuest>) => {
     if (!quest || !currentData || currentItemIndex < 0) return;
@@ -265,21 +268,11 @@ export function QuestPanel() {
     newData[currentItemIndex] = updatedQuest;
     const { loadData } = useEditorStore.getState();
     loadData(newData as any[], currentFilePath || '', 'quest');
-    setHasChanges(true);
-  }, [quest, currentData, currentItemIndex, currentFilePath]);
-
-  const handleSave = useCallback(() => {
-    if (!currentFilePath) return;
-    markFileDirty(currentFilePath);
-    setHasChanges(false);
-    const currentSummary = buildQuestDependencySummary(questData, currentItemIndex);
-    setDependencySummary(currentSummary);
-    if (currentSummary.issues.length > 0) {
-      ToastManager.warning(`任务已保存，但检测到 ${currentSummary.issues.length} 个依赖问题`);
-      return;
+    if (currentFilePath) {
+      markFileDirty(currentFilePath);
+      markItemDirty(currentFilePath, currentItemIndex);
     }
-    ToastManager.success('任务已保存');
-  }, [currentFilePath, currentItemIndex, markFileDirty, questData]);
+  }, [quest, currentData, currentItemIndex, currentFilePath, markFileDirty, markItemDirty]);
 
   const handleCreateQuest = useCallback(() => {
     if (!currentData) return;
@@ -494,17 +487,8 @@ export function QuestPanel() {
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold" style={{ color: 'var(--color-accent)' }}>
           任务编辑器
-          {hasChanges && <Badge dot color="orange" className="ml-2" />}
         </h2>
-        <Button
-          type="primary"
-          icon={<SaveOutlined />}
-          onClick={handleSave}
-          disabled={!hasChanges}
-          style={{ backgroundColor: hasChanges ? 'var(--color-accent)' : undefined }}
-        >
-          保存
-        </Button>
+        <span className="text-xs text-gray-500">自动记录变更并标记脏文件</span>
       </div>
 
       <Collapse

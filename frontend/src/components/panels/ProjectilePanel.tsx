@@ -1,11 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Card, Button, Select, Input, InputNumber, Space, Badge, Collapse, Slider, Popconfirm, Tag } from 'antd';
+import { Card, Button, Select, Input, InputNumber, Space, Collapse, Slider, Popconfirm, Tag } from 'antd';
 import { 
   PlayCircleOutlined, 
   PauseCircleOutlined, 
   PlusOutlined, 
   DeleteOutlined,
-  SaveOutlined,
   RedoOutlined,
   SwapOutlined,
   CopyOutlined,
@@ -82,7 +81,6 @@ export function ProjectilePanel() {
   const currentFilePath = useEditorStore((state) => state.currentFilePath);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const [hasChanges, setHasChanges] = useState(false);
   const [activeKeys, setActiveKeys] = useState<string[]>(['template', 'offset', 'preview', 'settings', 'segments']);
   const [offsetRevision, setOffsetRevision] = useState(0);
   const [emitterSide, setEmitterSide] = useState<'left' | 'right'>('left');
@@ -253,17 +251,22 @@ export function ProjectilePanel() {
     
     const { loadData } = useEditorStore.getState();
     loadData(newData as any[], currentFilePath || '', 'projectile');
-    
-    setHasChanges(true);
-  }, [template, currentData, currentItemIndex, currentFilePath]);
+    if (currentFilePath) {
+      markFileDirty(currentFilePath);
+      markItemDirty(currentFilePath, currentItemIndex);
+    }
+  }, [template, currentData, currentItemIndex, currentFilePath, markFileDirty, markItemDirty]);
 
   const applyProjectileDataAndSelect = useCallback((nextData: (ProjectileTemplate | null)[], nextIndex: number) => {
     const { loadData, selectItem } = useEditorStore.getState();
     loadData(nextData as any[], currentFilePath || '', 'projectile');
     const clamped = Math.min(Math.max(nextIndex, 1), Math.max(nextData.length - 1, 1));
     selectItem(clamped);
-    setHasChanges(true);
-  }, [currentFilePath]);
+    if (currentFilePath) {
+      markFileDirty(currentFilePath);
+      markItemDirty(currentFilePath, clamped);
+    }
+  }, [currentFilePath, markFileDirty, markItemDirty]);
 
   const handleCreateProjectile = useCallback(() => {
     if (!currentData) return;
@@ -391,9 +394,11 @@ export function ProjectilePanel() {
     setEnemyOffsetY(offset.y);
   }, [enemyOffsetEnemyId, enemyOffsetSkillId, getEnemyOffsetFromCache]);
 
-  const handleSaveActorOffset = useCallback(() => {
+  const handleSaveActorOffset = useCallback((silent = false) => {
     if (actorOffsetActorId <= 0 || actorOffsetWeaponId <= 0) {
-      ToastManager.error('请选择角色与武器');
+      if (!silent) {
+        ToastManager.error('请选择角色与武器');
+      }
       return;
     }
 
@@ -403,27 +408,35 @@ export function ProjectilePanel() {
       || (config.dataPath ? `${config.dataPath.replace(/[\\/]+$/, '').replace(/\\/g, '/')}/Actors.json` : '');
 
     if (!actorsData || !actorFilePath) {
-      ToastManager.error('角色数据未加载');
+      if (!silent) {
+        ToastManager.error('角色数据未加载');
+      }
       return;
     }
 
     const weapon = findDataEntryById(weaponsData, actorOffsetWeaponId);
     const wtypeId = Number((weapon?.wtypeId as number) || 0);
     if (wtypeId <= 0) {
-      ToastManager.error('武器类型无效，无法保存偏移');
+      if (!silent) {
+        ToastManager.error('武器类型无效，无法保存偏移');
+      }
       return;
     }
 
     const actorIndex = findDataIndexById(actorsData, actorOffsetActorId);
     if (actorIndex <= 0) {
-      ToastManager.error('角色数据未找到');
+      if (!silent) {
+        ToastManager.error('角色数据未找到');
+      }
       return;
     }
 
     const nextActors = [...actorsData];
     const sourceActor = nextActors[actorIndex] as Record<string, unknown> | null;
     if (!sourceActor || typeof sourceActor !== 'object') {
-      ToastManager.error('角色数据无效');
+      if (!silent) {
+        ToastManager.error('角色数据无效');
+      }
       return;
     }
 
@@ -451,7 +464,9 @@ export function ProjectilePanel() {
     }
 
     setOffsetRevision((prev) => prev + 1);
-    ToastManager.success('角色发射偏移已保存');
+    if (!silent) {
+      ToastManager.success('角色发射偏移已保存');
+    }
   }, [
     actorOffsetActorId,
     actorOffsetWeaponId,
@@ -462,9 +477,11 @@ export function ProjectilePanel() {
     markItemDirty,
   ]);
 
-  const handleSaveEnemyOffset = useCallback(() => {
+  const handleSaveEnemyOffset = useCallback((silent = false) => {
     if (enemyOffsetEnemyId <= 0 || enemyOffsetSkillId <= 0) {
-      ToastManager.error('请选择敌人与技能');
+      if (!silent) {
+        ToastManager.error('请选择敌人与技能');
+      }
       return;
     }
 
@@ -473,20 +490,26 @@ export function ProjectilePanel() {
       || (config.dataPath ? `${config.dataPath.replace(/[\\/]+$/, '').replace(/\\/g, '/')}/Enemies.json` : '');
 
     if (!enemiesData || !enemyFilePath) {
-      ToastManager.error('敌人数据未加载');
+      if (!silent) {
+        ToastManager.error('敌人数据未加载');
+      }
       return;
     }
 
     const enemyIndex = findDataIndexById(enemiesData, enemyOffsetEnemyId);
     if (enemyIndex <= 0) {
-      ToastManager.error('敌人数据未找到');
+      if (!silent) {
+        ToastManager.error('敌人数据未找到');
+      }
       return;
     }
 
     const nextEnemies = [...enemiesData];
     const sourceEnemy = nextEnemies[enemyIndex] as Record<string, unknown> | null;
     if (!sourceEnemy || typeof sourceEnemy !== 'object') {
-      ToastManager.error('敌人数据无效');
+      if (!silent) {
+        ToastManager.error('敌人数据无效');
+      }
       return;
     }
 
@@ -514,7 +537,9 @@ export function ProjectilePanel() {
     }
 
     setOffsetRevision((prev) => prev + 1);
-    ToastManager.success('敌人发射偏移已保存');
+    if (!silent) {
+      ToastManager.success('敌人发射偏移已保存');
+    }
   }, [
     currentFilePath,
     enemyOffsetEnemyId,
@@ -525,14 +550,47 @@ export function ProjectilePanel() {
     markItemDirty,
   ]);
 
-  // 保存
-  const handleSave = useCallback(() => {
-    if (currentFilePath) {
-      markFileDirty(currentFilePath);
-      setHasChanges(false);
-      ToastManager.success('弹道模板已保存');
+  useEffect(() => {
+    if (actorOffsetActorId <= 0 || actorOffsetWeaponId <= 0) {
+      return;
     }
-  }, [currentFilePath, markFileDirty]);
+    const currentOffset = getActorOffsetFromCache(actorOffsetActorId, actorOffsetWeaponId);
+    if (currentOffset.x === actorOffsetX && currentOffset.y === actorOffsetY) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      handleSaveActorOffset(true);
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [
+    actorOffsetActorId,
+    actorOffsetWeaponId,
+    actorOffsetX,
+    actorOffsetY,
+    getActorOffsetFromCache,
+    handleSaveActorOffset,
+  ]);
+
+  useEffect(() => {
+    if (enemyOffsetEnemyId <= 0 || enemyOffsetSkillId <= 0) {
+      return;
+    }
+    const currentOffset = getEnemyOffsetFromCache(enemyOffsetEnemyId, enemyOffsetSkillId);
+    if (currentOffset.x === enemyOffsetX && currentOffset.y === enemyOffsetY) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      handleSaveEnemyOffset(true);
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [
+    enemyOffsetEnemyId,
+    enemyOffsetSkillId,
+    enemyOffsetX,
+    enemyOffsetY,
+    getEnemyOffsetFromCache,
+    handleSaveEnemyOffset,
+  ]);
 
   // 获取轨迹段数组（从嵌套结构）
   const getSegments = useCallback(() => {
@@ -644,17 +702,8 @@ export function ProjectilePanel() {
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold" style={{ color: 'var(--color-accent)' }}>
           弹道编辑器
-          {hasChanges && <Badge dot color="orange" className="ml-2" />}
         </h2>
-        <Button
-          type="primary"
-          icon={<SaveOutlined />}
-          onClick={handleSave}
-          disabled={!hasChanges}
-          style={{ backgroundColor: hasChanges ? 'var(--color-accent)' : undefined }}
-        >
-          保存
-        </Button>
+        <span className="text-xs text-gray-500">自动记录变更并标记脏文件</span>
       </div>
 
       <Collapse activeKey={activeKeys} onChange={setActiveKeys}>
@@ -724,14 +773,7 @@ export function ProjectilePanel() {
                   </div>
                 </div>
                 <div className="mt-3">
-                  <Button
-                    type="primary"
-                    onClick={handleSaveActorOffset}
-                    disabled={actorOffsetActorId <= 0 || actorOffsetWeaponId <= 0}
-                    style={{ backgroundColor: 'var(--color-accent)' }}
-                  >
-                    保存角色偏移
-                  </Button>
+                  <span className="text-xs text-gray-500">自动记录偏移并标记脏文件</span>
                 </div>
               </Card>
 
@@ -773,14 +815,7 @@ export function ProjectilePanel() {
                   </div>
                 </div>
                 <div className="mt-3">
-                  <Button
-                    type="primary"
-                    onClick={handleSaveEnemyOffset}
-                    disabled={enemyOffsetEnemyId <= 0 || enemyOffsetSkillId <= 0}
-                    style={{ backgroundColor: 'var(--color-accent)' }}
-                  >
-                    保存敌人偏移
-                  </Button>
+                  <span className="text-xs text-gray-500">自动记录偏移并标记脏文件</span>
                 </div>
               </Card>
             </div>

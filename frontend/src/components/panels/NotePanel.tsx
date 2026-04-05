@@ -1,8 +1,7 @@
-import { Card, Input, Button, Badge, Tag } from 'antd';
-import { SaveOutlined, FileTextOutlined, MessageOutlined, DatabaseOutlined } from '@ant-design/icons';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Card, Input, Badge, Tag } from 'antd';
+import { FileTextOutlined, MessageOutlined, DatabaseOutlined } from '@ant-design/icons';
+import { useState, useEffect, useMemo } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
-import { ToastManager } from '../common/ToastManager';
 import { ensureItemMeta, extractMetadataFromNote, isMetadataEqual } from '../../services/NoteMetadataService';
 
 export function NotePanel() {
@@ -17,8 +16,6 @@ export function NotePanel() {
   
   const [description, setDescription] = useState('');
   const [note, setNote] = useState('');
-  const [originalDescription, setOriginalDescription] = useState('');
-  const [originalNote, setOriginalNote] = useState('');
 
   // 加载当前项目数据
   useEffect(() => {
@@ -29,9 +26,7 @@ export function NotePanel() {
         : item.description || '';
       
       setDescription(descText);
-      setOriginalDescription(descText);
       setNote(item.note || '');
-      setOriginalNote(item.note || '');
     }
   }, [currentItem]);
 
@@ -55,9 +50,21 @@ export function NotePanel() {
     }
   }, [currentData, currentFilePath, currentFileType, currentItem, currentItemIndex, loadData, markFileDirty, markItemDirty]);
 
+  const sourceDescription = useMemo(() => {
+    const item = currentItem as any;
+    if (!item) return '';
+    return Array.isArray(item.description)
+      ? item.description.join('\n')
+      : (item.description || '');
+  }, [currentItem]);
+  const sourceNote = useMemo(() => {
+    const item = currentItem as any;
+    return item?.note || '';
+  }, [currentItem]);
+
   // 检查是否有未保存的更改
-  const hasDescriptionChanges = description !== originalDescription;
-  const hasNoteChanges = note !== originalNote;
+  const hasDescriptionChanges = description !== sourceDescription;
+  const hasNoteChanges = note !== sourceNote;
   const hasAnyChanges = hasDescriptionChanges || hasNoteChanges;
   const itemMeta = useMemo(() => {
     const meta = (currentItem as any)?.meta;
@@ -70,64 +77,47 @@ export function NotePanel() {
     [itemMeta, parsedMeta]
   );
 
-  // 保存描述
-  const handleSaveDescription = useCallback(() => {
-    if (!currentData || currentItemIndex < 0) return;
+  useEffect(() => {
+    if (!hasAnyChanges || !currentData || currentItemIndex < 0) return;
 
-    const sourceItem = currentData[currentItemIndex] as any;
-    if (!sourceItem) return;
+    const timer = window.setTimeout(() => {
+      const sourceItem = currentData[currentItemIndex] as any;
+      if (!sourceItem) return;
 
-    const updatedItem = {
-      ...sourceItem,
-      description: description.split('\n').filter((line) => line.trim() !== ''),
-    };
-    const newData = [...currentData];
-    newData[currentItemIndex] = updatedItem;
+      const generatedMeta = extractMetadataFromNote(note);
+      const currentMeta = sourceItem.meta && typeof sourceItem.meta === 'object' ? sourceItem.meta : {};
+      const needRegenerateMeta = !isMetadataEqual(currentMeta, generatedMeta);
+      const nextDescription = description.split('\n').filter((line) => line.trim() !== '');
 
-    loadData(newData as any[], currentFilePath || '', currentFileType);
-    if (currentFilePath) {
-      markFileDirty(currentFilePath);
-      markItemDirty(currentFilePath, currentItemIndex);
-    }
+      const updatedItem = {
+        ...sourceItem,
+        description: nextDescription,
+        note,
+        ...(needRegenerateMeta ? { meta: generatedMeta } : {}),
+      };
+      const newData = [...currentData];
+      newData[currentItemIndex] = updatedItem;
 
-    setOriginalDescription(description);
-    ToastManager.success('描述已保存');
-  }, [currentData, currentItemIndex, description, currentFilePath, currentFileType, loadData, markFileDirty, markItemDirty]);
+      loadData(newData as any[], currentFilePath || '', currentFileType);
+      if (currentFilePath) {
+        markFileDirty(currentFilePath);
+        markItemDirty(currentFilePath, currentItemIndex);
+      }
+    }, 120);
 
-  // 保存备注
-  const handleSaveNote = useCallback(() => {
-    if (!currentData || currentItemIndex < 0) return;
-
-    const sourceItem = currentData[currentItemIndex] as any;
-    if (!sourceItem) return;
-
-    const generatedMeta = extractMetadataFromNote(note);
-    const currentMeta = sourceItem.meta && typeof sourceItem.meta === 'object' ? sourceItem.meta : {};
-    const needRegenerateMeta = !isMetadataEqual(currentMeta, generatedMeta);
-
-    const updatedItem = {
-      ...sourceItem,
-      note,
-      ...(needRegenerateMeta ? { meta: generatedMeta } : {}),
-    };
-    const newData = [...currentData];
-    newData[currentItemIndex] = updatedItem;
-
-    loadData(newData as any[], currentFilePath || '', currentFileType);
-    if (currentFilePath) {
-      markFileDirty(currentFilePath);
-      markItemDirty(currentFilePath, currentItemIndex);
-    }
-
-    setOriginalNote(note);
-    ToastManager.success(needRegenerateMeta ? '备注已保存，元数据已更新' : '备注已保存，元数据无变化');
-  }, [currentData, currentItemIndex, note, currentFilePath, currentFileType, loadData, markFileDirty, markItemDirty]);
-
-  // 保存所有
-  const handleSaveAll = useCallback(() => {
-    if (hasDescriptionChanges) handleSaveDescription();
-    if (hasNoteChanges) handleSaveNote();
-  }, [hasDescriptionChanges, hasNoteChanges, handleSaveDescription, handleSaveNote]);
+    return () => window.clearTimeout(timer);
+  }, [
+    currentData,
+    currentFilePath,
+    currentFileType,
+    currentItemIndex,
+    description,
+    hasAnyChanges,
+    loadData,
+    markFileDirty,
+    markItemDirty,
+    note,
+  ]);
 
   if (!currentItem) {
     return (
@@ -143,16 +133,7 @@ export function NotePanel() {
         <h2 className="text-lg font-semibold" style={{ color: 'var(--color-accent)' }}>
           备注编辑
         </h2>
-        {hasAnyChanges && (
-          <Button
-            type="primary"
-            icon={<SaveOutlined />}
-            onClick={handleSaveAll}
-            style={{ backgroundColor: 'var(--color-accent)' }}
-          >
-            保存全部
-          </Button>
-        )}
+        <span className="text-xs text-gray-500">自动记录变更并标记脏文件</span>
       </div>
 
       <div className="flex-1 min-h-0 grid grid-cols-3 gap-4">
@@ -175,15 +156,6 @@ export function NotePanel() {
                 <Badge dot color="orange" className="ml-2" />
               )}
             </span>
-            <Button
-              type="primary"
-              size="small"
-              icon={<SaveOutlined />}
-              onClick={handleSaveDescription}
-              disabled={!hasDescriptionChanges}
-            >
-              保存
-            </Button>
           </div>
           <Input.TextArea
             value={description}
@@ -215,15 +187,6 @@ export function NotePanel() {
               备注内容
               {hasNoteChanges && <Badge dot color="orange" className="ml-2" />}
             </span>
-            <Button
-              type="primary"
-              size="small"
-              icon={<SaveOutlined />}
-              onClick={handleSaveNote}
-              disabled={!hasNoteChanges}
-            >
-              保存
-            </Button>
           </div>
           <Input.TextArea
             value={note}
@@ -256,7 +219,7 @@ export function NotePanel() {
               {shouldRegenerateMeta && <Badge dot color="orange" className="ml-2" />}
             </span>
             <Tag color={shouldRegenerateMeta ? 'orange' : 'green'}>
-              {shouldRegenerateMeta ? '保存时将更新' : '无需更新'}
+              {shouldRegenerateMeta ? '自动同步后更新' : '无需更新'}
             </Tag>
           </div>
 

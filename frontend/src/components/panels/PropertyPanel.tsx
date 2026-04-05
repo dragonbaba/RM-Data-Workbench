@@ -1,5 +1,5 @@
 import { Card, Input, InputNumber, Button, Form, Space, Select, Switch } from 'antd';
-import { SaveOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { ToastManager } from '../common/ToastManager';
@@ -13,7 +13,13 @@ import {
   hasEnemyEditorChanges,
   normalizeEnemyEditorValues,
 } from '../../services/EnemyPropertyService';
+import {
+  areBattleOrderEffectsEqual,
+  buildBattleOrderEffectsSaveData,
+  normalizeBattleOrderEffects,
+} from '../../services/BattleOrderEffectsService';
 import type {
+  BattleOrderEffects,
   EquipExtraParamMap,
   EquipUpgradeParamMap,
   EquipVehicleParamMap,
@@ -187,6 +193,9 @@ const EQUIP_TYPE_FIELD_KEY = 'etypeId';
 const PRICE_FIELD_KEY = 'price';
 const ATTACK_SKILL_FIELD_KEY = 'attackSkillId';
 const ATTACK_ELEMENT_FIELD_KEY = 'attackElementId';
+const ELEMENT_RATES_FIELD_KEY = 'elementRates';
+const ELEMENT_RATE_FLOATS_FIELD_KEY = 'elementRateFloats';
+const QUALITY_LOCK_FIELD_KEY = 'qualityLock';
 const TARGET_CAMP_FIELD_KEY = 'targetCamp';
 const TARGET_LIFE_STATE_FIELD_KEY = 'targetLifeState';
 const SELECT_MODE_FIELD_KEY = 'selectMode';
@@ -213,6 +222,7 @@ const ENEMY_IS_BOSS_FIELD_KEY = 'enemyIsBoss';
 const ENEMY_BOUNTY_FIELD_KEY = 'enemyBounty';
 const ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY = 'enemyAttackAnimationId';
 const ENEMY_REACTION_SKILL_ID_FIELD_KEY = 'enemyReactionSkillId';
+const ORDER_EFFECTS_FIELD_KEY = 'orderEffects';
 
 const TARGET_CAMP_OPTIONS = [
   { value: 1, label: '1 : 敌方' },
@@ -295,6 +305,13 @@ const areNumberArraysEqual = (left: unknown, right: number[]): boolean => {
     return false;
   }
   return right.every((value, index) => toIntOrZero(left[index]) === value);
+};
+
+const areFloatArraysEqual = (left: unknown, right: number[]): boolean => {
+  if (!Array.isArray(left) || left.length !== right.length) {
+    return false;
+  }
+  return right.every((value, index) => Math.abs(toFloatOrZero(left[index]) - value) < 1e-8);
 };
 
 const normalizeShapeParams = (value: unknown): ShapeParams => {
@@ -434,6 +451,44 @@ const getElementOptions = (systemData: unknown) => {
   return options;
 };
 
+const getElementRateFieldDefinitions = (systemData: unknown) => {
+  const systemRecord = getSystemRecord(systemData);
+  const rawElements = Array.isArray(systemRecord?.elements) ? systemRecord.elements : [];
+  const fields: Array<{ id: number; label: string }> = [];
+  for (let index = 1; index < rawElements.length; index++) {
+    const rawName = typeof rawElements[index] === 'string' ? rawElements[index].trim() : '';
+    fields.push({
+      id: index,
+      label: `${index} : ${rawName || `元素${index}`}`,
+    });
+  }
+  return fields;
+};
+
+const normalizeArmorElementRates = (value: unknown, systemData: unknown): number[] => {
+  const fields = getElementRateFieldDefinitions(systemData);
+  const source = Array.isArray(value) ? value : [];
+  const size = Math.max(1, fields.length + 1);
+  const normalized = new Array<number>(size).fill(0);
+  normalized[0] = 0;
+  for (const field of fields) {
+    normalized[field.id] = toFloatOrZero(source[field.id]);
+  }
+  return normalized;
+};
+
+const normalizeArmorElementRateFloats = (value: unknown, systemData: unknown): number[] => {
+  const fields = getElementRateFieldDefinitions(systemData);
+  const source = Array.isArray(value) ? value : [];
+  const size = Math.max(1, fields.length + 1);
+  const normalized = new Array<number>(size).fill(0);
+  normalized[0] = 0;
+  for (const field of fields) {
+    normalized[field.id] = Math.max(0, toFloatOrZero(source[field.id]));
+  }
+  return normalized;
+};
+
 const buildEffectReferenceOptions = (effectsData: unknown): Array<{ value: number; label: string }> => {
   if (!Array.isArray(effectsData)) {
     return [];
@@ -529,6 +584,10 @@ export function PropertyPanel() {
     () => getElementOptions(systemData),
     [systemData],
   );
+  const armorElementRateFields = useMemo(
+    () => getElementRateFieldDefinitions(systemData),
+    [systemData],
+  );
   const effectOptions = useMemo(
     () => buildEffectReferenceOptions(effectsData),
     [effectsData],
@@ -615,8 +674,16 @@ export function PropertyPanel() {
         baseFormValues[ATTACK_ELEMENT_FIELD_KEY] = toIntOrZero(item.attackElementId);
         Object.assign(baseFormValues, getWeaponRangeValues(item));
       }
+      if (isArmorItem) {
+        baseFormValues[ELEMENT_RATES_FIELD_KEY] = normalizeArmorElementRates(item.elementRates, systemData);
+        baseFormValues[ELEMENT_RATE_FLOATS_FIELD_KEY] = normalizeArmorElementRateFloats(item.elementRateFloats, systemData);
+      }
+      if (isWeaponItem || isArmorItem) {
+        baseFormValues[QUALITY_LOCK_FIELD_KEY] = item.qualityLock === true;
+      }
       if (supportsCommonRange) {
         Object.assign(baseFormValues, getCommonRangeValues(item));
+        baseFormValues[ORDER_EFFECTS_FIELD_KEY] = normalizeBattleOrderEffects(item.orderEffects);
       }
       if (isEnemyFile) {
         const enemyValues = normalizeEnemyEditorValues(item as RPGEnemy);
@@ -680,7 +747,7 @@ export function PropertyPanel() {
       setHasCustomChanges(pendingDraft?.hasCustomChanges ?? false);
       pendingDraftRef.current = null;
     }
-  }, [currentItem, currentItemIndex, equipExtensionsData, form, isEnemyFile, isWeaponItem, supportsCommonRange, supportsPrice, supportsTemplateParams]);
+  }, [currentItem, currentItemIndex, equipExtensionsData, form, isArmorItem, isEnemyFile, isWeaponItem, supportsCommonRange, supportsPrice, supportsTemplateParams, systemData]);
 
   useEffect(() => {
     if (!supportsCommonRange) {
@@ -766,12 +833,50 @@ export function PropertyPanel() {
     }
   };
 
-  const handleSaveEffects = () => {
+  useEffect(() => {
+    if (!isArmorItem || !currentData || currentItemIndex < 0) {
+      return;
+    }
+    const sourceItem = currentData[currentItemIndex] as RPGItem | null;
+    if (!sourceItem) {
+      return;
+    }
+    const patch: Partial<RPGItem> = {};
+    if (!Array.isArray(sourceItem.elementRates)) {
+      patch.elementRates = [];
+    }
+    if (!Array.isArray(sourceItem.elementRateFloats)) {
+      patch.elementRateFloats = [];
+    }
+    if (Object.keys(patch).length === 0) return;
+    updateCurrentItem({
+      ...sourceItem,
+      ...patch,
+    });
+  }, [currentData, currentItemIndex, isArmorItem, currentItem, currentFilePath]);
+
+  useEffect(() => {
+    if ((!isWeaponItem && !isArmorItem) || !currentData || currentItemIndex < 0) {
+      return;
+    }
+    const sourceItem = currentData[currentItemIndex] as RPGItem | null;
+    if (!sourceItem || typeof sourceItem.qualityLock === 'boolean') {
+      return;
+    }
+    updateCurrentItem({
+      ...sourceItem,
+      qualityLock: false,
+    });
+  }, [currentData, currentItemIndex, isArmorItem, isWeaponItem, currentItem, currentFilePath]);
+
+  const handleSaveEffects = (silent = false) => {
     if (!currentData || currentItemIndex < 0) return;
     const sourceItem = currentData[currentItemIndex] as RPGItem | null;
     if (!sourceItem) return;
     if (!hasEffectChanges) {
-      ToastManager.info('效果引用没有变化');
+      if (!silent) {
+        ToastManager.info('效果引用没有变化');
+      }
       return;
     }
     pendingDraftRef.current = (hasBaseChanges || hasCustomChanges)
@@ -787,7 +892,9 @@ export function PropertyPanel() {
       effects: normalizedEffectIds,
     });
     setOriginalEffectIds(normalizedEffectIds);
-    ToastManager.success('效果引用已保存');
+    if (!silent) {
+      ToastManager.success('效果引用已保存');
+    }
   };
 
   const updateWeaponEquipType = (typeId: number): boolean => {
@@ -814,7 +921,7 @@ export function PropertyPanel() {
     return true;
   };
 
-  const handleSaveBaseAttributes = () => {
+  const handleSaveBaseAttributes = (silent = false) => {
     if (!currentData || currentItemIndex < 0) return;
 
     const values = form.getFieldsValue(true) as Record<string, unknown>;
@@ -828,6 +935,15 @@ export function PropertyPanel() {
     const nextPrice = supportsPrice ? toIntOrZero(values[PRICE_FIELD_KEY]) : 0;
     const nextAttackSkillId = isWeaponItem ? toIntOrZero(values[ATTACK_SKILL_FIELD_KEY]) : 0;
     const nextAttackElementId = isWeaponItem ? toIntOrZero(values[ATTACK_ELEMENT_FIELD_KEY]) : 0;
+    const nextElementRates = isArmorItem
+      ? normalizeArmorElementRates(values[ELEMENT_RATES_FIELD_KEY], systemData)
+      : null;
+    const nextElementRateFloats = isArmorItem
+      ? normalizeArmorElementRateFloats(values[ELEMENT_RATE_FLOATS_FIELD_KEY], systemData)
+      : null;
+    const nextQualityLock = (isWeaponItem || isArmorItem)
+      ? values[QUALITY_LOCK_FIELD_KEY] === true
+      : false;
     const nextEnemyValues = isEnemyFile
       ? {
           classId: values[ENEMY_CLASS_ID_FIELD_KEY],
@@ -840,6 +956,9 @@ export function PropertyPanel() {
         }
       : null;
     const nextCommonRangeValues = supportsCommonRange ? normalizeCommonRangeValues(values) : null;
+    const nextOrderEffects = supportsCommonRange
+      ? buildBattleOrderEffectsSaveData(values[ORDER_EFFECTS_FIELD_KEY])
+      : null;
     const nextWeaponRangeValues = isWeaponItem ? normalizeWeaponRangeValues(values) : null;
     const nextExtraParams = supportsTemplateParams
       ? normalizeGroupValues<EquipExtraParamMap>(values.extraParams, EXTRA_PARAM_FIELDS)
@@ -872,6 +991,7 @@ export function PropertyPanel() {
         || currentCommonRangeValues.repeatTime !== nextCommonRangeValues.repeatTime
         || currentCommonRangeValues.repeatTimeFloat !== nextCommonRangeValues.repeatTimeFloat
         || !areShapeParamsEqual(sourceItem.shapeParams, nextCommonRangeValues.shapeParams)
+        || (nextOrderEffects !== null && !areBattleOrderEffectsEqual(sourceItem.orderEffects, nextOrderEffects))
       ))
       || (isWeaponItem && currentWeaponRangeValues !== null && nextWeaponRangeValues !== null && (
         currentWeaponRangeValues.areaOverride !== nextWeaponRangeValues.areaOverride
@@ -885,6 +1005,9 @@ export function PropertyPanel() {
       || (supportsTemplateParams && nextExtraParams !== null && !areParamGroupsEqual(sourceItem.extraParams, nextExtraParams, EXTRA_PARAM_FIELDS))
       || (supportsTemplateParams && nextVehicleParams !== null && !areParamGroupsEqual(sourceItem.vehicleParams, nextVehicleParams, VEHICLE_PARAM_FIELDS))
       || (supportsTemplateParams && nextUpgradeParams !== null && !areParamGroupsEqual(sourceItem.upgradeParams, nextUpgradeParams, UPGRADE_PARAM_FIELDS))
+      || (isArmorItem && nextElementRates !== null && !areFloatArraysEqual(sourceItem.elementRates, nextElementRates))
+      || (isArmorItem && nextElementRateFloats !== null && !areFloatArraysEqual(sourceItem.elementRateFloats, nextElementRateFloats))
+      || ((isWeaponItem || isArmorItem) && (sourceItem.qualityLock === true) !== nextQualityLock)
       || (isEnemyFile && nextEnemyValues !== null && hasEnemyEditorChanges(sourceItem as RPGEnemy, nextEnemyValues));
     const nextEquipTypeId = isWeaponItem ? toIntOrZero(values[EQUIP_TYPE_FIELD_KEY]) : 0;
 
@@ -909,7 +1032,11 @@ export function PropertyPanel() {
         ...(supportsTemplateParams && nextExtraParams ? { extraParams: nextExtraParams } : {}),
         ...(supportsTemplateParams && nextVehicleParams ? { vehicleParams: nextVehicleParams } : {}),
         ...(supportsTemplateParams && nextUpgradeParams ? { upgradeParams: nextUpgradeParams } : {}),
+        ...(isArmorItem && nextElementRates ? { elementRates: nextElementRates } : {}),
+        ...(isArmorItem && nextElementRateFloats ? { elementRateFloats: nextElementRateFloats } : {}),
+        ...((isWeaponItem || isArmorItem) ? { qualityLock: nextQualityLock } : {}),
         ...(supportsCommonRange && nextCommonRangeValues ? nextCommonRangeValues : {}),
+        ...(supportsCommonRange && nextOrderEffects ? { orderEffects: nextOrderEffects as BattleOrderEffects } : {}),
         ...(isWeaponItem && nextWeaponRangeValues ? nextWeaponRangeValues : {}),
         params: newParams,
         floatParams: newFloatParams,
@@ -926,15 +1053,19 @@ export function PropertyPanel() {
 
     if (!shouldUpdateItem && !extensionChanged) {
       setHasBaseChanges(false);
-      ToastManager.info('基础属性没有变化');
+      if (!silent) {
+        ToastManager.info('基础属性没有变化');
+      }
       return;
     }
 
     setHasBaseChanges(false);
-    ToastManager.success('基础属性已保存');
+    if (!silent) {
+      ToastManager.success('基础属性已保存');
+    }
   };
 
-  const handleSaveCustomAttributes = () => {
+  const handleSaveCustomAttributes = (silent = false) => {
     if (!currentData || currentItemIndex < 0) return;
 
     const sourceItem = currentData[currentItemIndex] as any;
@@ -956,7 +1087,9 @@ export function PropertyPanel() {
     });
 
     setHasCustomChanges(false);
-    ToastManager.success('自定义属性已保存');
+    if (!silent) {
+      ToastManager.success('自定义属性已保存');
+    }
   };
 
   const addCustomField = () => {
@@ -996,6 +1129,30 @@ export function PropertyPanel() {
       currentIndex === index ? value : entry
     )));
   };
+
+  useEffect(() => {
+    if (!hasBaseChanges) return;
+    const timer = window.setTimeout(() => {
+      handleSaveBaseAttributes(true);
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [hasBaseChanges, handleSaveBaseAttributes]);
+
+  useEffect(() => {
+    if (!hasCustomChanges) return;
+    const timer = window.setTimeout(() => {
+      handleSaveCustomAttributes(true);
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [hasCustomChanges, handleSaveCustomAttributes]);
+
+  useEffect(() => {
+    if (!hasEffectChanges) return;
+    const timer = window.setTimeout(() => {
+      handleSaveEffects(true);
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [hasEffectChanges, handleSaveEffects]);
 
   const shouldShowCommonShapeSection = supportsCommonRange && watchedAreaMode !== 1 && watchedAreaMode !== 4;
   const shouldShowCommonTargetCount = supportsCommonRange && watchedAreaMode === 2;
@@ -1149,26 +1306,7 @@ export function PropertyPanel() {
         <h2 className="text-lg font-semibold" style={{ color: 'var(--color-accent)' }}>
           属性定义
         </h2>
-        <Space>
-          <Button
-            type="primary"
-            icon={<SaveOutlined />}
-            onClick={handleSaveBaseAttributes}
-            disabled={!hasBaseChanges}
-            style={{
-              backgroundColor: hasBaseChanges ? 'var(--color-accent)' : undefined,
-            }}
-          >
-            保存基础属性
-          </Button>
-          <Button
-            icon={<SaveOutlined />}
-            onClick={handleSaveCustomAttributes}
-            disabled={!hasCustomChanges}
-          >
-            保存自定义属性
-          </Button>
-        </Space>
+        <span className="text-xs text-gray-500">自动记录变更并标记脏文件</span>
       </div>
 
       <Form form={form} onValuesChange={handleValuesChange}>
@@ -1279,6 +1417,17 @@ export function PropertyPanel() {
                 </Form.Item>
               </>
             ) : null}
+            {(isWeaponItem || isArmorItem) ? (
+              <Form.Item
+                key={QUALITY_LOCK_FIELD_KEY}
+                name={QUALITY_LOCK_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">品质锁定</span>}
+                className="mb-0"
+                valuePropName="checked"
+              >
+                <Switch checkedChildren="锁定" unCheckedChildren="随机" />
+              </Form.Item>
+            ) : null}
           </div>
         </Card>
 
@@ -1364,6 +1513,61 @@ export function PropertyPanel() {
                 valuePropName="checked"
               >
                 <Switch checkedChildren="Boss" unCheckedChildren="普通" />
+              </Form.Item>
+            </div>
+          </Card>
+        ) : null}
+
+        {supportsCommonRange ? (
+          <Card
+            title="OTB 顺位规则"
+            className="mb-4"
+            headStyle={{
+              backgroundColor: '#252b3d',
+              borderBottom: '1px solid var(--color-border)',
+              color: 'var(--color-accent)',
+            }}
+            bodyStyle={{ backgroundColor: '#1a1f2e' }}
+          >
+            <div className="text-xs text-gray-500 mb-4">
+              这里直接维护技能/物品的结构化 `orderEffects` 字段，后续 OTB 运行时将直接读取，不再依赖备注正则。
+            </div>
+            <div className="grid grid-cols-4 gap-x-4 gap-y-4">
+              <Form.Item
+                name={[ORDER_EFFECTS_FIELD_KEY, 'userNext']}
+                label={<span className="text-xs text-gray-400">自身下回合偏移</span>}
+                className="mb-0"
+              >
+                <InputNumber step={1} className="w-full" style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                name={[ORDER_EFFECTS_FIELD_KEY, 'targetCurrent']}
+                label={<span className="text-xs text-gray-400">目标本回合偏移</span>}
+                className="mb-0"
+              >
+                <InputNumber step={1} className="w-full" style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                name={[ORDER_EFFECTS_FIELD_KEY, 'targetNext']}
+                label={<span className="text-xs text-gray-400">目标下回合偏移</span>}
+                className="mb-0"
+              >
+                <InputNumber step={1} className="w-full" style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                name={[ORDER_EFFECTS_FIELD_KEY, 'speedConvert']}
+                label={<span className="text-xs text-gray-400">速度换算</span>}
+                className="mb-0"
+              >
+                <InputNumber step={1} className="w-full" style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                name={[ORDER_EFFECTS_FIELD_KEY, 'targetFollow']}
+                label={<span className="text-xs text-gray-400">目标跟随当前回合</span>}
+                className="mb-0"
+                valuePropName="checked"
+              >
+                <Switch checkedChildren="跟随" unCheckedChildren="独立" />
               </Form.Item>
             </div>
           </Card>
@@ -1523,6 +1727,49 @@ export function PropertyPanel() {
           </Card>
         ) : null}
 
+        {isArmorItem ? (
+          <Card
+            title="元素属性"
+            className="mb-4"
+            headStyle={{
+              backgroundColor: '#252b3d',
+              borderBottom: '1px solid var(--color-border)',
+              color: 'var(--color-accent)',
+            }}
+            bodyStyle={{ backgroundColor: '#1a1f2e' }}
+          >
+            <div className="text-xs text-gray-500 mb-4">
+              每个元素维护基础元素率与浮动值（小数百分比）。例如 0.2 表示 +20%，浮动 0.05 表示在 ±5% 范围内变化。索引 0 固定为 0，不在面板中编辑。
+            </div>
+            {armorElementRateFields.length === 0 ? (
+              <div className="rounded border border-dashed border-gray-600 px-4 py-6 text-sm text-gray-500 text-center">
+                当前系统没有可编辑元素，请先在 System.json 配置元素列表。
+              </div>
+            ) : (
+              <div className="grid grid-cols-4 gap-x-4 gap-y-4">
+                {armorElementRateFields.map((field) => (
+                  <div key={`armor-element-rate-${field.id}`} className="contents">
+                    <Form.Item
+                      name={[ELEMENT_RATES_FIELD_KEY, field.id]}
+                      label={<span className="text-xs text-gray-400">{field.label} 值</span>}
+                      className="mb-0"
+                    >
+                      <InputNumber step={0.01} className="w-full" style={{ width: '100%' }} />
+                    </Form.Item>
+                    <Form.Item
+                      name={[ELEMENT_RATE_FLOATS_FIELD_KEY, field.id]}
+                      label={<span className="text-xs text-gray-400">{field.label} 浮动</span>}
+                      className="mb-0"
+                    >
+                      <InputNumber min={0} step={0.01} className="w-full" style={{ width: '100%' }} />
+                    </Form.Item>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        ) : null}
+
         {supportsTemplateParams ? renderFixedParamCard(
           '额外统一属性',
           'extraParams',
@@ -1558,14 +1805,6 @@ export function PropertyPanel() {
                 disabled={effectOptions.length === 0}
               >
                 添加
-              </Button>
-              <Button
-                size="small"
-                icon={<SaveOutlined />}
-                onClick={handleSaveEffects}
-                disabled={!hasEffectChanges}
-              >
-                保存
               </Button>
             </Space>
           </div>
