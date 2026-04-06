@@ -177,6 +177,7 @@ export interface RPGItem {
   repeatTimeFloat?: number;
   areaOverride?: number;
   orderEffects?: BattleOrderEffects;
+  weaknessStateEffects?: StateWeaknessEffects;
   elementRates?: number[];
   elementRateFloats?: number[];
   qualityLock?: boolean;
@@ -194,11 +195,35 @@ export interface EnemyDropEntry {
   isRare?: boolean;
 }
 
+export interface EnemyWeaknessSlot {
+  elementId: number;
+  rate: number;
+}
+
+export interface EnemyWeaknessGroup {
+  shieldMax: number;
+  slots: EnemyWeaknessSlot[];
+}
+
+export interface StateWeaknessPhaseEffect {
+  switchGroupIndex?: number;
+  protectElements?: number[];
+  unprotectElements?: number[];
+}
+
+export interface StateWeaknessEffects {
+  onAdd?: StateWeaknessPhaseEffect;
+  onRemove?: StateWeaknessPhaseEffect;
+}
+
 export interface RPGEnemy extends RPGItem {
   classId?: number;
   level?: number;
   levelScope?: number;
   isBoss?: boolean;
+  allowBreak?: boolean;
+  baseWeaknessGroup?: EnemyWeaknessGroup;
+  dynamicWeaknessGroups?: EnemyWeaknessGroup[];
   bounty?: number;
   attackAnimationId?: number;
   reactionSkillId?: number;

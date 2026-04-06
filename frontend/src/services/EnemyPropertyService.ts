@@ -5,6 +5,7 @@ export const KNOWN_ENEMY_PROPERTY_KEYS = [
   'level',
   'levelScope',
   'isBoss',
+  'allowBreak',
   'bounty',
   'attackAnimationId',
   'reactionSkillId',
@@ -15,6 +16,7 @@ export interface EnemyEditorValues {
   level: number;
   levelScope: number;
   isBoss: boolean;
+  allowBreak: boolean;
   bounty: number;
   attackAnimationId: number;
   reactionSkillId: number;
@@ -25,6 +27,7 @@ export interface EnemyEditorInput {
   level?: unknown;
   levelScope?: unknown;
   isBoss?: unknown;
+  allowBreak?: unknown;
   bounty?: unknown;
   attackAnimationId?: unknown;
   reactionSkillId?: unknown;
@@ -91,6 +94,7 @@ export function normalizeEnemyEditorValues(enemy: unknown): EnemyEditorValues {
       level: 0,
       levelScope: 0,
       isBoss: false,
+      allowBreak: false,
       bounty: 0,
       attackAnimationId: 0,
       reactionSkillId: 0,
@@ -102,6 +106,7 @@ export function normalizeEnemyEditorValues(enemy: unknown): EnemyEditorValues {
     level: toIntOrZero(enemy.level),
     levelScope: toIntOrZero(enemy.levelScope),
     isBoss: toBooleanFlag(enemy.isBoss),
+    allowBreak: toBooleanFlag(enemy.allowBreak),
     bounty: toIntOrZero(enemy.bounty),
     attackAnimationId: toIntOrZero(enemy.attackAnimationId),
     reactionSkillId: toIntOrZero(enemy.reactionSkillId),
@@ -115,6 +120,7 @@ export function hasEnemyEditorChanges(sourceItem: RPGEnemy, nextValues: EnemyEdi
     || currentValues.level !== toIntOrZero(nextValues.level)
     || currentValues.levelScope !== toIntOrZero(nextValues.levelScope)
     || currentValues.isBoss !== toBooleanFlag(nextValues.isBoss)
+    || currentValues.allowBreak !== toBooleanFlag(nextValues.allowBreak)
     || currentValues.bounty !== toIntOrZero(nextValues.bounty)
     || currentValues.attackAnimationId !== toIntOrZero(nextValues.attackAnimationId)
     || currentValues.reactionSkillId !== toIntOrZero(nextValues.reactionSkillId);
@@ -127,6 +133,7 @@ export function buildEnemySaveData(sourceItem: RPGEnemy, nextValues: EnemyEditor
     level: toIntOrZero(nextValues.level),
     levelScope: toIntOrZero(nextValues.levelScope),
     isBoss: toBooleanFlag(nextValues.isBoss),
+    allowBreak: toBooleanFlag(nextValues.allowBreak),
     bounty: toIntOrZero(nextValues.bounty),
     attackAnimationId: toIntOrZero(nextValues.attackAnimationId),
     reactionSkillId: toIntOrZero(nextValues.reactionSkillId),

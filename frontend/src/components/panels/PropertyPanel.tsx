@@ -20,12 +20,14 @@ import {
 } from '../../services/BattleOrderEffectsService';
 import type {
   BattleOrderEffects,
+  EnemyWeaknessGroup,
   EquipExtraParamMap,
   EquipUpgradeParamMap,
   EquipVehicleParamMap,
   ParamTemplate,
   RPGEnemy,
   RPGItem,
+  StateWeaknessEffects,
 } from '../../types';
 import { normalizeEffectIdList } from '../../services/GameEffectService';
 
@@ -213,15 +215,20 @@ const SKILLS_FILE_NAME = 'Skills.json';
 const SYSTEM_FILE_NAME = 'System.json';
 const EFFECTS_FILE_NAME = 'Effects.json';
 const ENEMIES_FILE_NAME = 'Enemies.json';
+const STATES_FILE_NAME = 'States.json';
 const CLASSES_FILE_NAME = 'Classes.json';
 const ANIMATIONS_FILE_NAME = 'Animations.json';
 const ENEMY_CLASS_ID_FIELD_KEY = 'enemyClassId';
 const ENEMY_LEVEL_FIELD_KEY = 'enemyLevel';
 const ENEMY_LEVEL_SCOPE_FIELD_KEY = 'enemyLevelScope';
 const ENEMY_IS_BOSS_FIELD_KEY = 'enemyIsBoss';
+const ENEMY_ALLOW_BREAK_FIELD_KEY = 'enemyAllowBreak';
+const ENEMY_BASE_WEAKNESS_GROUP_FIELD_KEY = 'enemyBaseWeaknessGroup';
+const ENEMY_DYNAMIC_WEAKNESS_GROUPS_FIELD_KEY = 'enemyDynamicWeaknessGroups';
 const ENEMY_BOUNTY_FIELD_KEY = 'enemyBounty';
 const ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY = 'enemyAttackAnimationId';
 const ENEMY_REACTION_SKILL_ID_FIELD_KEY = 'enemyReactionSkillId';
+const STATE_WEAKNESS_EFFECTS_FIELD_KEY = 'stateWeaknessEffects';
 const ORDER_EFFECTS_FIELD_KEY = 'orderEffects';
 
 const TARGET_CAMP_OPTIONS = [
@@ -489,6 +496,160 @@ const normalizeArmorElementRateFloats = (value: unknown, systemData: unknown): n
   return normalized;
 };
 
+const normalizeEnemyElementRates = (value: unknown, systemData: unknown): number[] => {
+  return normalizeArmorElementRates(value, systemData);
+};
+
+const createEmptyEnemyWeaknessGroup = (): EnemyWeaknessGroup => ({
+  shieldMax: 0,
+  slots: [],
+});
+
+const normalizeEnemyWeaknessSlot = (value: unknown) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { elementId: 0, rate: 0 };
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    elementId: Math.max(0, toIntOrZero(record.elementId)),
+    rate: toFloatOrZero(record.rate),
+  };
+};
+
+const normalizeEnemyWeaknessGroup = (value: unknown): EnemyWeaknessGroup => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return createEmptyEnemyWeaknessGroup();
+  }
+  const record = value as Record<string, unknown>;
+  const rawSlots = Array.isArray(record.slots) ? record.slots : [];
+  const slots = [];
+  for (const rawSlot of rawSlots) {
+    slots.push(normalizeEnemyWeaknessSlot(rawSlot));
+  }
+  return {
+    shieldMax: Math.max(0, toIntOrZero(record.shieldMax)),
+    slots,
+  };
+};
+
+const normalizeEnemyWeaknessGroupField = (enemy: RPGEnemy): EnemyWeaknessGroup => {
+  return normalizeEnemyWeaknessGroup(enemy.baseWeaknessGroup);
+};
+
+const normalizeEnemyDynamicWeaknessGroupsField = (enemy: RPGEnemy): EnemyWeaknessGroup[] => {
+  const groups = Array.isArray(enemy.dynamicWeaknessGroups) ? enemy.dynamicWeaknessGroups : [];
+  const normalizedGroups = [];
+  for (const rawGroup of groups) {
+    normalizedGroups.push(normalizeEnemyWeaknessGroup(rawGroup));
+  }
+  return normalizedGroups;
+};
+
+const areEnemyWeaknessGroupsEqual = (left: unknown, right: EnemyWeaknessGroup): boolean => {
+  return JSON.stringify(normalizeEnemyWeaknessGroup(left)) === JSON.stringify(normalizeEnemyWeaknessGroup(right));
+};
+
+const areEnemyWeaknessGroupListsEqual = (left: unknown, right: EnemyWeaknessGroup[]): boolean => {
+  const normalizedLeft = Array.isArray(left) ? left.map(normalizeEnemyWeaknessGroup) : [];
+  return JSON.stringify(normalizedLeft) === JSON.stringify(right.map(normalizeEnemyWeaknessGroup));
+};
+
+const getEnemyWeaknessDuplicateMessages = (groups: EnemyWeaknessGroup[], systemData: unknown): string[] => {
+  const fieldMap = new Map<number, string>();
+  for (const field of getElementRateFieldDefinitions(systemData)) {
+    fieldMap.set(field.id, field.label);
+  }
+
+  const messages: string[] = [];
+  groups.forEach((group, groupIndex) => {
+    const duplicateIds = new Set<number>();
+    const seen = new Set<number>();
+    for (const rawSlot of group.slots) {
+      const slot = normalizeEnemyWeaknessSlot(rawSlot);
+      if (slot.elementId <= 0) continue;
+      if (seen.has(slot.elementId)) {
+        duplicateIds.add(slot.elementId);
+      } else {
+        seen.add(slot.elementId);
+      }
+    }
+    if (duplicateIds.size <= 0) return;
+    const groupLabel = groupIndex === 0 ? '基础弱点组' : `动态弱点组 #${groupIndex}`;
+    const elements = Array.from(duplicateIds).map((elementId) => fieldMap.get(elementId) ?? `${elementId} : 元素${elementId}`);
+    messages.push(`${groupLabel} 存在重复元素：${elements.join('、')}`);
+  });
+  return messages;
+};
+
+const normalizeNumberIdList = (value: unknown): number[] => {
+  if (!Array.isArray(value)) return [];
+  const result: number[] = [];
+  const seen = new Set<number>();
+  for (let i = 0; i < value.length; i++) {
+    const id = Math.max(0, toIntOrZero(value[i]));
+    if (id <= 0 || seen.has(id)) continue;
+    seen.add(id);
+    result.push(id);
+  }
+  return result;
+};
+
+const normalizeStateWeaknessPhaseEffect = (value: unknown) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {
+      switchGroupIndex: -1,
+      protectElements: [],
+      unprotectElements: [],
+    };
+  }
+  const record = value as Record<string, unknown>;
+  const switchGroupIndex = toIntOrZero(record.switchGroupIndex);
+  return {
+    switchGroupIndex: switchGroupIndex >= 0 ? switchGroupIndex : -1,
+    protectElements: normalizeNumberIdList(record.protectElements),
+    unprotectElements: normalizeNumberIdList(record.unprotectElements),
+  };
+};
+
+const normalizeStateWeaknessEffects = (value: unknown): StateWeaknessEffects => {
+  const record = value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+  return {
+    onAdd: normalizeStateWeaknessPhaseEffect(record.onAdd),
+    onRemove: normalizeStateWeaknessPhaseEffect(record.onRemove),
+  };
+};
+
+const buildStateWeaknessEffectsSaveData = (value: unknown): StateWeaknessEffects | undefined => {
+  const normalized = normalizeStateWeaknessEffects(value);
+  const buildPhase = (phase: ReturnType<typeof normalizeStateWeaknessPhaseEffect>) => {
+    const result: Record<string, unknown> = {};
+    if ((phase.switchGroupIndex | 0) >= 0) {
+      result.switchGroupIndex = phase.switchGroupIndex | 0;
+    }
+    if (phase.protectElements.length > 0) {
+      result.protectElements = phase.protectElements.slice();
+    }
+    if (phase.unprotectElements.length > 0) {
+      result.unprotectElements = phase.unprotectElements.slice();
+    }
+    return Object.keys(result).length > 0 ? result : null;
+  };
+  const onAdd = buildPhase(normalized.onAdd as ReturnType<typeof normalizeStateWeaknessPhaseEffect>);
+  const onRemove = buildPhase(normalized.onRemove as ReturnType<typeof normalizeStateWeaknessPhaseEffect>);
+  if (onAdd == null && onRemove == null) return undefined;
+  return {
+    ...(onAdd ? { onAdd } : {}),
+    ...(onRemove ? { onRemove } : {}),
+  };
+};
+
+const areStateWeaknessEffectsEqual = (left: unknown, right: StateWeaknessEffects | undefined): boolean => {
+  const normalizedLeft = buildStateWeaknessEffectsSaveData(left);
+  return JSON.stringify(normalizedLeft ?? null) === JSON.stringify(right ?? null);
+};
+
 const buildEffectReferenceOptions = (effectsData: unknown): Array<{ value: number; label: string }> => {
   if (!Array.isArray(effectsData)) {
     return [];
@@ -537,6 +698,7 @@ export function PropertyPanel() {
   const isArmorItem = currentFileName === ARMORS_FILE_NAME.toLowerCase();
   const isSkillFile = currentFileName === SKILLS_FILE_NAME.toLowerCase();
   const isEnemyFile = currentFileName === ENEMIES_FILE_NAME.toLowerCase();
+  const isStateFile = currentFileName === STATES_FILE_NAME.toLowerCase();
   const supportsTemplateParams = isWeaponItem || isArmorItem;
   const supportsPrice = isItemFile || isWeaponItem || isArmorItem;
   const supportsCommonRange = isItemFile || isSkillFile;
@@ -548,6 +710,8 @@ export function PropertyPanel() {
   const watchedEnemyClassId = Form.useWatch(ENEMY_CLASS_ID_FIELD_KEY, form) ?? 0;
   const watchedEnemyAttackAnimationId = Form.useWatch(ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY, form) ?? 0;
   const watchedEnemyReactionSkillId = Form.useWatch(ENEMY_REACTION_SKILL_ID_FIELD_KEY, form) ?? 0;
+  const watchedEnemyBaseWeaknessGroup = Form.useWatch(ENEMY_BASE_WEAKNESS_GROUP_FIELD_KEY, form);
+  const watchedEnemyDynamicWeaknessGroups = Form.useWatch(ENEMY_DYNAMIC_WEAKNESS_GROUPS_FIELD_KEY, form);
   const systemData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown>(SYSTEM_FILE_NAME),
     [currentFilePath, currentItem, referenceRevision],
@@ -584,9 +748,25 @@ export function PropertyPanel() {
     () => getElementOptions(systemData),
     [systemData],
   );
+  const weaknessElementOptions = useMemo(
+    () => elementOptions.filter((option) => option.value > 0),
+    [elementOptions],
+  );
   const armorElementRateFields = useMemo(
     () => getElementRateFieldDefinitions(systemData),
     [systemData],
+  );
+  const enemyWeaknessDuplicateMessages = useMemo(
+    () => getEnemyWeaknessDuplicateMessages(
+      [
+        normalizeEnemyWeaknessGroup(watchedEnemyBaseWeaknessGroup),
+        ...(Array.isArray(watchedEnemyDynamicWeaknessGroups)
+          ? watchedEnemyDynamicWeaknessGroups.map(normalizeEnemyWeaknessGroup)
+          : []),
+      ],
+      systemData,
+    ),
+    [systemData, watchedEnemyBaseWeaknessGroup, watchedEnemyDynamicWeaknessGroups],
   );
   const effectOptions = useMemo(
     () => buildEffectReferenceOptions(effectsData),
@@ -685,12 +865,18 @@ export function PropertyPanel() {
         Object.assign(baseFormValues, getCommonRangeValues(item));
         baseFormValues[ORDER_EFFECTS_FIELD_KEY] = normalizeBattleOrderEffects(item.orderEffects);
       }
+      if (isStateFile) {
+        baseFormValues[STATE_WEAKNESS_EFFECTS_FIELD_KEY] = normalizeStateWeaknessEffects(item.weaknessStateEffects);
+      }
       if (isEnemyFile) {
         const enemyValues = normalizeEnemyEditorValues(item as RPGEnemy);
+        baseFormValues[ENEMY_BASE_WEAKNESS_GROUP_FIELD_KEY] = normalizeEnemyWeaknessGroupField(item as RPGEnemy);
+        baseFormValues[ENEMY_DYNAMIC_WEAKNESS_GROUPS_FIELD_KEY] = normalizeEnemyDynamicWeaknessGroupsField(item as RPGEnemy);
         baseFormValues[ENEMY_CLASS_ID_FIELD_KEY] = enemyValues.classId;
         baseFormValues[ENEMY_LEVEL_FIELD_KEY] = enemyValues.level;
         baseFormValues[ENEMY_LEVEL_SCOPE_FIELD_KEY] = enemyValues.levelScope;
         baseFormValues[ENEMY_IS_BOSS_FIELD_KEY] = enemyValues.isBoss;
+        baseFormValues[ENEMY_ALLOW_BREAK_FIELD_KEY] = enemyValues.allowBreak;
         baseFormValues[ENEMY_BOUNTY_FIELD_KEY] = enemyValues.bounty;
         baseFormValues[ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY] = enemyValues.attackAnimationId;
         baseFormValues[ENEMY_REACTION_SKILL_ID_FIELD_KEY] = enemyValues.reactionSkillId;
@@ -747,7 +933,7 @@ export function PropertyPanel() {
       setHasCustomChanges(pendingDraft?.hasCustomChanges ?? false);
       pendingDraftRef.current = null;
     }
-  }, [currentItem, currentItemIndex, equipExtensionsData, form, isArmorItem, isEnemyFile, isWeaponItem, supportsCommonRange, supportsPrice, supportsTemplateParams, systemData]);
+  }, [currentItem, currentItemIndex, equipExtensionsData, form, isArmorItem, isEnemyFile, isStateFile, isWeaponItem, supportsCommonRange, supportsPrice, supportsTemplateParams, systemData]);
 
   useEffect(() => {
     if (!supportsCommonRange) {
@@ -845,7 +1031,7 @@ export function PropertyPanel() {
     if (!Array.isArray(sourceItem.elementRates)) {
       patch.elementRates = [];
     }
-    if (!Array.isArray(sourceItem.elementRateFloats)) {
+    if (isArmorItem && !Array.isArray(sourceItem.elementRateFloats)) {
       patch.elementRateFloats = [];
     }
     if (Object.keys(patch).length === 0) return;
@@ -935,11 +1121,22 @@ export function PropertyPanel() {
     const nextPrice = supportsPrice ? toIntOrZero(values[PRICE_FIELD_KEY]) : 0;
     const nextAttackSkillId = isWeaponItem ? toIntOrZero(values[ATTACK_SKILL_FIELD_KEY]) : 0;
     const nextAttackElementId = isWeaponItem ? toIntOrZero(values[ATTACK_ELEMENT_FIELD_KEY]) : 0;
-    const nextElementRates = isArmorItem
+    const nextArmorElementRates = isArmorItem
       ? normalizeArmorElementRates(values[ELEMENT_RATES_FIELD_KEY], systemData)
       : null;
     const nextElementRateFloats = isArmorItem
       ? normalizeArmorElementRateFloats(values[ELEMENT_RATE_FLOATS_FIELD_KEY], systemData)
+      : null;
+    const nextEnemyBaseWeaknessGroup = isEnemyFile
+      ? normalizeEnemyWeaknessGroup(values[ENEMY_BASE_WEAKNESS_GROUP_FIELD_KEY])
+      : null;
+    const nextEnemyDynamicWeaknessGroups = isEnemyFile
+      ? (Array.isArray(values[ENEMY_DYNAMIC_WEAKNESS_GROUPS_FIELD_KEY])
+        ? values[ENEMY_DYNAMIC_WEAKNESS_GROUPS_FIELD_KEY].map(normalizeEnemyWeaknessGroup)
+        : [])
+      : null;
+    const nextStateWeaknessEffects = isStateFile
+      ? buildStateWeaknessEffectsSaveData(values[STATE_WEAKNESS_EFFECTS_FIELD_KEY])
       : null;
     const nextQualityLock = (isWeaponItem || isArmorItem)
       ? values[QUALITY_LOCK_FIELD_KEY] === true
@@ -950,6 +1147,7 @@ export function PropertyPanel() {
           level: values[ENEMY_LEVEL_FIELD_KEY],
           levelScope: values[ENEMY_LEVEL_SCOPE_FIELD_KEY],
           isBoss: values[ENEMY_IS_BOSS_FIELD_KEY],
+          allowBreak: values[ENEMY_ALLOW_BREAK_FIELD_KEY],
           bounty: values[ENEMY_BOUNTY_FIELD_KEY],
           attackAnimationId: values[ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY],
           reactionSkillId: values[ENEMY_REACTION_SKILL_ID_FIELD_KEY],
@@ -972,6 +1170,10 @@ export function PropertyPanel() {
 
     const sourceItem = currentData[currentItemIndex] as RPGItem | null;
     if (!sourceItem) return;
+    if (isEnemyFile && enemyWeaknessDuplicateMessages.length > 0) {
+      ToastManager.error('弱点组存在重复元素，请先处理后再保存');
+      return;
+    }
 
     const currentCommonRangeValues = supportsCommonRange ? getCommonRangeValues(sourceItem) : null;
     const currentWeaponRangeValues = isWeaponItem ? getWeaponRangeValues(sourceItem) : null;
@@ -1005,8 +1207,11 @@ export function PropertyPanel() {
       || (supportsTemplateParams && nextExtraParams !== null && !areParamGroupsEqual(sourceItem.extraParams, nextExtraParams, EXTRA_PARAM_FIELDS))
       || (supportsTemplateParams && nextVehicleParams !== null && !areParamGroupsEqual(sourceItem.vehicleParams, nextVehicleParams, VEHICLE_PARAM_FIELDS))
       || (supportsTemplateParams && nextUpgradeParams !== null && !areParamGroupsEqual(sourceItem.upgradeParams, nextUpgradeParams, UPGRADE_PARAM_FIELDS))
-      || (isArmorItem && nextElementRates !== null && !areFloatArraysEqual(sourceItem.elementRates, nextElementRates))
+      || (isArmorItem && nextArmorElementRates !== null && !areFloatArraysEqual(sourceItem.elementRates, nextArmorElementRates))
       || (isArmorItem && nextElementRateFloats !== null && !areFloatArraysEqual(sourceItem.elementRateFloats, nextElementRateFloats))
+      || (isEnemyFile && nextEnemyBaseWeaknessGroup !== null && !areEnemyWeaknessGroupsEqual((sourceItem as RPGEnemy).baseWeaknessGroup, nextEnemyBaseWeaknessGroup))
+      || (isEnemyFile && nextEnemyDynamicWeaknessGroups !== null && !areEnemyWeaknessGroupListsEqual((sourceItem as RPGEnemy).dynamicWeaknessGroups, nextEnemyDynamicWeaknessGroups))
+      || (isStateFile && !areStateWeaknessEffectsEqual(sourceItem.weaknessStateEffects, nextStateWeaknessEffects ?? undefined))
       || ((isWeaponItem || isArmorItem) && (sourceItem.qualityLock === true) !== nextQualityLock)
       || (isEnemyFile && nextEnemyValues !== null && hasEnemyEditorChanges(sourceItem as RPGEnemy, nextEnemyValues));
     const nextEquipTypeId = isWeaponItem ? toIntOrZero(values[EQUIP_TYPE_FIELD_KEY]) : 0;
@@ -1032,8 +1237,13 @@ export function PropertyPanel() {
         ...(supportsTemplateParams && nextExtraParams ? { extraParams: nextExtraParams } : {}),
         ...(supportsTemplateParams && nextVehicleParams ? { vehicleParams: nextVehicleParams } : {}),
         ...(supportsTemplateParams && nextUpgradeParams ? { upgradeParams: nextUpgradeParams } : {}),
-        ...(isArmorItem && nextElementRates ? { elementRates: nextElementRates } : {}),
+        ...(isArmorItem && nextArmorElementRates ? { elementRates: nextArmorElementRates } : {}),
         ...(isArmorItem && nextElementRateFloats ? { elementRateFloats: nextElementRateFloats } : {}),
+        ...(isStateFile ? { weaknessStateEffects: nextStateWeaknessEffects } : {}),
+        ...(isEnemyFile && nextEnemyBaseWeaknessGroup ? {
+          baseWeaknessGroup: nextEnemyBaseWeaknessGroup,
+          dynamicWeaknessGroups: nextEnemyDynamicWeaknessGroups ?? [],
+        } : {}),
         ...((isWeaponItem || isArmorItem) ? { qualityLock: nextQualityLock } : {}),
         ...(supportsCommonRange && nextCommonRangeValues ? nextCommonRangeValues : {}),
         ...(supportsCommonRange && nextOrderEffects ? { orderEffects: nextOrderEffects as BattleOrderEffects } : {}),
@@ -1292,6 +1502,239 @@ export function PropertyPanel() {
     </Card>
   );
 
+  const renderWeaknessSlotList = (
+    pathPrefix: Array<string | number>,
+    emptyText: string,
+  ) => (
+    <Form.List name={[...pathPrefix, 'slots']}>
+      {(fields, { add, remove }) => (
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <div className="text-xs text-gray-500">
+              每条弱点配置一个元素和倍率。编辑器会阻止同组重复元素。
+            </div>
+            <Button
+              type="dashed"
+              size="small"
+              icon={<PlusOutlined />}
+              onClick={() => add({ elementId: 0, rate: 0 })}
+              disabled={weaknessElementOptions.length === 0}
+            >
+              添加弱点
+            </Button>
+          </div>
+          {fields.length === 0 ? (
+            <div className="rounded border border-dashed border-gray-600 px-4 py-6 text-sm text-gray-500 text-center">
+              {emptyText}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {fields.map((field, index) => (
+                <div key={field.key} className="grid grid-cols-[1.2fr,0.8fr,40px] gap-3 items-center">
+                  <Form.Item
+                    name={[field.name, 'elementId']}
+                    label={<span className="text-xs text-gray-400">元素 #{index + 1}</span>}
+                    className="mb-0"
+                  >
+                    <Select
+                      options={weaknessElementOptions}
+                      className="w-full"
+                      placeholder="选择元素"
+                      showSearch
+                      optionFilterProp="label"
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name={[field.name, 'rate']}
+                    label={<span className="text-xs text-gray-400">倍率增量</span>}
+                    className="mb-0"
+                  >
+                    <InputNumber step={0.01} className="w-full" style={{ width: '100%' }} />
+                  </Form.Item>
+                  <Button
+                    type="text"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => remove(field.name)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </Form.List>
+  );
+
+  const renderDynamicWeaknessGroupEditor = (
+    field: { key: number; name: number; fieldKey?: number },
+    index: number,
+    removeGroup: (index: number | number[]) => void,
+  ) => (
+    <div key={field.key} className="rounded border border-gray-700 p-4">
+      <div className="flex justify-between items-center mb-3">
+        <div className="text-sm text-gray-200">动态弱点组 #{index + 1}</div>
+        <Button
+          type="text"
+          danger
+          icon={<DeleteOutlined />}
+          onClick={() => removeGroup(field.name)}
+        >
+          删除弱点组
+        </Button>
+      </div>
+      <div className="text-xs text-gray-500 mb-4">切到该组时会重建当前弱点列表与盾上限。</div>
+      <div className="grid grid-cols-4 gap-4 mb-4">
+        <Form.Item
+          name={[field.name, 'shieldMax']}
+          fieldKey={field.fieldKey !== undefined ? [field.fieldKey, 'shieldMax'] : undefined}
+          label={<span className="text-xs text-gray-400">盾上限</span>}
+          className="mb-0"
+        >
+          <InputNumber min={0} max={99} step={1} className="w-full" style={{ width: '100%' }} />
+        </Form.Item>
+      </div>
+      <Form.List name={[field.name, 'slots']}>
+        {(slotFields, { add, remove }) => (
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <div className="text-xs text-gray-500">
+                每条弱点配置一个元素和倍率。编辑器会阻止同组重复元素。
+              </div>
+              <Button
+                type="dashed"
+                size="small"
+                icon={<PlusOutlined />}
+                onClick={() => add({ elementId: 0, rate: 0 })}
+                disabled={weaknessElementOptions.length === 0}
+              >
+                添加弱点
+              </Button>
+            </div>
+            {slotFields.length === 0 ? (
+              <div className="rounded border border-dashed border-gray-600 px-4 py-6 text-sm text-gray-500 text-center">
+                该动态组还没有弱点条目。
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {slotFields.map((slotField) => (
+                  <div key={slotField.key} className="grid grid-cols-[1.2fr,0.8fr,40px] gap-3 items-center">
+                    <Form.Item
+                      name={[slotField.name, 'elementId']}
+                      fieldKey={slotField.fieldKey !== undefined ? [slotField.fieldKey, 'elementId'] : undefined}
+                      label={<span className="text-xs text-gray-400">元素</span>}
+                      className="mb-0"
+                    >
+                      <Select
+                        options={weaknessElementOptions}
+                        className="w-full"
+                        placeholder="选择元素"
+                        showSearch
+                        optionFilterProp="label"
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name={[slotField.name, 'rate']}
+                      fieldKey={slotField.fieldKey !== undefined ? [slotField.fieldKey, 'rate'] : undefined}
+                      label={<span className="text-xs text-gray-400">倍率增量</span>}
+                      className="mb-0"
+                    >
+                      <InputNumber step={0.01} className="w-full" style={{ width: '100%' }} />
+                    </Form.Item>
+                    <Button
+                      type="text"
+                      danger
+                      icon={<DeleteOutlined />}
+                      onClick={() => remove(slotField.name)}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </Form.List>
+    </div>
+  );
+
+  const renderWeaknessGroupCard = (
+    title: string,
+    pathPrefix: Array<string | number>,
+    description: string,
+    emptyText: string,
+  ) => (
+    <Card
+      title={title}
+      className="mb-4"
+      headStyle={{
+        backgroundColor: '#252b3d',
+        borderBottom: '1px solid var(--color-border)',
+        color: 'var(--color-accent)',
+      }}
+      bodyStyle={{ backgroundColor: '#1a1f2e' }}
+    >
+      <div className="text-xs text-gray-500 mb-4">{description}</div>
+      <div className="grid grid-cols-4 gap-4 mb-4">
+        <Form.Item
+          name={[...pathPrefix, 'shieldMax']}
+          label={<span className="text-xs text-gray-400">盾上限</span>}
+          className="mb-0"
+        >
+          <InputNumber min={0} max={99} step={1} className="w-full" style={{ width: '100%' }} />
+        </Form.Item>
+      </div>
+      {renderWeaknessSlotList(pathPrefix, emptyText)}
+    </Card>
+  );
+
+  const renderStateWeaknessPhaseEditor = (
+    phaseKey: 'onAdd' | 'onRemove',
+    title: string,
+    description: string,
+  ) => (
+    <div className="rounded border border-gray-700 p-4">
+      <div className="text-sm text-gray-200 mb-3">{title}</div>
+      <div className="text-xs text-gray-500 mb-4">{description}</div>
+      <div className="grid grid-cols-3 gap-4">
+        <Form.Item
+          name={[STATE_WEAKNESS_EFFECTS_FIELD_KEY, phaseKey, 'switchGroupIndex']}
+          label={<span className="text-xs text-gray-400">切换弱点组</span>}
+          className="mb-0"
+        >
+          <InputNumber min={-1} step={1} className="w-full" style={{ width: '100%' }} />
+        </Form.Item>
+        <Form.Item
+          name={[STATE_WEAKNESS_EFFECTS_FIELD_KEY, phaseKey, 'protectElements']}
+          label={<span className="text-xs text-gray-400">新增保护元素</span>}
+          className="mb-0"
+        >
+          <Select
+            mode="multiple"
+            options={weaknessElementOptions}
+            className="w-full"
+            placeholder="选择要保护的元素"
+            showSearch
+            optionFilterProp="label"
+          />
+        </Form.Item>
+        <Form.Item
+          name={[STATE_WEAKNESS_EFFECTS_FIELD_KEY, phaseKey, 'unprotectElements']}
+          label={<span className="text-xs text-gray-400">移除保护元素</span>}
+          className="mb-0"
+        >
+          <Select
+            mode="multiple"
+            options={weaknessElementOptions}
+            className="w-full"
+            placeholder="选择要解除保护的元素"
+            showSearch
+            optionFilterProp="label"
+          />
+        </Form.Item>
+      </div>
+    </div>
+  );
+
   if (!currentItem) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -1514,8 +1957,124 @@ export function PropertyPanel() {
               >
                 <Switch checkedChildren="Boss" unCheckedChildren="普通" />
               </Form.Item>
+              <Form.Item
+                name={ENEMY_ALLOW_BREAK_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">允许破盾</span>}
+                className="mb-0"
+                valuePropName="checked"
+              >
+                <Switch checkedChildren="启用" unCheckedChildren="关闭" />
+              </Form.Item>
             </div>
           </Card>
+        ) : null}
+
+        {isStateFile ? (
+          <Card
+            title="状态即时弱点效果"
+            className="mb-4"
+            headStyle={{
+              backgroundColor: '#252b3d',
+              borderBottom: '1px solid var(--color-border)',
+              color: 'var(--color-accent)',
+            }}
+            bodyStyle={{ backgroundColor: '#1a1f2e' }}
+          >
+            <div className="text-xs text-gray-500 mb-4">
+              这里只控制状态添加/移除时的一次性弱点操作。`切换弱点组` 写 `-1` 表示不切组，`0` 表示切回基础组，`1..n` 对应敌人的动态弱点组。
+            </div>
+            <div className="space-y-4">
+              {renderStateWeaknessPhaseEditor('onAdd', '添加时触发', '状态首次附加到目标时执行，适合进入阶段、锁定弱点。')}
+              {renderStateWeaknessPhaseEditor('onRemove', '移除时触发', '状态移除时执行，适合回到基础组或解除保护。')}
+            </div>
+          </Card>
+        ) : null}
+
+        {isEnemyFile ? (
+          <>
+            {enemyWeaknessDuplicateMessages.length > 0 ? (
+              <Card
+                className="mb-4"
+                headStyle={{
+                  backgroundColor: '#3a1f24',
+                  borderBottom: '1px solid #7f1d1d',
+                  color: '#fca5a5',
+                }}
+                bodyStyle={{ backgroundColor: '#24161b' }}
+              >
+                <div className="text-sm text-red-300 mb-2">弱点组存在重复元素，当前保存会被阻止。</div>
+                <div className="space-y-1 text-xs text-red-200">
+                  {enemyWeaknessDuplicateMessages.map((message) => (
+                    <div key={message}>{message}</div>
+                  ))}
+                </div>
+              </Card>
+            ) : null}
+            {armorElementRateFields.length === 0 ? (
+              <Card
+                title="敌人弱点组"
+                className="mb-4"
+                headStyle={{
+                  backgroundColor: '#252b3d',
+                  borderBottom: '1px solid var(--color-border)',
+                  color: 'var(--color-accent)',
+                }}
+                bodyStyle={{ backgroundColor: '#1a1f2e' }}
+              >
+                <div className="rounded border border-dashed border-gray-600 px-4 py-6 text-sm text-gray-500 text-center">
+                  当前系统没有可编辑元素，请先在 System.json 配置元素列表。
+                </div>
+              </Card>
+            ) : (
+              <>
+                {renderWeaknessGroupCard(
+                  '基础弱点组',
+                  [ENEMY_BASE_WEAKNESS_GROUP_FIELD_KEY],
+                  '基础组会作为 groupIndex=0 使用。倍率写增量值，`0.3` 表示实际元素倍率为 `1.3`。',
+                  '当前没有基础弱点，敌人将不会显示弱点槽位。',
+                )}
+                <Form.List name={ENEMY_DYNAMIC_WEAKNESS_GROUPS_FIELD_KEY}>
+                  {(fields, { add, remove }) => (
+                    <Card
+                      title={(
+                        <div className="flex justify-between items-center">
+                          <span>动态弱点组</span>
+                          <Button
+                            type="dashed"
+                            size="small"
+                            icon={<PlusOutlined />}
+                            onClick={() => add(createEmptyEnemyWeaknessGroup())}
+                          >
+                            添加弱点组
+                          </Button>
+                        </div>
+                      )}
+                      className="mb-4"
+                      headStyle={{
+                        backgroundColor: '#252b3d',
+                        borderBottom: '1px solid var(--color-border)',
+                        color: 'var(--color-accent)',
+                      }}
+                      bodyStyle={{ backgroundColor: '#1a1f2e' }}
+                    >
+                      <div className="text-xs text-gray-500 mb-4">
+                        动态组从 `groupIndex=1` 开始。后续状态/技能即时效果会直接切到这些组，并同步刷新该组盾上限。
+                      </div>
+                      {fields.length === 0 ? (
+                        <div className="rounded border border-dashed border-gray-600 px-4 py-6 text-sm text-gray-500 text-center">
+                          当前没有动态弱点组，敌人只会使用基础组。
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {fields.map((field, index) => renderDynamicWeaknessGroupEditor(field, index, remove))}
+                        </div>
+                      )}
+                    </Card>
+                  )}
+                </Form.List>
+              </>
+            )}
+          </>
         ) : null}
 
         {supportsCommonRange ? (
