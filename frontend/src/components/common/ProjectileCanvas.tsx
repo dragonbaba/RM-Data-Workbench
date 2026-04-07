@@ -18,6 +18,7 @@ interface ProjectileCanvasProps {
   isPlaying?: boolean;
   playbackSpeed?: number;
   offsetRevision?: number;
+  referenceRevision?: number;
   emitterSide?: 'left' | 'right';
   onPlaybackComplete?: () => void;
 }
@@ -212,6 +213,7 @@ export const ProjectileCanvas = memo(({
   isPlaying = false,
   playbackSpeed = 1,
   offsetRevision = 0,
+  referenceRevision = 0,
   emitterSide = 'left',
   onPlaybackComplete,
 }: ProjectileCanvasProps) => {
@@ -685,7 +687,7 @@ export const ProjectileCanvas = memo(({
   useEffect(() => {
     updateSprites();
     drawTrajectory();
-  }, [updateSprites, drawTrajectory, offsetRevision]);
+  }, [updateSprites, drawTrajectory, offsetRevision, referenceRevision]);
 
   // 播放动画
   useEffect(() => {

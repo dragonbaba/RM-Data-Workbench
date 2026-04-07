@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeDataPathKey, resolveDataChangeImpact } from './BaseDataReloadService';
+import { buildDataReloadConfirmMessage, normalizeDataPathKey, resolveDataChangeImpact } from './BaseDataReloadService';
 
 describe('BaseDataReloadService', () => {
   it('当前文件发生外部变化时需要确认并重载当前文件', () => {
@@ -180,6 +180,76 @@ describe('BaseDataReloadService', () => {
       shouldConfirm: true,
       target: 'dependency',
     });
+  });
+
+  it('弹道模式命中小写 animations.json 时也需要确认刷新', () => {
+    const impact = resolveDataChangeImpact({
+      uiMode: 'projectile',
+      currentFilePath: 'd:/project/data/projectiles.json',
+      currentMapId: null,
+    }, {
+      filePath: 'd:/project/data/animations.json',
+      fileName: 'animations.json',
+      changeType: 'write',
+    });
+
+    expect(impact).toEqual({
+      shouldReload: true,
+      shouldConfirm: true,
+      target: 'dependency',
+    });
+  });
+
+  it('小写 weapons.json 命中属性依赖时也需要确认刷新', () => {
+    const impact = resolveDataChangeImpact({
+      uiMode: 'property',
+      currentFilePath: 'd:/project/data/weapons.json',
+      currentMapId: null,
+    }, {
+      filePath: 'd:/project/data/skills.json',
+      fileName: 'skills.json',
+      changeType: 'write',
+    });
+
+    expect(impact).toEqual({
+      shouldReload: true,
+      shouldConfirm: true,
+      target: 'dependency',
+    });
+  });
+
+  it('弹道模式依赖文件变化时使用专用重载提示文案', () => {
+    const snapshot = {
+      uiMode: 'projectile' as const,
+      currentFilePath: 'D:/Project/data/Projectiles.json',
+      currentMapId: null,
+    };
+    const impact = resolveDataChangeImpact(snapshot, {
+      filePath: 'D:/Project/data/Animations.json',
+      fileName: 'Animations.json',
+      changeType: 'write',
+    });
+
+    expect(buildDataReloadConfirmMessage(snapshot, impact, 'Animations.json', false)).toBe(
+      '当前弹道面板依赖的 Animations.json 已发生变化，重新加载后会同步刷新动画与引用选项。是否立即重新加载？',
+    );
+  });
+
+  it('当前文件存在未保存修改时优先提示覆盖风险', () => {
+    const snapshot = {
+      uiMode: 'property' as const,
+      currentFilePath: 'D:/Project/data/Actors.json',
+      currentMapId: null,
+    };
+    const impact = resolveDataChangeImpact(snapshot, {
+      filePath: 'D:/Project/data/Actors.json',
+      fileName: 'Actors.json',
+      changeType: 'write',
+    });
+
+    expect(buildDataReloadConfirmMessage(snapshot, impact, 'Actors.json', true)).toBe(
+      '当前正在使用的 Actors.json 已发生变化，重新加载会覆盖未保存修改。是否继续？',
+    );
   });
 
   it('标准化路径键时统一斜杠与盘符大小写', () => {

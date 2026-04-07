@@ -1,0 +1,132 @@
+import { describe, expect, it, vi } from 'vitest';
+import { auditAndRepairDataFiles, toAuditSummaryText } from './DataAuditService';
+
+describe('DataAuditService', () => {
+  it('会批量修复四类目标数据并返回摘要', async () => {
+    const writes: Array<{ filePath: string; data: unknown }> = [];
+    const files = new Map<string, unknown>([
+      ['D:/Project/data/System.json', { elements: ['', '通常', '火炎'] }],
+      ['D:/Project/data/Skills.json', [
+        null,
+        { id: 1, name: '火球', projectileId: 7, skillProjectileTag: 1 },
+      ]],
+      ['D:/Project/data/Enemies.json', [
+        null,
+        { id: 1, name: '炮台', reactionSkillId: 9 },
+      ]],
+      ['D:/Project/data/Weapons.json', [
+        null,
+        { id: 1, name: '主炮' },
+      ]],
+      ['D:/Project/data/Armors.json', [
+        null,
+        { id: 1, name: '头盔' },
+      ]],
+    ]);
+
+    const summary = await auditAndRepairDataFiles('D:/Project/data', {
+      readJson: vi.fn(async (filePath: string) => files.get(filePath)),
+      writeJson: vi.fn(async (filePath: string, data: unknown) => {
+        writes.push({ filePath, data });
+        return null;
+      }),
+    });
+
+    expect(summary.checkedFiles).toBe(4);
+    expect(summary.repairedFiles).toBe(4);
+    expect(summary.repairedEntries).toBe(4);
+    expect(writes).toHaveLength(4);
+
+    const skillPayload = writes.find((item) => item.filePath.endsWith('Skills.json'))?.data as unknown[];
+    expect(skillPayload[1]).toMatchObject({
+      projectileId: 7,
+      skillProjectileTag: 1,
+      reactionSuccessRate: 0,
+      reactionPriority: 0,
+    });
+    expect(skillPayload[1]).not.toHaveProperty('isUsedForProjectile');
+
+    const enemyPayload = writes.find((item) => item.filePath.endsWith('Enemies.json'))?.data as unknown[];
+    expect(enemyPayload[1]).toMatchObject({
+      canReaction: true,
+      reactionSkillId: 9,
+    });
+
+    expect(toAuditSummaryText(summary)).toContain('Skills.json 1 条');
+    expect(toAuditSummaryText(summary)).toContain('Weapons.json 1 条');
+  });
+
+  it('没有差异时不会写回文件', async () => {
+    const writeJson = vi.fn();
+    const summary = await auditAndRepairDataFiles('D:/Project/data', {
+      readJson: vi.fn(async (filePath: string) => {
+        if (filePath.endsWith('System.json')) {
+          return { elements: ['', '通常'] };
+        }
+        return [null, {
+          id: 1,
+          name: '已规范',
+          meta: {},
+          projectileId: 0,
+          skillProjectileTag: -1,
+          reactionSuccessRate: 0,
+          reactionPriority: 0,
+          classId: 0,
+          level: 0,
+          levelScope: 0,
+          isBoss: false,
+          allowBreak: false,
+          bounty: 0,
+          attackAnimationId: 0,
+          canReaction: false,
+          reactionSkillId: 0,
+          floatParams: [0, 0, 0, 0, 0, 0, 0, 0],
+          extraParams: {
+            interceptRate: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            evadeRate: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            critRate: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            critDamage: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            hitRate: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            finalDamage: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+          },
+          vehicleParams: {
+            weight: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            carryValue: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            loadValue: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            durability: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            ammoCapacity: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            shellPrice: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            repeat: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            actionRepeat: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+          },
+          upgradeParams: {
+            times: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            atk: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            def: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+          },
+          qualityLock: false,
+          attackSkillId: 0,
+          attackElementId: 0,
+          areaOverride: 0,
+          areaMode: 1,
+          shapeType: 0,
+          areaTargetCount: 0,
+          shapeParams: {
+            1: { radius: 120 },
+            2: { angleDeg: 60, radius: 180 },
+            3: { length: 240, width: 80 },
+          },
+          repeatTime: 1,
+          repeatTimeFloat: 0,
+          elementRates: [0, 0],
+          elementRateFloats: [0, 0],
+        }];
+      }),
+      writeJson,
+    });
+
+    expect(summary.repairedFiles).toBe(0);
+    expect(summary.repairedEntries).toBe(0);
+    expect(writeJson).not.toHaveBeenCalled();
+  });
+});

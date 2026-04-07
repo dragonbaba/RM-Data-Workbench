@@ -72,6 +72,19 @@ interface DataItem {
   name: string;
 }
 
+const ANIMATIONS_FILE_NAME = 'Animations.json';
+const ACTORS_FILE_NAME = 'Actors.json';
+const ENEMIES_FILE_NAME = 'Enemies.json';
+const WEAPONS_FILE_NAME = 'Weapons.json';
+const SKILLS_FILE_NAME = 'Skills.json';
+const PROJECTILE_REFERENCE_FILES = new Set([
+  ANIMATIONS_FILE_NAME.toLowerCase(),
+  ACTORS_FILE_NAME.toLowerCase(),
+  ENEMIES_FILE_NAME.toLowerCase(),
+  WEAPONS_FILE_NAME.toLowerCase(),
+  SKILLS_FILE_NAME.toLowerCase(),
+]);
+
 export function ProjectilePanel() {
   const currentItem = useEditorStore((state) => state.currentItem);
   const currentData = useEditorStore((state) => state.currentData);
@@ -83,6 +96,7 @@ export function ProjectilePanel() {
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [activeKeys, setActiveKeys] = useState<string[]>(['template', 'offset', 'preview', 'settings', 'segments']);
   const [offsetRevision, setOffsetRevision] = useState(0);
+  const [referenceRevision, setReferenceRevision] = useState(0);
   const [emitterSide, setEmitterSide] = useState<'left' | 'right'>('left');
   
   // 动画选项
@@ -150,64 +164,58 @@ export function ProjectilePanel() {
     }));
   };
 
+  const extractAnimationItems = useCallback((data: unknown[] | null): AnimationItem[] => {
+    if (!Array.isArray(data) || data.length < 2) {
+      return [];
+    }
+    return data.slice(1).map((item: any, index) => ({
+      id: item?.id ?? index + 1,
+      name: item?.name || `动画 ${index + 1}`,
+    }));
+  }, []);
+
+  const loadReferenceData = useCallback(() => {
+    setAnimationOptions(extractAnimationItems(DataLoaderService.getCachedDataByName(ANIMATIONS_FILE_NAME)));
+    setActors(extractDataItems(DataLoaderService.getCachedDataByName(ACTORS_FILE_NAME)));
+    setEnemies(extractDataItems(DataLoaderService.getCachedDataByName(ENEMIES_FILE_NAME)));
+    setWeapons(extractDataItems(DataLoaderService.getCachedDataByName(WEAPONS_FILE_NAME)));
+    setSkills(extractDataItems(DataLoaderService.getCachedDataByName(SKILLS_FILE_NAME)));
+  }, [extractAnimationItems]);
+
   // 加载动画和角色/敌人/武器/技能数据
   useEffect(() => {
-    const loadData = () => {
-      // 加载动画数据
-      const animationsData = DataLoaderService.getCachedDataByName('Animations.json');
-      if (animationsData && Array.isArray(animationsData)) {
-        const options = animationsData.slice(1).map((item: any, index) => ({
-          id: item?.id ?? index + 1,
-          name: item?.name || `动画 ${index + 1}`,
-        }));
-        setAnimationOptions(options);
+    loadReferenceData();
+
+    const refreshReferences = (payload?: unknown) => {
+      const fileName = payload && typeof payload === 'object' && !Array.isArray(payload) && 'fileName' in payload
+        ? String((payload as { fileName?: unknown }).fileName || '').toLowerCase()
+        : '';
+      if (!fileName || PROJECTILE_REFERENCE_FILES.has(fileName)) {
+        loadReferenceData();
+        setReferenceRevision((value) => value + 1);
       }
-
-      // 加载角色数据
-      const actorsData = DataLoaderService.getCachedDataByName('Actors.json');
-      setActors(extractDataItems(actorsData));
-
-      // 加载敌人数据
-      const enemiesData = DataLoaderService.getCachedDataByName('Enemies.json');
-      setEnemies(extractDataItems(enemiesData));
-
-      // 加载武器数据
-      const weaponsData = DataLoaderService.getCachedDataByName('Weapons.json');
-      setWeapons(extractDataItems(weaponsData));
-
-      // 加载技能数据
-      const skillsData = DataLoaderService.getCachedDataByName('Skills.json');
-      setSkills(extractDataItems(skillsData));
     };
-
-    loadData();
 
     // 监听数据清单加载完成事件（工作空间加载时触发）
-    const handleManifestLoaded = () => {
-      loadData();
-    };
-    EventSystem.on('data:manifest-loaded', handleManifestLoaded);
+    EventSystem.on('data:manifest-loaded', refreshReferences);
 
     // 监听数据文件加载事件（菜单切换数据文件时触发）
-    const handleDataFileLoaded = () => {
-      loadData();
-    };
-    EventSystem.on('data:file-loaded', handleDataFileLoaded);
+    EventSystem.on('data:file-loaded', refreshReferences);
 
     // 延迟再试一次（确保数据已加载）
     const retryTimer = setTimeout(() => {
-      const animationsData = DataLoaderService.getCachedDataByName('Animations.json');
+      const animationsData = DataLoaderService.getCachedDataByName(ANIMATIONS_FILE_NAME);
       if (!animationsData || animationsData.length < 2) {
-        loadData();
+        loadReferenceData();
       }
     }, 500);
 
     return () => {
-      EventSystem.off('data:manifest-loaded', handleManifestLoaded);
-      EventSystem.off('data:file-loaded', handleDataFileLoaded);
+      EventSystem.off('data:manifest-loaded', refreshReferences);
+      EventSystem.off('data:file-loaded', refreshReferences);
       clearTimeout(retryTimer);
     };
-  }, [config.dataPath, config.projectRoot]);
+  }, [config.dataPath, config.projectRoot, loadReferenceData]);
 
   // 生成动画 Select 选项
   const getAnimationOptions = () => {
@@ -943,6 +951,7 @@ export function ProjectilePanel() {
                 isPlaying={isPlaying}
                 playbackSpeed={playbackSpeed}
                 offsetRevision={offsetRevision}
+                referenceRevision={referenceRevision}
                 emitterSide={emitterSide}
                 onPlaybackComplete={() => setIsPlaying(false)}
               />

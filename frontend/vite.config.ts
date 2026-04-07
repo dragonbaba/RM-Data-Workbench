@@ -45,9 +45,6 @@ export default defineConfig({
             return 'vendor-pixi';
           }
 
-          if (id.includes('/antd/') || id.includes('/@ant-design/') || id.includes('/rc-')) {
-            return 'vendor-antd';
-          }
           return undefined;
         },
       },

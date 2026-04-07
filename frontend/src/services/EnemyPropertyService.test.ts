@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildEnemySaveData,
   hasEnemyEditorChanges,
+  normalizeEnemyDataEntry,
   normalizeEnemyEditorValues,
 } from './EnemyPropertyService';
 
@@ -13,6 +14,7 @@ describe('EnemyPropertyService', () => {
       levelScope: 8,
       isBoss: true,
       allowBreak: true,
+      canReaction: true,
       bounty: 3000,
       attackAnimationId: 5,
       reactionSkillId: 16,
@@ -24,6 +26,7 @@ describe('EnemyPropertyService', () => {
       levelScope: 8,
       isBoss: true,
       allowBreak: true,
+      canReaction: true,
       bounty: 3000,
       attackAnimationId: 5,
       reactionSkillId: 16,
@@ -45,6 +48,7 @@ describe('EnemyPropertyService', () => {
         levelScope: 4,
         isBoss: true,
         allowBreak: true,
+        canReaction: true,
         bounty: 5000,
         attackAnimationId: 8,
         reactionSkillId: 24,
@@ -57,10 +61,10 @@ describe('EnemyPropertyService', () => {
       levelScope: 4,
       isBoss: true,
       allowBreak: true,
+      canReaction: true,
       bounty: 5000,
       attackAnimationId: 8,
       reactionSkillId: 24,
-      note: '',
       meta: {},
     });
   });
@@ -75,6 +79,7 @@ describe('EnemyPropertyService', () => {
         levelScope: 3,
         isBoss: false,
         allowBreak: false,
+        canReaction: true,
         bounty: 0,
         attackAnimationId: 1,
         reactionSkillId: 7,
@@ -85,10 +90,32 @@ describe('EnemyPropertyService', () => {
         levelScope: 3,
         isBoss: false,
         allowBreak: false,
+        canReaction: true,
         bounty: 0,
         attackAnimationId: 1,
         reactionSkillId: 7,
       },
     )).toBe(false);
+  });
+
+  it('缺少 canReaction 时会根据 reactionSkillId 推导默认值', () => {
+    const normalized = normalizeEnemyDataEntry({
+      id: 3,
+      name: '炮台',
+      reactionSkillId: 9,
+      meta: {
+        keep: true,
+      },
+    });
+
+    expect(normalized).toMatchObject({
+      id: 3,
+      name: '炮台',
+      canReaction: true,
+      reactionSkillId: 9,
+      meta: {
+        keep: true,
+      },
+    });
   });
 });

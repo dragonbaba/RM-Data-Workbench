@@ -177,6 +177,10 @@ export interface RPGItem {
   repeatTimeFloat?: number;
   areaOverride?: number;
   orderEffects?: BattleOrderEffects;
+  projectileId?: number;
+  skillProjectileTag?: number;
+  reactionSuccessRate?: number;
+  reactionPriority?: number;
   weaknessStateEffects?: StateWeaknessEffects;
   elementRates?: number[];
   elementRateFloats?: number[];
@@ -222,6 +226,7 @@ export interface RPGEnemy extends RPGItem {
   levelScope?: number;
   isBoss?: boolean;
   allowBreak?: boolean;
+  canReaction?: boolean;
   baseWeaknessGroup?: EnemyWeaknessGroup;
   dynamicWeaknessGroups?: EnemyWeaknessGroup[];
   bounty?: number;

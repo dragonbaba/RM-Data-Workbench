@@ -21,41 +21,41 @@ export interface DataChangeImpact {
 }
 
 const QUEST_DEPENDENCY_FILES = new Set([
-  'Quests.json',
-  'Actors.json',
-  'Enemies.json',
-  'Items.json',
-  'Weapons.json',
-  'Armors.json',
-  'System.json',
+  'quests.json',
+  'actors.json',
+  'enemies.json',
+  'items.json',
+  'weapons.json',
+  'armors.json',
+  'system.json',
 ]);
 
 const PROJECTILE_DEPENDENCY_FILES = new Set([
-  'Projectiles.json',
-  'Animations.json',
-  'Actors.json',
-  'Enemies.json',
-  'Weapons.json',
-  'Skills.json',
+  'projectiles.json',
+  'animations.json',
+  'actors.json',
+  'enemies.json',
+  'weapons.json',
+  'skills.json',
 ]);
 
 const EQUIP_DEPENDENCY_FILES = new Set([
-  'Actors.json',
-  'Weapons.json',
-  'Armors.json',
-  'System.json',
-  'EquipExtensions.json',
+  'actors.json',
+  'weapons.json',
+  'armors.json',
+  'system.json',
+  'equipextensions.json',
 ]);
 
 const DROP_DEPENDENCY_FILES = new Set([
-  'Enemies.json',
-  'Items.json',
-  'Weapons.json',
-  'Armors.json',
+  'enemies.json',
+  'items.json',
+  'weapons.json',
+  'armors.json',
 ]);
 
 const PROPERTY_DEPENDENCY_FILES = new Map<string, Set<string>>([
-  ['Weapons.json', new Set(['System.json', 'Skills.json', 'EquipExtensions.json'])],
+  ['weapons.json', new Set(['system.json', 'skills.json', 'equipextensions.json'])],
 ]);
 
 export const normalizeDataPathKey = (value: string): string => {
@@ -67,6 +67,8 @@ export const extractFileName = (filePath: string): string => {
   const normalized = (filePath || '').replace(/\\/g, '/');
   return normalized.split('/').pop() || '';
 };
+
+const normalizeFileName = (fileName: string): string => (fileName || '').trim().toLowerCase();
 
 export const isMapFileName = (fileName: string): boolean => /^Map\d+\.json$/i.test(fileName || '');
 
@@ -99,7 +101,7 @@ export const resolveDataChangeImpact = (
 ): DataChangeImpact => {
   const currentFilePath = normalizeDataPathKey(snapshot.currentFilePath);
   const changedPath = normalizeDataPathKey(payload.filePath);
-  const fileName = payload.fileName || extractFileName(payload.filePath);
+  const fileName = normalizeFileName(payload.fileName || extractFileName(payload.filePath));
 
   if (!isReloadableDataFile(fileName)) {
     return { shouldReload: false, shouldConfirm: false, target: 'none' };
@@ -109,7 +111,7 @@ export const resolveDataChangeImpact = (
     return { shouldReload: true, shouldConfirm: true, target: 'current-file' };
   }
 
-  const currentFileName = extractFileName(snapshot.currentFilePath);
+  const currentFileName = normalizeFileName(extractFileName(snapshot.currentFilePath));
   const propertyDependencies = PROPERTY_DEPENDENCY_FILES.get(currentFileName);
   if ((snapshot.uiMode === 'property' || snapshot.uiMode === 'note') && propertyDependencies?.has(fileName)) {
     return { shouldReload: true, shouldConfirm: true, target: 'dependency' };
@@ -131,7 +133,7 @@ export const resolveDataChangeImpact = (
     return { shouldReload: true, shouldConfirm: true, target: 'dependency' };
   }
 
-  if (fileName === 'MapInfos.json') {
+  if (fileName === 'mapinfos.json') {
     if (snapshot.uiMode === 'map' && snapshot.currentMapId === null) {
       return { shouldReload: true, shouldConfirm: true, target: 'map-browser' };
     }
@@ -139,4 +141,25 @@ export const resolveDataChangeImpact = (
   }
 
   return { shouldReload: true, shouldConfirm: false, target: 'dependency' };
+};
+
+export const buildDataReloadConfirmMessage = (
+  snapshot: ActivePanelSnapshot,
+  impact: DataChangeImpact,
+  fileName: string,
+  hasUnsavedChanges: boolean,
+): string => {
+  if (hasUnsavedChanges) {
+    return `当前正在使用的 ${fileName} 已发生变化，重新加载会覆盖未保存修改。是否继续？`;
+  }
+
+  if (impact.target === 'dependency' && snapshot.uiMode === 'projectile') {
+    return `当前弹道面板依赖的 ${fileName} 已发生变化，重新加载后会同步刷新动画与引用选项。是否立即重新加载？`;
+  }
+
+  if (impact.target === 'map-browser') {
+    return `当前地图列表依赖的 ${fileName} 已发生变化，是否立即重新加载？`;
+  }
+
+  return `当前面板正在使用的 ${fileName} 已发生变化，是否立即重新加载？`;
 };

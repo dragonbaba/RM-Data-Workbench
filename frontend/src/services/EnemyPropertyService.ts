@@ -6,6 +6,7 @@ export const KNOWN_ENEMY_PROPERTY_KEYS = [
   'levelScope',
   'isBoss',
   'allowBreak',
+  'canReaction',
   'bounty',
   'attackAnimationId',
   'reactionSkillId',
@@ -17,6 +18,7 @@ export interface EnemyEditorValues {
   levelScope: number;
   isBoss: boolean;
   allowBreak: boolean;
+  canReaction: boolean;
   bounty: number;
   attackAnimationId: number;
   reactionSkillId: number;
@@ -28,6 +30,7 @@ export interface EnemyEditorInput {
   levelScope?: unknown;
   isBoss?: unknown;
   allowBreak?: unknown;
+  canReaction?: unknown;
   bounty?: unknown;
   attackAnimationId?: unknown;
   reactionSkillId?: unknown;
@@ -95,6 +98,7 @@ export function normalizeEnemyEditorValues(enemy: unknown): EnemyEditorValues {
       levelScope: 0,
       isBoss: false,
       allowBreak: false,
+      canReaction: false,
       bounty: 0,
       attackAnimationId: 0,
       reactionSkillId: 0,
@@ -107,9 +111,32 @@ export function normalizeEnemyEditorValues(enemy: unknown): EnemyEditorValues {
     levelScope: toIntOrZero(enemy.levelScope),
     isBoss: toBooleanFlag(enemy.isBoss),
     allowBreak: toBooleanFlag(enemy.allowBreak),
+    canReaction: Object.prototype.hasOwnProperty.call(enemy, 'canReaction')
+      ? toBooleanFlag(enemy.canReaction)
+      : toIntOrZero(enemy.reactionSkillId) > 0,
     bounty: toIntOrZero(enemy.bounty),
     attackAnimationId: toIntOrZero(enemy.attackAnimationId),
     reactionSkillId: toIntOrZero(enemy.reactionSkillId),
+  };
+}
+
+export function normalizeEnemyDataEntry(enemy: unknown): RPGEnemy | null {
+  if (!isRecord(enemy)) return null;
+  const normalized = normalizeEnemyEditorValues(enemy);
+  const currentMeta = isRecord(enemy.meta) ? enemy.meta : {};
+
+  return {
+    ...(enemy as unknown as RPGEnemy),
+    meta: currentMeta,
+    classId: normalized.classId,
+    level: normalized.level,
+    levelScope: normalized.levelScope,
+    isBoss: normalized.isBoss,
+    allowBreak: normalized.allowBreak,
+    canReaction: normalized.canReaction,
+    bounty: normalized.bounty,
+    attackAnimationId: normalized.attackAnimationId,
+    reactionSkillId: normalized.reactionSkillId,
   };
 }
 
@@ -121,12 +148,14 @@ export function hasEnemyEditorChanges(sourceItem: RPGEnemy, nextValues: EnemyEdi
     || currentValues.levelScope !== toIntOrZero(nextValues.levelScope)
     || currentValues.isBoss !== toBooleanFlag(nextValues.isBoss)
     || currentValues.allowBreak !== toBooleanFlag(nextValues.allowBreak)
+    || currentValues.canReaction !== toBooleanFlag(nextValues.canReaction)
     || currentValues.bounty !== toIntOrZero(nextValues.bounty)
     || currentValues.attackAnimationId !== toIntOrZero(nextValues.attackAnimationId)
     || currentValues.reactionSkillId !== toIntOrZero(nextValues.reactionSkillId);
 }
 
 export function buildEnemySaveData(sourceItem: RPGEnemy, nextValues: EnemyEditorInput): RPGEnemy {
+  const currentMeta = isRecord(sourceItem.meta) ? sourceItem.meta : {};
   return {
     ...sourceItem,
     classId: toIntOrZero(nextValues.classId),
@@ -134,10 +163,10 @@ export function buildEnemySaveData(sourceItem: RPGEnemy, nextValues: EnemyEditor
     levelScope: toIntOrZero(nextValues.levelScope),
     isBoss: toBooleanFlag(nextValues.isBoss),
     allowBreak: toBooleanFlag(nextValues.allowBreak),
+    canReaction: toBooleanFlag(nextValues.canReaction),
     bounty: toIntOrZero(nextValues.bounty),
     attackAnimationId: toIntOrZero(nextValues.attackAnimationId),
     reactionSkillId: toIntOrZero(nextValues.reactionSkillId),
-    note: '',
-    meta: {},
+    meta: currentMeta,
   };
 }

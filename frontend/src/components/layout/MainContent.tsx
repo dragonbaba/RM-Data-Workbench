@@ -1,5 +1,7 @@
-import { Empty } from 'antd';
+import { Button, Empty } from 'antd';
+import { ToolOutlined } from '@ant-design/icons';
 import { Suspense, lazy } from 'react';
+import { EventSystem } from '../../core/EventSystem';
 import { useEditorStore } from '../../stores/editorStore';
 
 const CodeEditorPanel = lazy(() => import('../panels/CodeEditorPanel'));
@@ -22,24 +24,8 @@ export function MainContent() {
   const currentData = useEditorStore((state) => state.currentData);
   const currentMapData = useEditorStore((state) => state.currentMapData);
   const uiMode = useEditorStore((state) => state.uiMode);
-
-  if (uiMode !== 'map' && (!currentData || currentData.length === 0)) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-dark-900">
-        <Empty
-          description={
-            <div className="text-center">
-              <div className="text-6xl mb-4">📁</div>
-              <h2 className="text-2xl font-bold text-gray-300 mb-2">请选择文件</h2>
-              <p className="text-gray-500">
-                请通过菜单栏的"文件" -&gt; "打开文件"来选择要编辑的数据文件
-              </p>
-            </div>
-          }
-        />
-      </div>
-    );
-  }
+  const currentFile = useEditorStore((state) => state.currentFile);
+  const config = useEditorStore((state) => state.config);
 
   const renderPanel = () => {
     switch (uiMode) {
@@ -66,9 +52,48 @@ export function MainContent() {
     }
   };
 
+  const renderEmptyState = () => {
+    if (uiMode === 'map' || (currentData && currentData.length > 0)) {
+      return null;
+    }
+
+    return (
+      <div className="flex-1 flex items-center justify-center bg-dark-900">
+        <Empty
+          description={
+            <div className="text-center">
+              <div className="text-6xl mb-4">📁</div>
+              <h2 className="text-2xl font-bold text-gray-300 mb-2">请选择文件</h2>
+              <p className="text-gray-500">
+                请通过菜单栏的"文件" -&gt; "打开文件"来选择要编辑的数据文件
+              </p>
+            </div>
+          }
+        />
+      </div>
+    );
+  };
+
   return (
-    <Suspense fallback={<PanelFallback />}>
-      {uiMode === 'map' || currentMapData || currentData ? renderPanel() : null}
-    </Suspense>
+    <div className="flex-1 flex flex-col bg-dark-900">
+      {config.dataPath && (
+        <div className="flex items-center justify-between px-4 py-2 border-b border-[#30384d] bg-[#161b28]">
+          <div className="text-sm text-gray-400">
+            全局工具
+            {currentFile ? <span className="ml-3 text-gray-500">当前文件: {currentFile}</span> : null}
+          </div>
+          <Button
+            icon={<ToolOutlined />}
+            size="small"
+            onClick={() => EventSystem.emit('data:audit-repair-request')}
+          >
+            数据体检/修复
+          </Button>
+        </div>
+      )}
+      <Suspense fallback={<PanelFallback />}>
+        {uiMode === 'map' || currentMapData || currentData ? renderPanel() : renderEmptyState()}
+      </Suspense>
+    </div>
   );
 }

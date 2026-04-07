@@ -11,13 +11,31 @@ import {
   buildEnemySaveData,
   getEnemyReferenceValue,
   hasEnemyEditorChanges,
+  normalizeEnemyDataEntry,
   normalizeEnemyEditorValues,
 } from '../../services/EnemyPropertyService';
+import {
+  buildSkillSaveData,
+  hasSkillEditorChanges,
+  normalizeSkillDataEntry,
+  normalizeSkillEditorValues,
+  SKILL_PROJECTILE_TAG_INTERCEPTABLE,
+  SKILL_PROJECTILE_TAG_INTERCEPTOR,
+  SKILL_PROJECTILE_TAG_NONE,
+} from '../../services/SkillPropertyService';
 import {
   areBattleOrderEffectsEqual,
   buildBattleOrderEffectsSaveData,
   normalizeBattleOrderEffects,
 } from '../../services/BattleOrderEffectsService';
+import {
+  EXTRA_PARAM_FIELDS,
+  normalizeArmorElementRateFloats,
+  normalizeArmorElementRates,
+  normalizeEquipmentDataEntry,
+  UPGRADE_PARAM_FIELDS,
+  VEHICLE_PARAM_FIELDS,
+} from '../../services/EquipmentPropertyService';
 import type {
   BattleOrderEffects,
   EnemyWeaknessGroup,
@@ -30,6 +48,7 @@ import type {
   StateWeaknessEffects,
 } from '../../types';
 import { normalizeEffectIdList } from '../../services/GameEffectService';
+import { arePlainDataEqual } from '../../services/PlainDataCompare';
 
 interface CustomAttribute {
   name: string;
@@ -67,31 +86,6 @@ const BASE_ATTRIBUTES: Array<{
   { key: 'mdf', label: '魔法防御力', floatLabel: '魔防波动' },
   { key: 'agi', label: '速度', floatLabel: '速度波动' },
   { key: 'luk', label: '幸运', floatLabel: '幸运波动' },
-];
-
-const EXTRA_PARAM_FIELDS: FixedParamFieldDefinition[] = [
-  { key: 'interceptRate', label: '迎击率' },
-  { key: 'evadeRate', label: '回避率' },
-  { key: 'critRate', label: '暴击率' },
-  { key: 'critDamage', label: '暴伤' },
-  { key: 'hitRate', label: '命中率' },
-  { key: 'finalDamage', label: '最终伤害' },
-];
-
-const VEHICLE_PARAM_FIELDS: FixedParamFieldDefinition[] = [
-  { key: 'weight', label: '重量' },
-  { key: 'carryValue', label: '承重' },
-  { key: 'loadValue', label: '载重' },
-  { key: 'durability', label: '耐久度' },
-  { key: 'ammoCapacity', label: '弹舱' },
-  { key: 'shellPrice', label: '弹药价格' },
-  { key: 'repeat', label: '连发' },
-];
-
-const UPGRADE_PARAM_FIELDS: FixedParamFieldDefinition[] = [
-  { key: 'times', label: '强化次数' },
-  { key: 'atk', label: '强化攻击力' },
-  { key: 'def', label: '强化防御力' },
 ];
 
 const LEGACY_BUSINESS_CUSTOM_PARAM_KEYS = new Set(
@@ -183,7 +177,7 @@ const areParamGroupsEqual = (
   left: unknown,
   right: Record<string, ParamTemplate>,
   fields: FixedParamFieldDefinition[],
-) => JSON.stringify(normalizeGroupValues(left, fields)) === JSON.stringify(right);
+) => arePlainDataEqual(normalizeGroupValues(left, fields), right);
 
 const readRangeFieldValue = (raw: Record<string, unknown>, key: string, defaultValue: number): number => {
   const value = raw[key];
@@ -212,17 +206,23 @@ const ITEMS_FILE_NAME = 'Items.json';
 const WEAPONS_FILE_NAME = 'Weapons.json';
 const ARMORS_FILE_NAME = 'Armors.json';
 const SKILLS_FILE_NAME = 'Skills.json';
+const PROJECTILES_FILE_NAME = 'Projectiles.json';
 const SYSTEM_FILE_NAME = 'System.json';
 const EFFECTS_FILE_NAME = 'Effects.json';
 const ENEMIES_FILE_NAME = 'Enemies.json';
 const STATES_FILE_NAME = 'States.json';
 const CLASSES_FILE_NAME = 'Classes.json';
 const ANIMATIONS_FILE_NAME = 'Animations.json';
+const SKILL_PROJECTILE_ID_FIELD_KEY = 'skillProjectileId';
+const SKILL_PROJECTILE_TAG_FIELD_KEY = 'skillProjectileTag';
+const SKILL_REACTION_SUCCESS_RATE_FIELD_KEY = 'skillReactionSuccessRate';
+const SKILL_REACTION_PRIORITY_FIELD_KEY = 'skillReactionPriority';
 const ENEMY_CLASS_ID_FIELD_KEY = 'enemyClassId';
 const ENEMY_LEVEL_FIELD_KEY = 'enemyLevel';
 const ENEMY_LEVEL_SCOPE_FIELD_KEY = 'enemyLevelScope';
 const ENEMY_IS_BOSS_FIELD_KEY = 'enemyIsBoss';
 const ENEMY_ALLOW_BREAK_FIELD_KEY = 'enemyAllowBreak';
+const ENEMY_CAN_REACTION_FIELD_KEY = 'enemyCanReaction';
 const ENEMY_BASE_WEAKNESS_GROUP_FIELD_KEY = 'enemyBaseWeaknessGroup';
 const ENEMY_DYNAMIC_WEAKNESS_GROUPS_FIELD_KEY = 'enemyDynamicWeaknessGroups';
 const ENEMY_BOUNTY_FIELD_KEY = 'enemyBounty';
@@ -264,6 +264,12 @@ const AREA_SHAPE_TYPE_OPTIONS = [
 const AREA_OVERRIDE_OPTIONS = [
   { value: 0, label: '0 : 不覆盖' },
   { value: 1, label: '1 : 覆盖技能范围' },
+];
+
+const SKILL_PROJECTILE_TAG_OPTIONS = [
+  { value: SKILL_PROJECTILE_TAG_NONE, label: '-1 : 不参与迎击逻辑' },
+  { value: SKILL_PROJECTILE_TAG_INTERCEPTOR, label: '0 : 作为迎击技能' },
+  { value: SKILL_PROJECTILE_TAG_INTERCEPTABLE, label: '1 : 发射可被迎击的弹道' },
 ];
 
 const DEFAULT_SHAPE_PARAMS: ShapeParams = Object.freeze({
@@ -331,7 +337,7 @@ const normalizeShapeParams = (value: unknown): ShapeParams => {
 
 const areShapeParamsEqual = (left: unknown, right: ShapeParams): boolean => {
   const normalizedLeft = normalizeShapeParams(left);
-  return JSON.stringify(normalizedLeft) === JSON.stringify(right);
+  return arePlainDataEqual(normalizedLeft, right);
 };
 
 const normalizeCommonRangeValues = (raw: Record<string, unknown>) => {
@@ -472,30 +478,6 @@ const getElementRateFieldDefinitions = (systemData: unknown) => {
   return fields;
 };
 
-const normalizeArmorElementRates = (value: unknown, systemData: unknown): number[] => {
-  const fields = getElementRateFieldDefinitions(systemData);
-  const source = Array.isArray(value) ? value : [];
-  const size = Math.max(1, fields.length + 1);
-  const normalized = new Array<number>(size).fill(0);
-  normalized[0] = 0;
-  for (const field of fields) {
-    normalized[field.id] = toFloatOrZero(source[field.id]);
-  }
-  return normalized;
-};
-
-const normalizeArmorElementRateFloats = (value: unknown, systemData: unknown): number[] => {
-  const fields = getElementRateFieldDefinitions(systemData);
-  const source = Array.isArray(value) ? value : [];
-  const size = Math.max(1, fields.length + 1);
-  const normalized = new Array<number>(size).fill(0);
-  normalized[0] = 0;
-  for (const field of fields) {
-    normalized[field.id] = Math.max(0, toFloatOrZero(source[field.id]));
-  }
-  return normalized;
-};
-
 const normalizeEnemyElementRates = (value: unknown, systemData: unknown): number[] => {
   return normalizeArmorElementRates(value, systemData);
 };
@@ -546,12 +528,12 @@ const normalizeEnemyDynamicWeaknessGroupsField = (enemy: RPGEnemy): EnemyWeaknes
 };
 
 const areEnemyWeaknessGroupsEqual = (left: unknown, right: EnemyWeaknessGroup): boolean => {
-  return JSON.stringify(normalizeEnemyWeaknessGroup(left)) === JSON.stringify(normalizeEnemyWeaknessGroup(right));
+  return arePlainDataEqual(normalizeEnemyWeaknessGroup(left), normalizeEnemyWeaknessGroup(right));
 };
 
 const areEnemyWeaknessGroupListsEqual = (left: unknown, right: EnemyWeaknessGroup[]): boolean => {
   const normalizedLeft = Array.isArray(left) ? left.map(normalizeEnemyWeaknessGroup) : [];
-  return JSON.stringify(normalizedLeft) === JSON.stringify(right.map(normalizeEnemyWeaknessGroup));
+  return arePlainDataEqual(normalizedLeft, right.map(normalizeEnemyWeaknessGroup));
 };
 
 const getEnemyWeaknessDuplicateMessages = (groups: EnemyWeaknessGroup[], systemData: unknown): string[] => {
@@ -647,7 +629,7 @@ const buildStateWeaknessEffectsSaveData = (value: unknown): StateWeaknessEffects
 
 const areStateWeaknessEffectsEqual = (left: unknown, right: StateWeaknessEffects | undefined): boolean => {
   const normalizedLeft = buildStateWeaknessEffectsSaveData(left);
-  return JSON.stringify(normalizedLeft ?? null) === JSON.stringify(right ?? null);
+  return arePlainDataEqual(normalizedLeft ?? null, right ?? null);
 };
 
 const buildEffectReferenceOptions = (effectsData: unknown): Array<{ value: number; label: string }> => {
@@ -707,8 +689,10 @@ export function PropertyPanel() {
   const watchedAreaMode = Form.useWatch(AREA_MODE_FIELD_KEY, form) ?? 1;
   const watchedShapeType = Form.useWatch(SHAPE_TYPE_FIELD_KEY, form) ?? 0;
   const watchedAreaOverride = Form.useWatch(AREA_OVERRIDE_FIELD_KEY, form) ?? 0;
+  const watchedSkillProjectileTag = Form.useWatch(SKILL_PROJECTILE_TAG_FIELD_KEY, form) ?? SKILL_PROJECTILE_TAG_NONE;
   const watchedEnemyClassId = Form.useWatch(ENEMY_CLASS_ID_FIELD_KEY, form) ?? 0;
   const watchedEnemyAttackAnimationId = Form.useWatch(ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY, form) ?? 0;
+  const watchedEnemyCanReaction = Form.useWatch(ENEMY_CAN_REACTION_FIELD_KEY, form) === true;
   const watchedEnemyReactionSkillId = Form.useWatch(ENEMY_REACTION_SKILL_ID_FIELD_KEY, form) ?? 0;
   const watchedEnemyBaseWeaknessGroup = Form.useWatch(ENEMY_BASE_WEAKNESS_GROUP_FIELD_KEY, form);
   const watchedEnemyDynamicWeaknessGroups = Form.useWatch(ENEMY_DYNAMIC_WEAKNESS_GROUPS_FIELD_KEY, form);
@@ -718,6 +702,10 @@ export function PropertyPanel() {
   );
   const skillsData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown[]>(SKILLS_FILE_NAME),
+    [currentFilePath, currentItem, referenceRevision],
+  );
+  const projectilesData = useMemo(
+    () => DataLoaderService.getCachedDataByName<unknown[]>(PROJECTILES_FILE_NAME),
     [currentFilePath, currentItem, referenceRevision],
   );
   const equipExtensionsData = useMemo(
@@ -743,6 +731,10 @@ export function PropertyPanel() {
   const skillOptions = useMemo(
     () => buildDataOptions(skillsData, '未选择技能'),
     [skillsData],
+  );
+  const projectileOptions = useMemo(
+    () => buildDataOptions(projectilesData, '未选择弹道'),
+    [projectilesData],
   );
   const elementOptions = useMemo(
     () => getElementOptions(systemData),
@@ -806,6 +798,7 @@ export function PropertyPanel() {
         EQUIP_EXTENSIONS_FILE_NAME.toLowerCase(),
         SYSTEM_FILE_NAME.toLowerCase(),
         SKILLS_FILE_NAME.toLowerCase(),
+        PROJECTILES_FILE_NAME.toLowerCase(),
         EFFECTS_FILE_NAME.toLowerCase(),
         CLASSES_FILE_NAME.toLowerCase(),
         ANIMATIONS_FILE_NAME.toLowerCase(),
@@ -865,6 +858,13 @@ export function PropertyPanel() {
         Object.assign(baseFormValues, getCommonRangeValues(item));
         baseFormValues[ORDER_EFFECTS_FIELD_KEY] = normalizeBattleOrderEffects(item.orderEffects);
       }
+      if (isSkillFile) {
+        const skillValues = normalizeSkillEditorValues(item);
+        baseFormValues[SKILL_PROJECTILE_ID_FIELD_KEY] = skillValues.projectileId;
+        baseFormValues[SKILL_PROJECTILE_TAG_FIELD_KEY] = skillValues.skillProjectileTag;
+        baseFormValues[SKILL_REACTION_SUCCESS_RATE_FIELD_KEY] = skillValues.reactionSuccessRate;
+        baseFormValues[SKILL_REACTION_PRIORITY_FIELD_KEY] = skillValues.reactionPriority;
+      }
       if (isStateFile) {
         baseFormValues[STATE_WEAKNESS_EFFECTS_FIELD_KEY] = normalizeStateWeaknessEffects(item.weaknessStateEffects);
       }
@@ -877,6 +877,7 @@ export function PropertyPanel() {
         baseFormValues[ENEMY_LEVEL_SCOPE_FIELD_KEY] = enemyValues.levelScope;
         baseFormValues[ENEMY_IS_BOSS_FIELD_KEY] = enemyValues.isBoss;
         baseFormValues[ENEMY_ALLOW_BREAK_FIELD_KEY] = enemyValues.allowBreak;
+        baseFormValues[ENEMY_CAN_REACTION_FIELD_KEY] = enemyValues.canReaction;
         baseFormValues[ENEMY_BOUNTY_FIELD_KEY] = enemyValues.bounty;
         baseFormValues[ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY] = enemyValues.attackAnimationId;
         baseFormValues[ENEMY_REACTION_SKILL_ID_FIELD_KEY] = enemyValues.reactionSkillId;
@@ -1020,40 +1021,42 @@ export function PropertyPanel() {
   };
 
   useEffect(() => {
-    if (!isArmorItem || !currentData || currentItemIndex < 0) {
+    if (!currentData || currentItemIndex < 0) {
       return;
     }
-    const sourceItem = currentData[currentItemIndex] as RPGItem | null;
+    const sourceItem = currentData[currentItemIndex] as RPGItem | RPGEnemy | null;
     if (!sourceItem) {
       return;
     }
-    const patch: Partial<RPGItem> = {};
-    if (!Array.isArray(sourceItem.elementRates)) {
-      patch.elementRates = [];
-    }
-    if (isArmorItem && !Array.isArray(sourceItem.elementRateFloats)) {
-      patch.elementRateFloats = [];
-    }
-    if (Object.keys(patch).length === 0) return;
-    updateCurrentItem({
-      ...sourceItem,
-      ...patch,
-    });
-  }, [currentData, currentItemIndex, isArmorItem, currentItem, currentFilePath]);
+
+    const normalized = isSkillFile
+      ? normalizeSkillDataEntry(sourceItem)
+      : isEnemyFile
+        ? normalizeEnemyDataEntry(sourceItem as RPGEnemy)
+        : null;
+
+    if (!normalized) return;
+    if (arePlainDataEqual(normalized, sourceItem)) return;
+    updateCurrentItem(normalized);
+  }, [currentData, currentItemIndex, isEnemyFile, isSkillFile, currentItem, currentFilePath]);
 
   useEffect(() => {
     if ((!isWeaponItem && !isArmorItem) || !currentData || currentItemIndex < 0) {
       return;
     }
     const sourceItem = currentData[currentItemIndex] as RPGItem | null;
-    if (!sourceItem || typeof sourceItem.qualityLock === 'boolean') {
+    if (!sourceItem) {
       return;
     }
-    updateCurrentItem({
-      ...sourceItem,
-      qualityLock: false,
+    const normalized = normalizeEquipmentDataEntry(sourceItem, {
+      isWeapon: isWeaponItem,
+      isArmor: isArmorItem,
+      systemData,
     });
-  }, [currentData, currentItemIndex, isArmorItem, isWeaponItem, currentItem, currentFilePath]);
+    if (!normalized) return;
+    if (arePlainDataEqual(normalized, sourceItem)) return;
+    updateCurrentItem(normalized);
+  }, [currentData, currentItemIndex, isArmorItem, isWeaponItem, currentItem, currentFilePath, systemData]);
 
   const handleSaveEffects = (silent = false) => {
     if (!currentData || currentItemIndex < 0) return;
@@ -1141,6 +1144,14 @@ export function PropertyPanel() {
     const nextQualityLock = (isWeaponItem || isArmorItem)
       ? values[QUALITY_LOCK_FIELD_KEY] === true
       : false;
+    const nextSkillValues = isSkillFile
+      ? {
+          projectileId: values[SKILL_PROJECTILE_ID_FIELD_KEY],
+          skillProjectileTag: values[SKILL_PROJECTILE_TAG_FIELD_KEY],
+          reactionSuccessRate: values[SKILL_REACTION_SUCCESS_RATE_FIELD_KEY],
+          reactionPriority: values[SKILL_REACTION_PRIORITY_FIELD_KEY],
+        }
+      : null;
     const nextEnemyValues = isEnemyFile
       ? {
           classId: values[ENEMY_CLASS_ID_FIELD_KEY],
@@ -1148,6 +1159,7 @@ export function PropertyPanel() {
           levelScope: values[ENEMY_LEVEL_SCOPE_FIELD_KEY],
           isBoss: values[ENEMY_IS_BOSS_FIELD_KEY],
           allowBreak: values[ENEMY_ALLOW_BREAK_FIELD_KEY],
+          canReaction: values[ENEMY_CAN_REACTION_FIELD_KEY],
           bounty: values[ENEMY_BOUNTY_FIELD_KEY],
           attackAnimationId: values[ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY],
           reactionSkillId: values[ENEMY_REACTION_SKILL_ID_FIELD_KEY],
@@ -1212,6 +1224,7 @@ export function PropertyPanel() {
       || (isEnemyFile && nextEnemyBaseWeaknessGroup !== null && !areEnemyWeaknessGroupsEqual((sourceItem as RPGEnemy).baseWeaknessGroup, nextEnemyBaseWeaknessGroup))
       || (isEnemyFile && nextEnemyDynamicWeaknessGroups !== null && !areEnemyWeaknessGroupListsEqual((sourceItem as RPGEnemy).dynamicWeaknessGroups, nextEnemyDynamicWeaknessGroups))
       || (isStateFile && !areStateWeaknessEffectsEqual(sourceItem.weaknessStateEffects, nextStateWeaknessEffects ?? undefined))
+      || (isSkillFile && nextSkillValues !== null && hasSkillEditorChanges(sourceItem, nextSkillValues))
       || ((isWeaponItem || isArmorItem) && (sourceItem.qualityLock === true) !== nextQualityLock)
       || (isEnemyFile && nextEnemyValues !== null && hasEnemyEditorChanges(sourceItem as RPGEnemy, nextEnemyValues));
     const nextEquipTypeId = isWeaponItem ? toIntOrZero(values[EQUIP_TYPE_FIELD_KEY]) : 0;
@@ -1227,7 +1240,7 @@ export function PropertyPanel() {
           }
         : null;
 
-      const nextItem = {
+      let nextItem: RPGItem | RPGEnemy = {
         ...sourceItem,
         ...(supportsPrice ? { price: nextPrice } : {}),
         ...(isWeaponItem ? {
@@ -1239,7 +1252,7 @@ export function PropertyPanel() {
         ...(supportsTemplateParams && nextUpgradeParams ? { upgradeParams: nextUpgradeParams } : {}),
         ...(isArmorItem && nextArmorElementRates ? { elementRates: nextArmorElementRates } : {}),
         ...(isArmorItem && nextElementRateFloats ? { elementRateFloats: nextElementRateFloats } : {}),
-        ...(isStateFile ? { weaknessStateEffects: nextStateWeaknessEffects } : {}),
+        ...(isStateFile ? { weaknessStateEffects: nextStateWeaknessEffects ?? undefined } : {}),
         ...(isEnemyFile && nextEnemyBaseWeaknessGroup ? {
           baseWeaknessGroup: nextEnemyBaseWeaknessGroup,
           dynamicWeaknessGroups: nextEnemyDynamicWeaknessGroups ?? [],
@@ -1252,10 +1265,16 @@ export function PropertyPanel() {
         floatParams: newFloatParams,
       };
 
+      if (isSkillFile && nextSkillValues !== null) {
+        nextItem = buildSkillSaveData(nextItem as RPGItem, nextSkillValues);
+      }
+
+      if (isEnemyFile && nextEnemyValues !== null) {
+        nextItem = buildEnemySaveData(nextItem as RPGEnemy, nextEnemyValues);
+      }
+
       updateCurrentItem(
-        isEnemyFile && nextEnemyValues !== null
-          ? buildEnemySaveData(nextItem as RPGEnemy, nextEnemyValues)
-          : nextItem,
+        nextItem,
       );
     }
 
@@ -1874,6 +1893,79 @@ export function PropertyPanel() {
           </div>
         </Card>
 
+        {isSkillFile ? (
+          <Card
+            title="技能弹道 / 迎击配置"
+            className="mb-4"
+            headStyle={{
+              backgroundColor: '#252b3d',
+              borderBottom: '1px solid var(--color-border)',
+              color: 'var(--color-accent)',
+            }}
+            bodyStyle={{ backgroundColor: '#1a1f2e' }}
+          >
+            <div className="text-xs text-gray-500 mb-4">
+              这里维护技能的结构化弹道与迎击字段，不再依赖 `meta.projectileId / skillProjectileTag / reactionSuccessRate / reactionPriority`。
+              只要 `弹道模板 id {'>'} 0`，运行时就会把该技能视为弹道技能。
+              `迎击类型` 含义与 `Zaun_ProjectileReaction.js` 保持一致：`0` 表示该技能可作为迎击技能，`1` 表示该技能发出的弹道可被迎击。
+            </div>
+            <div className="grid grid-cols-4 gap-x-4 gap-y-4">
+              <Form.Item
+                name={SKILL_PROJECTILE_ID_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">挂接弹道</span>}
+                className="mb-0"
+              >
+                <Select
+                  options={projectileOptions}
+                  className="w-full"
+                  placeholder="选择弹道模板"
+                  showSearch
+                  optionFilterProp="label"
+                />
+              </Form.Item>
+              <Form.Item
+                name={SKILL_PROJECTILE_TAG_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">迎击类型</span>}
+                className="mb-0"
+              >
+                <Select
+                  options={SKILL_PROJECTILE_TAG_OPTIONS}
+                  className="w-full"
+                  placeholder="选择迎击类型"
+                />
+              </Form.Item>
+              <Form.Item
+                name={SKILL_REACTION_SUCCESS_RATE_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">迎击成功率</span>}
+                className="mb-0"
+              >
+                <InputNumber
+                  min={0}
+                  max={100}
+                  step={1}
+                  className="w-full"
+                  style={{ width: '100%' }}
+                  disabled={watchedSkillProjectileTag !== SKILL_PROJECTILE_TAG_INTERCEPTOR}
+                />
+              </Form.Item>
+              <Form.Item
+                name={SKILL_REACTION_PRIORITY_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">迎击优先级</span>}
+                className="mb-0"
+              >
+                <InputNumber
+                  min={0}
+                  max={100}
+                  step={1}
+                  className="w-full"
+                  style={{ width: '100%' }}
+                  disabled={watchedSkillProjectileTag !== SKILL_PROJECTILE_TAG_INTERCEPTOR}
+                />
+              </Form.Item>
+            </div>
+          </Card>
+        ) : null}
+
         {isEnemyFile ? (
           <Card
             title="敌人扩展"
@@ -1886,7 +1978,8 @@ export function PropertyPanel() {
             bodyStyle={{ backgroundColor: '#1a1f2e' }}
           >
             <div className="text-xs text-gray-500 mb-4">
-              这里直接维护敌人顶层扩展字段，保存时会写回敌人数据本体，并保持 `note/meta` 为空。
+              这里直接维护敌人顶层扩展字段。迎击能力使用结构化 `canReaction + reactionSkillId`，
+              不再依赖备注或 meta 语义；保存时会保留敌人已有的 `note/meta` 内容。
             </div>
             <div className="grid grid-cols-4 gap-x-4 gap-y-4">
               <Form.Item
@@ -1937,6 +2030,14 @@ export function PropertyPanel() {
                 />
               </Form.Item>
               <Form.Item
+                name={ENEMY_CAN_REACTION_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">允许迎击</span>}
+                className="mb-0"
+                valuePropName="checked"
+              >
+                <Switch checkedChildren="启用" unCheckedChildren="关闭" />
+              </Form.Item>
+              <Form.Item
                 name={ENEMY_REACTION_SKILL_ID_FIELD_KEY}
                 label={<span className="text-xs text-gray-400">迎击技能</span>}
                 className="mb-0"
@@ -1945,6 +2046,7 @@ export function PropertyPanel() {
                   options={enemyReactionSkillOptions}
                   className="w-full"
                   placeholder="选择迎击技能"
+                  disabled={!watchedEnemyCanReaction}
                   showSearch
                   optionFilterProp="label"
                 />

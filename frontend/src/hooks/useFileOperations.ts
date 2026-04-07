@@ -5,8 +5,16 @@ import { ToastManager } from '../components/common/ToastManager';
 import { EventSystem } from '../core/EventSystem';
 import { useEditorStore } from '../stores/editorStore';
 import type { FileType, RPGMapInfo } from '../types';
-import { extractFileName, isReloadableDataFile, normalizeDataPathKey, resolveDataChangeImpact, type DataFileChangePayload } from '../services/BaseDataReloadService';
+import {
+  buildDataReloadConfirmMessage,
+  extractFileName,
+  isReloadableDataFile,
+  normalizeDataPathKey,
+  resolveDataChangeImpact,
+  type DataFileChangePayload,
+} from '../services/BaseDataReloadService';
 import { normalizeStandardDataForEditor, prepareDataForWrite, SYSTEM_FILE_NAME } from '../services/DataFileFormatService';
+import { auditAndRepairDataFiles, isAuditTargetFile, toAuditSummaryText } from '../services/DataAuditService';
 import { applyWorkspaceSettings } from '../services/MonacoLoader';
 import { DataLoaderService } from '../services/DataLoaderService';
 import { normalizeItemScriptPaths, resolveScriptFilePath } from '../services/ScriptPathCompat';
@@ -552,9 +560,11 @@ export function useFileOperations() {
         const hasUnsavedChanges = isCurrentFile && state.isFileDirty(state.currentFilePath);
         const confirmed = await InputDialog.confirm({
           title: '检测到外部数据变化',
-          content: hasUnsavedChanges
-            ? `当前正在使用的 ${fileName} 已发生变化，重新加载会覆盖未保存修改。是否继续？`
-            : `当前面板正在使用的 ${fileName} 已发生变化，是否立即重新加载？`,
+          content: buildDataReloadConfirmMessage({
+            uiMode: state.uiMode,
+            currentFilePath: state.currentFilePath,
+            currentMapId: state.currentMapId,
+          }, impact, fileName, hasUnsavedChanges),
           confirmText: '重新加载',
           cancelText: '稍后处理',
           type: 'warning',
@@ -580,6 +590,65 @@ export function useFileOperations() {
         await reloadChangedFile({ ...payload, fileName }, true);
       } finally {
         activeChangeConfirmations.delete(changeKey);
+      }
+    };
+
+    const handleAuditRepairRequest = async () => {
+      const state = useEditorStore.getState();
+      const dataPath = state.config.dataPath;
+      if (!dataPath) {
+        ToastManager.error('请先打开项目');
+        return;
+      }
+
+      const canProceed = await ensureUnsavedChangesHandled('执行数据体检/修复');
+      if (!canProceed) {
+        return;
+      }
+
+      const confirmed = await InputDialog.confirm({
+        title: '执行数据体检/修复',
+        content: '本操作会直接检查并改写 Skills.json、Enemies.json、Weapons.json、Armors.json。建议先确认当前工程文件已提交或已备份。是否继续？',
+        confirmText: '开始修复',
+        cancelText: '取消',
+        type: 'warning',
+      });
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        const summary = await auditAndRepairDataFiles(dataPath, {
+          readJson: async (filePath) => ReadJSON(filePath),
+          writeJson: async (filePath, data) => WriteJSON(filePath, prepareDataForWrite(filePath, data)),
+        });
+
+        for (const result of summary.results) {
+          if (!result.changed || !isAuditTargetFile(result.fileName)) {
+            continue;
+          }
+          await DataLoaderService.reloadFile(result.filePath, { emitEvent: true });
+          useEditorStore.getState().markFileClean(result.filePath);
+        }
+
+        const latestState = useEditorStore.getState();
+        if (summary.results.some((item) => item.changed && normalizePathKey(item.filePath) === normalizePathKey(latestState.currentFilePath))) {
+          await reloadCurrentSelection();
+          if (latestState.currentFilePath) {
+            useEditorStore.getState().markFileClean(latestState.currentFilePath);
+          }
+        }
+
+        if (summary.repairedFiles === 0) {
+          ToastManager.info(toAuditSummaryText(summary));
+          return;
+        }
+
+        ToastManager.success(toAuditSummaryText(summary));
+      } catch (error) {
+        console.error('Failed to audit and repair data files:', error);
+        ToastManager.error(`数据体检/修复失败: ${error instanceof Error ? error.message : String(error)}`);
       }
     };
 
@@ -777,6 +846,11 @@ export function useFileOperations() {
       void saveAllFiles();
     });
 
+    const handleAuditRepairEvent = () => {
+      void handleAuditRepairRequest();
+    };
+    EventSystem.on('data:audit-repair-request', handleAuditRepairEvent);
+
     const disposeDataFileChanged = EventsOn('data:file-changed', (payload: DataFileChangePayload) => {
       void handleExternalDataChange(payload);
     });
@@ -825,6 +899,8 @@ export function useFileOperations() {
           console.warn('Failed to dispose menu listener', error);
         }
       }
+
+      EventSystem.off('data:audit-repair-request', handleAuditRepairEvent);
     };
   };
 
