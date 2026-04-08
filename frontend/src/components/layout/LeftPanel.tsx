@@ -7,10 +7,17 @@ import { DataLoaderService } from '../../services/DataLoaderService';
 import { VirtualList } from '../common/VirtualList';
 
 const EQUIP_EXTENSIONS_FILE_NAME = 'EquipExtensions.json';
+const ACTORS_FILE_NAME = 'Actors.json';
+const ENEMIES_FILE_NAME = 'Enemies.json';
 
 const joinPath = (basePath: string, fileName: string) => {
   if (!basePath) return fileName;
   return `${basePath.replace(/[\\/]+$/, '')}/${fileName}`;
+};
+
+const normalizePathKey = (value: string) => {
+  const normalized = (value || '').replace(/\\/g, '/');
+  return /^[A-Za-z]:\//.test(normalized) ? normalized.toLowerCase() : normalized;
 };
 
 export function LeftPanel() {
@@ -20,7 +27,7 @@ export function LeftPanel() {
   const currentItemIndex = useEditorStore((state) => state.currentItemIndex);
   const selectItem = useEditorStore((state) => state.selectItem);
   const uiMode = useEditorStore((state) => state.uiMode);
-  const isFileDirty = useEditorStore((state) => state.isFileDirty);
+  const dirtyFiles = useEditorStore((state) => state.dirtyFiles);
   const currentFilePath = useEditorStore((state) => state.currentFilePath);
   const config = useEditorStore((state) => state.config);
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,14 +38,32 @@ export function LeftPanel() {
   const mapItems = currentMapInfos || [];
   
   // 检查当前文件是否有未保存的更改
-  const activeDirtyFilePath = useMemo(() => {
+  const activeDirtyFilePaths = useMemo(() => {
     if (uiMode === 'equip') {
-      return DataLoaderService.getFilePathByName(EQUIP_EXTENSIONS_FILE_NAME) || joinPath(config.dataPath, EQUIP_EXTENSIONS_FILE_NAME);
+      return [
+        DataLoaderService.getFilePathByName(EQUIP_EXTENSIONS_FILE_NAME) || joinPath(config.dataPath, EQUIP_EXTENSIONS_FILE_NAME),
+      ];
     }
-    return currentFilePath;
+    if (uiMode === 'projectile') {
+      return [
+        currentFilePath,
+        DataLoaderService.getFilePathByName(ACTORS_FILE_NAME) || joinPath(config.dataPath, ACTORS_FILE_NAME),
+        DataLoaderService.getFilePathByName(ENEMIES_FILE_NAME) || joinPath(config.dataPath, ENEMIES_FILE_NAME),
+      ];
+    }
+    return [currentFilePath];
   }, [config.dataPath, currentFilePath, uiMode]);
 
-  const isCurrentFileDirty = activeDirtyFilePath ? isFileDirty(activeDirtyFilePath) : false;
+  const isCurrentFileDirty = useMemo(() => {
+    for (let i = 0; i < activeDirtyFilePaths.length; i++) {
+      const path = activeDirtyFilePaths[i];
+      if (!path) continue;
+      if (dirtyFiles[normalizePathKey(path)]) {
+        return true;
+      }
+    }
+    return false;
+  }, [activeDirtyFilePaths, dirtyFiles]);
 
   // 过滤项目
   const filteredItems = useMemo(() => {

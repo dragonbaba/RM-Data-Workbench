@@ -608,7 +608,7 @@ export function useFileOperations() {
 
       const confirmed = await InputDialog.confirm({
         title: '执行数据体检/修复',
-        content: '本操作会直接检查并改写 Skills.json、Enemies.json、Weapons.json、Armors.json。建议先确认当前工程文件已提交或已备份。是否继续？',
+        content: '本操作会直接检查并改写 Skills.json、Enemies.json、Weapons.json、Armors.json、Projectiles.json。建议先确认当前工程文件已提交或已备份。是否继续？',
         confirmText: '开始修复',
         cancelText: '取消',
         type: 'warning',

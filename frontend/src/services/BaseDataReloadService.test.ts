@@ -218,6 +218,24 @@ describe('BaseDataReloadService', () => {
     });
   });
 
+  it('技能属性面板依赖 Projectiles.json 时需要确认刷新', () => {
+    const impact = resolveDataChangeImpact({
+      uiMode: 'property',
+      currentFilePath: 'D:/Project/data/Skills.json',
+      currentMapId: null,
+    }, {
+      filePath: 'D:/Project/data/Projectiles.json',
+      fileName: 'Projectiles.json',
+      changeType: 'write',
+    });
+
+    expect(impact).toEqual({
+      shouldReload: true,
+      shouldConfirm: true,
+      target: 'dependency',
+    });
+  });
+
   it('弹道模式依赖文件变化时使用专用重载提示文案', () => {
     const snapshot = {
       uiMode: 'projectile' as const,
@@ -232,6 +250,23 @@ describe('BaseDataReloadService', () => {
 
     expect(buildDataReloadConfirmMessage(snapshot, impact, 'Animations.json', false)).toBe(
       '当前弹道面板依赖的 Animations.json 已发生变化，重新加载后会同步刷新动画与引用选项。是否立即重新加载？',
+    );
+  });
+
+  it('技能属性面板依赖弹道文件变化时使用专用提示文案', () => {
+    const snapshot = {
+      uiMode: 'property' as const,
+      currentFilePath: 'D:/Project/data/Skills.json',
+      currentMapId: null,
+    };
+    const impact = resolveDataChangeImpact(snapshot, {
+      filePath: 'D:/Project/data/Projectiles.json',
+      fileName: 'Projectiles.json',
+      changeType: 'write',
+    });
+
+    expect(buildDataReloadConfirmMessage(snapshot, impact, 'Projectiles.json', false)).toBe(
+      '当前技能面板依赖的 Projectiles.json 已发生变化，重新加载后会同步刷新“挂接弹道”选项。是否立即重新加载？',
     );
   });
 

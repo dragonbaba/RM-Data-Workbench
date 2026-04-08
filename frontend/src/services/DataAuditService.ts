@@ -1,6 +1,7 @@
 import { normalizeEnemyDataEntry } from './EnemyPropertyService';
 import { normalizeEquipmentDataEntry } from './EquipmentPropertyService';
 import { arePlainDataEqual } from './PlainDataCompare';
+import { normalizeProjectileDataEntry } from './ProjectileTemplateService';
 import { normalizeSkillDataEntry } from './SkillPropertyService';
 import { normalizeStandardDataForEditor } from './DataFileFormatService';
 
@@ -9,6 +10,7 @@ export const AUDIT_TARGET_FILE_NAMES = [
   'Enemies.json',
   'Weapons.json',
   'Armors.json',
+  'Projectiles.json',
 ] as const;
 
 export const SYSTEM_FILE_NAME = 'System.json';
@@ -69,6 +71,10 @@ const normalizeEntryByFileName = (
 
   if (fileName === 'Armors.json') {
     return normalizeEquipmentDataEntry(entry, { isArmor: true, systemData }) ?? entry;
+  }
+
+  if (fileName === 'Projectiles.json') {
+    return normalizeProjectileDataEntry(entry) ?? entry;
   }
 
   return entry;

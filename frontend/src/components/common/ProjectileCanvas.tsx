@@ -23,6 +23,22 @@ interface ProjectileCanvasProps {
   onPlaybackComplete?: () => void;
 }
 
+interface TrajectoryPoint {
+  x: number;
+  y: number;
+}
+
+interface CompiledPlaybackSegment {
+  durationMs: number;
+  startX: number;
+  startY: number;
+  deltaX: number;
+  deltaY: number;
+  rotation: number;
+  easingX: (t: number) => number;
+  easingY: (t: number) => number;
+}
+
 const easeOutBounce = (t: number): number => {
   if (t < 1 / 2.75) return 7.5625 * t * t;
   if (t < 2 / 2.75) return 7.5625 * (t - 1.5 / 2.75) * (t - 1.5 / 2.75) + 0.75;
@@ -94,6 +110,12 @@ const PREVIEW_BATTLER_SHIFT_X = 28;
 const PREVIEW_BATTLER_SHIFT_Y = 34;
 const DEFAULT_BATTLER_METRICS = { width: 96, height: 96 };
 const MAX_TEXTURE_CACHE_SIZE = 48;
+const TRAJECTORY_LABEL_STYLE = {
+  fontFamily: 'Arial',
+  fontSize: 12,
+  fill: 0xffffff,
+  fontWeight: 'bold' as const,
+};
 
 const clampValue = (value: number, min: number, max: number): number => {
   if (max <= min) return min;
@@ -232,6 +254,7 @@ export const ProjectileCanvas = memo(({
   const targetPlaceholderTextureRef = useRef<PIXI.Texture | null>(null);
   const sourceLoadTokenRef = useRef(0);
   const targetLoadTokenRef = useRef(0);
+  const trajectoryLabelPoolRef = useRef<PIXI.Text[]>([]);
   
   const currentItem = useEditorStore((state) => state.currentItem);
   const config = useEditorStore((state) => state.config);
@@ -335,6 +358,60 @@ export const ProjectileCanvas = memo(({
       targetY: fallback.targetY,
     };
   }, [calculatePositions]);
+
+  const hideTrajectoryLabels = useCallback(() => {
+    const labels = trajectoryLabelPoolRef.current;
+    for (let i = 0; i < labels.length; i++) {
+      labels[i].visible = false;
+    }
+  }, []);
+
+  const resolveTrajectoryPoints = useCallback((
+    segments: ProjectileTemplate['launchAnimation']['segments'],
+  ): TrajectoryPoint[] | null => {
+    const anchor = resolveAnchorPositions();
+    if (!anchor) return null;
+    const { sourceX, sourceY, targetX, targetY } = anchor;
+    const emitterOffset = getEmitterOffset();
+    return buildTrajectoryPoints(
+      segments,
+      sourceX + emitterOffset.x,
+      sourceY + emitterOffset.y,
+      targetX,
+      targetY,
+    );
+  }, [getEmitterOffset, resolveAnchorPositions]);
+
+  const compilePlaybackSegments = useCallback((
+    segments: ProjectileTemplate['launchAnimation']['segments'],
+    points: TrajectoryPoint[],
+    speed: number,
+  ): CompiledPlaybackSegment[] => {
+    const speedScale = Math.max(speed, 0.01);
+    const plans = new Array<CompiledPlaybackSegment>(segments.length);
+    for (let i = 0; i < segments.length; i++) {
+      const segment = segments[i];
+      const startPoint = points[i];
+      const endPoint = points[i + 1];
+      const easeX = segment.easeX || segment.easing || 'linear';
+      const easeY = segment.easeY || segment.easing || 'linear';
+      const deltaX = endPoint.x - startPoint.x;
+      const deltaY = endPoint.y - startPoint.y;
+      const durationMs = Math.max(segmentDurationToMs(segment.duration) / speedScale, 0.001);
+
+      plans[i] = {
+        durationMs,
+        startX: startPoint.x,
+        startY: startPoint.y,
+        deltaX,
+        deltaY,
+        rotation: Math.atan2(deltaY, deltaX),
+        easingX: easingFunctions[easeX] || easingFunctions.linear,
+        easingY: easingFunctions[easeY] || easingFunctions.linear,
+      };
+    }
+    return plans;
+  }, []);
 
   const loadBattlerTexture = useCallback(async (type: 'actor' | 'enemy', id: number) => {
     if (id <= 0) return { key: '', texture: null as PIXI.Texture | null };
@@ -483,17 +560,13 @@ export const ProjectileCanvas = memo(({
 
     const graphics = trajectoryRef.current;
     graphics.clear();
-    graphics.removeChildren();
+    hideTrajectoryLabels();
     
     const segments = template.launchAnimation?.segments;
     if (!segments || segments.length === 0) return;
 
-    const anchor = resolveAnchorPositions();
-    if (!anchor) return;
-    const { sourceX, sourceY, targetX, targetY } = anchor;
-    const emitterOffset = getEmitterOffset();
-
-    const points = buildTrajectoryPoints(segments, sourceX + emitterOffset.x, sourceY + emitterOffset.y, targetX, targetY);
+    const points = resolveTrajectoryPoints(segments);
+    if (!points || points.length === 0) return;
 
     // 绘制轨迹线
     graphics.lineStyle(3, 0x00d4ff, 0.8);
@@ -503,22 +576,29 @@ export const ProjectileCanvas = memo(({
     }
 
     // 绘制节点
+    const labels = trajectoryLabelPoolRef.current;
     points.forEach((point, index) => {
       graphics.beginFill(0x00d4ff);
       graphics.drawCircle(point.x, point.y, 6);
       graphics.endFill();
-      
-      const text = new PIXI.Text(String(index + 1), {
-        fontFamily: 'Arial',
-        fontSize: 12,
-        fill: 0xffffff,
-        fontWeight: 'bold',
-      });
-      text.anchor.set(0.5);
-      text.position.set(point.x + 12, point.y - 12);
-      graphics.addChild(text);
+
+      let label = labels[index];
+      if (!label) {
+        label = new PIXI.Text(String(index + 1), TRAJECTORY_LABEL_STYLE);
+        label.anchor.set(0.5);
+        labels[index] = label;
+      }
+      const textValue = String(index + 1);
+      if (label.text !== textValue) {
+        label.text = textValue;
+      }
+      label.position.set(point.x + 12, point.y - 12);
+      label.visible = true;
+      if (label.parent !== graphics) {
+        graphics.addChild(label);
+      }
     });
-  }, [template, getEmitterOffset, resolveAnchorPositions]);
+  }, [template, hideTrajectoryLabels, resolveTrajectoryPoints]);
 
   useEffect(() => {
     updateSpritesRef.current = updateSprites;
@@ -651,6 +731,15 @@ export const ProjectileCanvas = memo(({
           trajectoryRef.current.destroy();
         }
       } catch (e) {}
+      const labels = trajectoryLabelPoolRef.current;
+      for (let i = 0; i < labels.length; i++) {
+        try {
+          if (!labels[i].destroyed) {
+            labels[i].destroy();
+          }
+        } catch (e) {}
+      }
+      labels.length = 0;
 
       for (const texture of textureCacheRef.current.values()) {
         try {
@@ -694,7 +783,6 @@ export const ProjectileCanvas = memo(({
     if (!isPlaying || !projectileRef.current || !template || !appRef.current) return;
 
     const projectile = projectileRef.current;
-    const app = appRef.current;
     const segments = template.launchAnimation?.segments;
     
     if (!segments || segments.length === 0) {
@@ -702,18 +790,16 @@ export const ProjectileCanvas = memo(({
       return;
     }
 
-    const anchor = resolveAnchorPositions();
-    if (!anchor) {
+    const points = resolveTrajectoryPoints(segments);
+    if (!points || points.length === 0) {
       onPlaybackComplete?.();
       return;
     }
-    const { sourceX, sourceY, targetX, targetY } = anchor;
-    const emitterOffset = getEmitterOffset();
-
-    const points = buildTrajectoryPoints(segments, sourceX + emitterOffset.x, sourceY + emitterOffset.y, targetX, targetY);
+    const playbackSegments = compilePlaybackSegments(segments, points, playbackSpeed);
+    const startPoint = points[0];
 
     projectile.visible = true;
-    projectile.position.set(sourceX + emitterOffset.x, sourceY + emitterOffset.y);
+    projectile.position.set(startPoint.x, startPoint.y);
 
     let startTime: number | null = null;
     let pointIndex = 0;
@@ -731,27 +817,23 @@ export const ProjectileCanvas = memo(({
         return;
       }
 
-      const segment = segments[pointIndex];
-      const duration = segmentDurationToMs(segment.duration) / Math.max(playbackSpeed, 0.01);
+      const segment = playbackSegments[pointIndex];
+      if (!segment) {
+        projectile.visible = false;
+        onPlaybackComplete?.();
+        return;
+      }
       const elapsed = timestamp - segmentStartTime;
-      const progress = Math.min(elapsed / duration, 1);
-
-      const startPoint = points[pointIndex];
-      const endPoint = points[pointIndex + 1];
-
-      const easeX = segment.easeX || segment.easing || 'linear';
-      const easeY = segment.easeY || segment.easing || 'linear';
-      const easingX = easingFunctions[easeX] || easingFunctions.linear;
-      const easingY = easingFunctions[easeY] || easingFunctions.linear;
+      const progress = Math.min(elapsed / segment.durationMs, 1);
       
-      const easedProgressX = easingX(progress);
-      const easedProgressY = easingY(progress);
+      const easedProgressX = segment.easingX(progress);
+      const easedProgressY = segment.easingY(progress);
 
-      projectile.x = startPoint.x + (endPoint.x - startPoint.x) * easedProgressX;
-      projectile.y = startPoint.y + (endPoint.y - startPoint.y) * easedProgressY;
+      projectile.x = segment.startX + segment.deltaX * easedProgressX;
+      projectile.y = segment.startY + segment.deltaY * easedProgressY;
       
       // 朝向
-      projectile.rotation = Math.atan2(endPoint.y - startPoint.y, endPoint.x - startPoint.x);
+      projectile.rotation = segment.rotation;
 
       if (progress >= 1) {
         pointIndex++;
@@ -767,7 +849,7 @@ export const ProjectileCanvas = memo(({
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       projectile.visible = false;
     };
-  }, [isPlaying, template, playbackSpeed, onPlaybackComplete, getEmitterOffset, resolveAnchorPositions]);
+  }, [isPlaying, template, playbackSpeed, onPlaybackComplete, resolveTrajectoryPoints, compilePlaybackSegments]);
 
   return (
     <div ref={canvasRef} className="w-full h-full rounded overflow-hidden bg-[#0a0e17]" />

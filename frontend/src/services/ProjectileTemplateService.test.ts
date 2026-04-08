@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { cloneProjectileTemplate, createDefaultProjectileTemplate } from './ProjectileTemplateService';
+import {
+  cloneProjectileTemplate,
+  createDefaultProjectileTemplate,
+  normalizeProjectileDataEntry,
+} from './ProjectileTemplateService';
 
 describe('ProjectileTemplateService', () => {
   it('creates the expected default projectile template', () => {
@@ -36,5 +40,38 @@ describe('ProjectileTemplateService', () => {
     expect(cloned.name).toBe('复制弹道');
     expect(source.launchAnimation.segments[0].targetX).toBe(64);
     expect(cloned.launchAnimation.segments[0].targetX).toBe(128);
+  });
+
+  it('normalizes legacy projectile fields to canonical structure', () => {
+    const normalized = normalizeProjectileDataEntry({
+      id: 2,
+      name: '旧模板',
+      sourceType: '角色',
+      targetType: '敌人',
+      launchAnimation: {
+        animationId: 5,
+        segments: [
+          { targetX: 20, targetY: -30, duration: 0, easing: 'easeInQuad' },
+        ],
+      },
+    });
+
+    expect(normalized).toMatchObject({
+      sourceType: 'actor',
+      targetType: 'enemy',
+      launchAnimation: {
+        animationId: 5,
+        segments: [
+          {
+            targetX: 20,
+            targetY: -30,
+            duration: 1,
+            easeX: 'easeInQuad',
+            easeY: 'easeInQuad',
+          },
+        ],
+      },
+    });
+    expect(normalized?.launchAnimation.segments[0]).not.toHaveProperty('easing');
   });
 });

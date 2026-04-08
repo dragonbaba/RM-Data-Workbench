@@ -3,6 +3,17 @@ import type { RPGItem } from '../types';
 export const SKILL_PROJECTILE_TAG_NONE = -1;
 export const SKILL_PROJECTILE_TAG_INTERCEPTOR = 0;
 export const SKILL_PROJECTILE_TAG_INTERCEPTABLE = 1;
+const TARGET_CAMP_ENEMY = 1;
+const TARGET_CAMP_ALLY = 2;
+const TARGET_CAMP_SELF = 3;
+const TARGET_CAMP_EVERYONE = 4;
+const TARGET_LIFE_STATE_ALIVE = 1;
+const TARGET_LIFE_STATE_DEAD = 2;
+const TARGET_LIFE_STATE_BOTH = 3;
+const SELECT_MODE_SINGLE = 1;
+const SELECT_MODE_ALL = 2;
+const AREA_MODE_SINGLE = 1;
+const AREA_MODE_ALL = 4;
 
 export const KNOWN_SKILL_PROPERTY_KEYS = [
   'projectileId',
@@ -59,6 +70,35 @@ const normalizeProjectileTag = (value: unknown): number => {
   return SKILL_PROJECTILE_TAG_NONE;
 };
 
+interface SkillTargetingValues {
+  targetCamp: number;
+  targetLifeState: number;
+  selectMode: number;
+  areaMode: number;
+}
+
+const normalizeSkillTargetingValues = (skill: Record<string, unknown>): SkillTargetingValues => {
+  const hasTargetCamp = hasOwn(skill, 'targetCamp');
+  const hasTargetLifeState = hasOwn(skill, 'targetLifeState');
+  const hasSelectMode = hasOwn(skill, 'selectMode');
+  const hasAreaMode = hasOwn(skill, 'areaMode');
+
+  return {
+    targetCamp: hasTargetCamp
+      ? Math.max(TARGET_CAMP_ENEMY, Math.min(TARGET_CAMP_EVERYONE, toIntOrZero(skill.targetCamp)))
+      : TARGET_CAMP_ENEMY,
+    targetLifeState: hasTargetLifeState
+      ? Math.max(TARGET_LIFE_STATE_ALIVE, Math.min(TARGET_LIFE_STATE_BOTH, toIntOrZero(skill.targetLifeState)))
+      : TARGET_LIFE_STATE_ALIVE,
+    selectMode: hasSelectMode
+      ? (toIntOrZero(skill.selectMode) === SELECT_MODE_ALL ? SELECT_MODE_ALL : SELECT_MODE_SINGLE)
+      : SELECT_MODE_SINGLE,
+    areaMode: hasAreaMode
+      ? (toIntOrZero(skill.areaMode) === AREA_MODE_ALL ? AREA_MODE_ALL : AREA_MODE_SINGLE)
+      : AREA_MODE_SINGLE,
+  };
+};
+
 const extractSkillMeta = (skill: unknown): Record<string, unknown> => {
   if (!isRecord(skill)) return {};
   return isRecord(skill.meta) ? skill.meta : {};
@@ -87,6 +127,7 @@ export function normalizeSkillEditorValues(skill: unknown): SkillEditorValues {
 export function normalizeSkillDataEntry(skill: unknown): RPGItem | null {
   if (!isRecord(skill)) return null;
   const normalized = normalizeSkillEditorValues(skill);
+  const targeting = normalizeSkillTargetingValues(skill);
   const currentMeta = extractSkillMeta(skill);
   const restSkill = { ...skill };
   delete restSkill.isUsedForProjectile;
@@ -98,6 +139,10 @@ export function normalizeSkillDataEntry(skill: unknown): RPGItem | null {
     skillProjectileTag: normalized.skillProjectileTag,
     reactionSuccessRate: normalized.reactionSuccessRate,
     reactionPriority: normalized.reactionPriority,
+    targetCamp: targeting.targetCamp,
+    targetLifeState: targeting.targetLifeState,
+    selectMode: targeting.selectMode,
+    areaMode: targeting.areaMode,
   };
 }
 

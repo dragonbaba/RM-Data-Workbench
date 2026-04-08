@@ -22,6 +22,21 @@ describe('DataAuditService', () => {
         null,
         { id: 1, name: '头盔' },
       ]],
+      ['D:/Project/data/Projectiles.json', [
+        null,
+        {
+          id: 1,
+          name: '旧弹道',
+          sourceType: '角色',
+          targetType: '敌人',
+          launchAnimation: {
+            animationId: 3,
+            segments: [
+              { targetX: 12, targetY: -20, duration: 0, easing: 'easeOutQuad' },
+            ],
+          },
+        },
+      ]],
     ]);
 
     const summary = await auditAndRepairDataFiles('D:/Project/data', {
@@ -32,10 +47,10 @@ describe('DataAuditService', () => {
       }),
     });
 
-    expect(summary.checkedFiles).toBe(4);
-    expect(summary.repairedFiles).toBe(4);
-    expect(summary.repairedEntries).toBe(4);
-    expect(writes).toHaveLength(4);
+    expect(summary.checkedFiles).toBe(5);
+    expect(summary.repairedFiles).toBe(5);
+    expect(summary.repairedEntries).toBe(5);
+    expect(writes).toHaveLength(5);
 
     const skillPayload = writes.find((item) => item.filePath.endsWith('Skills.json'))?.data as unknown[];
     expect(skillPayload[1]).toMatchObject({
@@ -52,8 +67,24 @@ describe('DataAuditService', () => {
       reactionSkillId: 9,
     });
 
+    const projectilePayload = writes.find((item) => item.filePath.endsWith('Projectiles.json'))?.data as unknown[];
+    expect(projectilePayload[1]).toMatchObject({
+      sourceType: 'actor',
+      targetType: 'enemy',
+      launchAnimation: {
+        animationId: 3,
+      },
+    });
+    expect((projectilePayload[1] as any).launchAnimation.segments[0]).toMatchObject({
+      duration: 1,
+      easeX: 'easeOutQuad',
+      easeY: 'easeOutQuad',
+    });
+    expect((projectilePayload[1] as any).launchAnimation.segments[0]).not.toHaveProperty('easing');
+
     expect(toAuditSummaryText(summary)).toContain('Skills.json 1 条');
     expect(toAuditSummaryText(summary)).toContain('Weapons.json 1 条');
+    expect(toAuditSummaryText(summary)).toContain('Projectiles.json 1 条');
   });
 
   it('没有差异时不会写回文件', async () => {
@@ -63,6 +94,32 @@ describe('DataAuditService', () => {
         if (filePath.endsWith('System.json')) {
           return { elements: ['', '通常'] };
         }
+        if (filePath.endsWith('Projectiles.json')) {
+          return [null, {
+            id: 1,
+            name: '已规范弹道',
+            startAnimationId: 0,
+            launchAnimation: {
+              animationId: 0,
+              segments: [
+                {
+                  targetX: 0,
+                  targetY: -120,
+                  duration: 60,
+                  easeX: 'linear',
+                  easeY: 'linear',
+                },
+              ],
+            },
+            endAnimationId: 0,
+            sourceType: 'actor',
+            sourceId: 0,
+            targetType: 'enemy',
+            targetId: 0,
+            weaponId: 0,
+            skillId: 0,
+          }];
+        }
         return [null, {
           id: 1,
           name: '已规范',
@@ -71,6 +128,9 @@ describe('DataAuditService', () => {
           skillProjectileTag: -1,
           reactionSuccessRate: 0,
           reactionPriority: 0,
+          targetCamp: 1,
+          targetLifeState: 1,
+          selectMode: 1,
           classId: 0,
           level: 0,
           levelScope: 0,

@@ -56,6 +56,7 @@ const DROP_DEPENDENCY_FILES = new Set([
 
 const PROPERTY_DEPENDENCY_FILES = new Map<string, Set<string>>([
   ['weapons.json', new Set(['system.json', 'skills.json', 'equipextensions.json'])],
+  ['skills.json', new Set(['projectiles.json'])],
 ]);
 
 export const normalizeDataPathKey = (value: string): string => {
@@ -155,6 +156,13 @@ export const buildDataReloadConfirmMessage = (
 
   if (impact.target === 'dependency' && snapshot.uiMode === 'projectile') {
     return `当前弹道面板依赖的 ${fileName} 已发生变化，重新加载后会同步刷新动画与引用选项。是否立即重新加载？`;
+  }
+
+  const currentFileName = normalizeFileName(extractFileName(snapshot.currentFilePath));
+  if (impact.target === 'dependency' && snapshot.uiMode === 'property'
+    && currentFileName === 'skills.json'
+    && normalizeFileName(fileName) === 'projectiles.json') {
+    return `当前技能面板依赖的 ${fileName} 已发生变化，重新加载后会同步刷新“挂接弹道”选项。是否立即重新加载？`;
   }
 
   if (impact.target === 'map-browser') {

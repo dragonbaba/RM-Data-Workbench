@@ -29,7 +29,8 @@ export const buildTrajectoryPoints = (
   targetX: number,
   targetY: number
 ): { x: number; y: number }[] => {
-  const points: { x: number; y: number }[] = [{ x: startX, y: startY }];
+  const points = new Array<{ x: number; y: number }>(segments.length + 1);
+  points[0] = { x: startX, y: startY };
   let currentX = startX;
   let currentY = startY;
 
@@ -42,7 +43,7 @@ export const buildTrajectoryPoints = (
       currentX = Number.isFinite(segment.targetX) ? Number(segment.targetX) : currentX;
       currentY = Number.isFinite(segment.targetY) ? Number(segment.targetY) : currentY;
     }
-    points.push({ x: currentX, y: currentY });
+    points[i + 1] = { x: currentX, y: currentY };
   }
 
   return points;

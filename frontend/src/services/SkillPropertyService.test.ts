@@ -71,8 +71,38 @@ describe('SkillPropertyService', () => {
       skillProjectileTag: SKILL_PROJECTILE_TAG_NONE,
       reactionSuccessRate: 0,
       reactionPriority: 21,
+      targetCamp: 1,
+      targetLifeState: 1,
+      selectMode: 1,
+      areaMode: 1,
     });
     expect(normalized).not.toHaveProperty('isUsedForProjectile');
+  });
+
+  it('缺少 targeting 字段时会直接补齐默认值', () => {
+    const singleTarget = normalizeSkillDataEntry({
+      id: 15,
+      name: '遗留技能',
+      scope: 1,
+    });
+    expect(singleTarget).toMatchObject({
+      targetCamp: 1,
+      targetLifeState: 1,
+      selectMode: 1,
+      areaMode: 1,
+    });
+
+    const allyAllState = normalizeSkillDataEntry({
+      id: 31,
+      name: '遗留群体友方技能',
+      scope: 13,
+    });
+    expect(allyAllState).toMatchObject({
+      targetCamp: 1,
+      targetLifeState: 1,
+      selectMode: 1,
+      areaMode: 1,
+    });
   });
 
   it('仅在结构化技能字段变化时才返回需要保存', () => {
