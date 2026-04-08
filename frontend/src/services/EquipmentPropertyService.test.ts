@@ -49,11 +49,21 @@ describe('EquipmentPropertyService', () => {
     expect(normalizeArmorElementRateFloats([99, 0.5, -3], systemData)).toEqual([0, 0.5, 0, 0]);
   });
 
+  it('会兼容编辑器缓存里的包装 System.json 结构', () => {
+    const wrappedSystemData = [null, {
+      elements: ['', '通常', '火炎', '冷气'],
+    }];
+
+    expect(normalizeArmorElementRates([99, 1.2], wrappedSystemData)).toEqual([0, 1.2, 0, 0]);
+    expect(normalizeArmorElementRateFloats([99, 0.5, -3], wrappedSystemData)).toEqual([0, 0.5, 0, 0]);
+  });
+
   it('会补齐防具固定结构字段', () => {
     const normalized = normalizeEquipmentDataEntry(
       {
         id: 9,
         name: '测试甲',
+        etypeId: 8,
         qualityLock: true,
       },
       {
@@ -67,6 +77,8 @@ describe('EquipmentPropertyService', () => {
     expect(normalized).toMatchObject({
       id: 9,
       name: '测试甲',
+      etypeId: 8,
+      hiddenAttackSkillId: 0,
       qualityLock: true,
       floatParams: [0, 0, 0, 0, 0, 0, 0, 0],
       elementRates: [0, 0, 0],
@@ -81,5 +93,23 @@ describe('EquipmentPropertyService', () => {
         times: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
       },
     });
+  });
+
+  it('非底盘与C装置防具不会补 hiddenAttackSkillId', () => {
+    const normalized = normalizeEquipmentDataEntry(
+      {
+        id: 10,
+        name: '普通头盔',
+        etypeId: 2,
+      },
+      {
+        isArmor: true,
+        systemData: {
+          elements: ['', '通常', '火炎'],
+        },
+      },
+    );
+
+    expect(normalized).not.toHaveProperty('hiddenAttackSkillId');
   });
 });

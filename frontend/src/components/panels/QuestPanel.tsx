@@ -7,6 +7,7 @@ import { ToastManager } from '../common/ToastManager';
 import { InputDialog } from '../common/InputDialog';
 import { DataLoaderService } from '../../services/DataLoaderService';
 import { EventSystem } from '../../core/EventSystem';
+import { extractSystemRecord } from '../../services/DataFileFormatService';
 import {
   buildQuestDependencySummary,
   type QuestDependencyIssue,
@@ -174,11 +175,11 @@ export function QuestPanel() {
     }));
   };
 
-  const extractSystemData = (systemData: unknown[] | null): { switches: DataItem[], variables: DataItem[] } => {
-    if (!systemData || !Array.isArray(systemData) || systemData.length < 2) {
+  const extractSystemData = (systemData: unknown): { switches: DataItem[], variables: DataItem[] } => {
+    const system = extractSystemRecord(systemData);
+    if (!system) {
       return { switches: [], variables: [] };
     }
-    const system = systemData[1] as any;
     const switches: DataItem[] = [];
     const variables: DataItem[] = [];
 

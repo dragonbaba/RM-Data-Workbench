@@ -188,6 +188,7 @@ const getFloatFieldKey = (key: string) => `${key}_float`;
 const EQUIP_TYPE_FIELD_KEY = 'etypeId';
 const PRICE_FIELD_KEY = 'price';
 const ATTACK_SKILL_FIELD_KEY = 'attackSkillId';
+const HIDDEN_ATTACK_SKILL_FIELD_KEY = 'hiddenAttackSkillId';
 const ATTACK_ELEMENT_FIELD_KEY = 'attackElementId';
 const ELEMENT_RATES_FIELD_KEY = 'elementRates';
 const ELEMENT_RATE_FLOATS_FIELD_KEY = 'elementRateFloats';
@@ -208,6 +209,8 @@ const ARMORS_FILE_NAME = 'Armors.json';
 const SKILLS_FILE_NAME = 'Skills.json';
 const PROJECTILES_FILE_NAME = 'Projectiles.json';
 const SYSTEM_FILE_NAME = 'System.json';
+const TANK_COMPUTER_EQUIP_TYPE_ID = 8;
+const TANK_BASE_EQUIP_TYPE_ID = 9;
 const EFFECTS_FILE_NAME = 'Effects.json';
 const ENEMIES_FILE_NAME = 'Enemies.json';
 const STATES_FILE_NAME = 'States.json';
@@ -708,6 +711,11 @@ export function PropertyPanel() {
     () => DataLoaderService.getCachedDataByName<unknown[]>(PROJECTILES_FILE_NAME),
     [currentFilePath, currentItem, referenceRevision],
   );
+  const currentArmorEquipTypeId = isArmorItem
+    ? toIntOrZero((currentItem as RPGItem | null)?.etypeId)
+    : 0;
+  const supportsHiddenAttackSkill = isArmorItem
+    && (currentArmorEquipTypeId === TANK_COMPUTER_EQUIP_TYPE_ID || currentArmorEquipTypeId === TANK_BASE_EQUIP_TYPE_ID);
   const equipExtensionsData = useMemo(
     () => DataLoaderService.getCachedDataByName<EquipExtensionsData>(EQUIP_EXTENSIONS_FILE_NAME),
     [currentFilePath, currentItem, referenceRevision],
@@ -850,6 +858,9 @@ export function PropertyPanel() {
       if (isArmorItem) {
         baseFormValues[ELEMENT_RATES_FIELD_KEY] = normalizeArmorElementRates(item.elementRates, systemData);
         baseFormValues[ELEMENT_RATE_FLOATS_FIELD_KEY] = normalizeArmorElementRateFloats(item.elementRateFloats, systemData);
+        if (supportsHiddenAttackSkill) {
+          baseFormValues[HIDDEN_ATTACK_SKILL_FIELD_KEY] = toIntOrZero(item.hiddenAttackSkillId);
+        }
       }
       if (isWeaponItem || isArmorItem) {
         baseFormValues[QUALITY_LOCK_FIELD_KEY] = item.qualityLock === true;
@@ -934,7 +945,7 @@ export function PropertyPanel() {
       setHasCustomChanges(pendingDraft?.hasCustomChanges ?? false);
       pendingDraftRef.current = null;
     }
-  }, [currentItem, currentItemIndex, equipExtensionsData, form, isArmorItem, isEnemyFile, isStateFile, isWeaponItem, supportsCommonRange, supportsPrice, supportsTemplateParams, systemData]);
+  }, [currentItem, currentItemIndex, equipExtensionsData, form, isArmorItem, isEnemyFile, isStateFile, isWeaponItem, supportsCommonRange, supportsHiddenAttackSkill, supportsPrice, supportsTemplateParams, systemData]);
 
   useEffect(() => {
     if (!supportsCommonRange) {
@@ -1123,6 +1134,7 @@ export function PropertyPanel() {
     }
     const nextPrice = supportsPrice ? toIntOrZero(values[PRICE_FIELD_KEY]) : 0;
     const nextAttackSkillId = isWeaponItem ? toIntOrZero(values[ATTACK_SKILL_FIELD_KEY]) : 0;
+    const nextHiddenAttackSkillId = supportsHiddenAttackSkill ? toIntOrZero(values[HIDDEN_ATTACK_SKILL_FIELD_KEY]) : 0;
     const nextAttackElementId = isWeaponItem ? toIntOrZero(values[ATTACK_ELEMENT_FIELD_KEY]) : 0;
     const nextArmorElementRates = isArmorItem
       ? normalizeArmorElementRates(values[ELEMENT_RATES_FIELD_KEY], systemData)
@@ -1194,6 +1206,7 @@ export function PropertyPanel() {
       || !areNumberArraysEqual(sourceItem.floatParams, newFloatParams)
       || (supportsPrice && toIntOrZero(sourceItem.price) !== nextPrice)
       || (isWeaponItem && toIntOrZero(sourceItem.attackSkillId) !== nextAttackSkillId)
+      || (supportsHiddenAttackSkill && toIntOrZero(sourceItem.hiddenAttackSkillId) !== nextHiddenAttackSkillId)
       || (isWeaponItem && toIntOrZero(sourceItem.attackElementId) !== nextAttackElementId)
       || (supportsCommonRange && currentCommonRangeValues !== null && nextCommonRangeValues !== null && (
         currentCommonRangeValues.targetCamp !== nextCommonRangeValues.targetCamp
@@ -1247,6 +1260,7 @@ export function PropertyPanel() {
           attackSkillId: nextAttackSkillId,
           attackElementId: nextAttackElementId,
         } : {}),
+        ...(supportsHiddenAttackSkill ? { hiddenAttackSkillId: nextHiddenAttackSkillId } : {}),
         ...(supportsTemplateParams && nextExtraParams ? { extraParams: nextExtraParams } : {}),
         ...(supportsTemplateParams && nextVehicleParams ? { vehicleParams: nextVehicleParams } : {}),
         ...(supportsTemplateParams && nextUpgradeParams ? { upgradeParams: nextUpgradeParams } : {}),
@@ -1878,6 +1892,20 @@ export function PropertyPanel() {
                   />
                 </Form.Item>
               </>
+            ) : null}
+            {supportsHiddenAttackSkill ? (
+              <Form.Item
+                key={HIDDEN_ATTACK_SKILL_FIELD_KEY}
+                name={HIDDEN_ATTACK_SKILL_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">隐藏攻击技能</span>}
+                className="mb-0"
+              >
+                <Select
+                  options={skillOptions}
+                  className="w-full"
+                  placeholder="选择隐藏攻击技能"
+                />
+              </Form.Item>
             ) : null}
             {(isWeaponItem || isArmorItem) ? (
               <Form.Item

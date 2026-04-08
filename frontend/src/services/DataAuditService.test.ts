@@ -20,7 +20,7 @@ describe('DataAuditService', () => {
       ]],
       ['D:/Project/data/Armors.json', [
         null,
-        { id: 1, name: '头盔' },
+        { id: 1, name: '测试C装', etypeId: 8 },
       ]],
       ['D:/Project/data/Projectiles.json', [
         null,
@@ -65,6 +65,12 @@ describe('DataAuditService', () => {
     expect(enemyPayload[1]).toMatchObject({
       canReaction: true,
       reactionSkillId: 9,
+    });
+
+    const armorPayload = writes.find((item) => item.filePath.endsWith('Armors.json'))?.data as unknown[];
+    expect(armorPayload[1]).toMatchObject({
+      etypeId: 8,
+      hiddenAttackSkillId: 0,
     });
 
     const projectilePayload = writes.find((item) => item.filePath.endsWith('Projectiles.json'))?.data as unknown[];

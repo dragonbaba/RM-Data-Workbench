@@ -5,6 +5,7 @@ import type {
   ParamTemplate,
   RPGItem,
 } from '../types';
+import { extractSystemRecord } from './DataFileFormatService';
 
 interface FixedParamFieldDefinition {
   key: string;
@@ -20,6 +21,7 @@ interface EquipmentNormalizationOptions {
 type ShapeParams = Record<string, Record<string, number>>;
 
 const DEFAULT_FLOAT_PARAM_LENGTH = 8;
+const TANK_HIDDEN_ATTACK_SKILL_EQUIP_TYPES = new Set([8, 9]);
 
 const EMPTY_PARAM_TEMPLATE: ParamTemplate = Object.freeze({
   value: 0,
@@ -118,13 +120,18 @@ const normalizeShapeParams = (value: unknown): ShapeParams => {
   return value as ShapeParams;
 };
 
+const shouldUseHiddenAttackSkillField = (item: Record<string, unknown>): boolean => {
+  return TANK_HIDDEN_ATTACK_SKILL_EQUIP_TYPES.has(Math.max(0, toIntOrZero(item.etypeId)));
+};
+
 const getElementRateFieldDefinitions = (systemData: unknown): Array<{ id: number }> => {
-  if (!isRecord(systemData) || !Array.isArray(systemData.elements)) {
+  const systemRecord = extractSystemRecord(systemData);
+  if (!systemRecord || !Array.isArray(systemRecord.elements)) {
     return [];
   }
 
   const result: Array<{ id: number }> = [];
-  for (let index = 1; index < systemData.elements.length; index++) {
+  for (let index = 1; index < systemRecord.elements.length; index++) {
     result.push({ id: index });
   }
   return result;
@@ -217,6 +224,11 @@ export function normalizeEquipmentDataEntry(
   if (options.isArmor) {
     normalized.elementRates = normalizeArmorElementRates(item.elementRates, options.systemData);
     normalized.elementRateFloats = normalizeArmorElementRateFloats(item.elementRateFloats, options.systemData);
+    if (shouldUseHiddenAttackSkillField(item)) {
+      normalized.hiddenAttackSkillId = Math.max(0, toIntOrZero(item.hiddenAttackSkillId));
+    } else {
+      delete normalized.hiddenAttackSkillId;
+    }
   }
 
   if (options.isWeapon) {

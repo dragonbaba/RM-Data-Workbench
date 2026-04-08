@@ -165,6 +165,7 @@ export interface RPGItem {
   customParams?: Record<string, { value?: number; floatValue?: number } | number>;
   scripts?: Record<string, string>;
   attackSkillId?: number;
+  hiddenAttackSkillId?: number;
   attackElementId?: number;
   targetCamp?: number;
   targetLifeState?: number;
