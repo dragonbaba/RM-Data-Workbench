@@ -17,6 +17,13 @@ export interface NormalizedEquipExtensionsResult {
   changed: boolean;
 }
 
+export interface EquipExtensionsNormalizationPreview {
+  data: EquipExtensionsData;
+  changed: boolean;
+  summary: string;
+  changedSections: string[];
+}
+
 const asRecord = (value: unknown): Record<string, unknown> | null => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null;
@@ -89,6 +96,106 @@ export const normalizeEquipExtensions = (
 
   const changed = JSON.stringify(data) !== JSON.stringify(source);
   return { data, changed };
+};
+
+const diffIndexedValues = (
+  before: Array<number | null> | null | undefined,
+  after: Array<number | null>,
+): number[] => {
+  const changedIndexes: number[] = [];
+  const maxLength = Math.max(Array.isArray(before) ? before.length : 0, after.length);
+  for (let index = 1; index < maxLength; index++) {
+    const beforeValue = asInt(Array.isArray(before) ? before[index] : 0);
+    const afterValue = asInt(after[index]);
+    if (beforeValue !== afterValue) {
+      changedIndexes.push(index);
+    }
+  }
+  return changedIndexes;
+};
+
+const diffIndexedLists = (
+  before: unknown,
+  after: Array<number[] | null>,
+): number[] => {
+  const source = Array.isArray(before) ? before : [];
+  const changedIndexes: number[] = [];
+  const maxLength = Math.max(source.length, after.length);
+  for (let index = 1; index < maxLength; index++) {
+    const beforeList = normalizeNumberArray(source[index]);
+    const afterList = normalizeNumberArray(after[index]);
+    if (JSON.stringify(beforeList) !== JSON.stringify(afterList)) {
+      changedIndexes.push(index);
+    }
+  }
+  return changedIndexes;
+};
+
+const formatChangedIndexes = (indexes: number[]): string => {
+  if (indexes.length === 0) return '';
+  const preview = indexes.slice(0, 8).join(', ');
+  if (indexes.length <= 8) {
+    return preview;
+  }
+  return `${preview} 等 ${indexes.length} 项`;
+};
+
+export const previewEquipExtensionsNormalization = (
+  value: unknown,
+  actorCount: number,
+  weaponCount: number,
+): EquipExtensionsNormalizationPreview => {
+  const normalized = normalizeEquipExtensions(value, actorCount, weaponCount);
+  if (!normalized.changed) {
+    return {
+      ...normalized,
+      summary: 'EquipExtensions.json 已符合当前规范，无需修复。',
+      changedSections: [],
+    };
+  }
+
+  const source = asRecord(value);
+  if (!source) {
+    return {
+      ...normalized,
+      summary: 'EquipExtensions.json 结构无效，确认后会重建为标准结构。',
+      changedSections: ['文件结构无效，将整体重建'],
+    };
+  }
+
+  const changedSections: string[] = [];
+  const weaponTypeIndexes = diffIndexedValues(source.weaponEquipTypes as Array<number | null> | undefined, normalized.data.weaponEquipTypes);
+  if (weaponTypeIndexes.length > 0) {
+    changedSections.push(`weaponEquipTypes：索引 ${formatChangedIndexes(weaponTypeIndexes)} 将被修正`);
+  }
+
+  const currentSystemWeaponEquipTypes = normalizeNumberArray(source.systemWeaponEquipTypes);
+  if (JSON.stringify(currentSystemWeaponEquipTypes) !== JSON.stringify(normalized.data.systemWeaponEquipTypes)) {
+    changedSections.push(`systemWeaponEquipTypes：将整理为 [${normalized.data.systemWeaponEquipTypes.join(', ')}]`);
+  }
+
+  const actorEquipSlotIndexes = diffIndexedLists(source.actorEquipSlots, normalized.data.actorEquipSlots);
+  if (actorEquipSlotIndexes.length > 0) {
+    changedSections.push(`actorEquipSlots：角色 ${formatChangedIndexes(actorEquipSlotIndexes)} 将被修正`);
+  }
+
+  const actorEquipsIndexes = diffIndexedLists(source.actorEquips, normalized.data.actorEquips);
+  if (actorEquipsIndexes.length > 0) {
+    changedSections.push(`actorEquips：角色 ${formatChangedIndexes(actorEquipsIndexes)} 将被修正`);
+  }
+
+  const summary = [
+    '检测到 EquipExtensions.json 需要规范化。',
+    ...changedSections.map((line) => `- ${line}`),
+    '',
+    '确认后才会写入 EquipExtensions.json。',
+  ].join('\n');
+
+  return {
+    ...normalized,
+    summary,
+    changedSections,
+  };
 };
 
 export const getActorEquipStateFromExtensions = (

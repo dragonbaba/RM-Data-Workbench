@@ -225,10 +225,6 @@ class DataLoaderServiceClass {
 
     const rawData = await ReadJSON(filePath);
     const normalized = normalizeEquipExtensions(rawData, actorCount, weaponCount);
-    if (normalized.changed) {
-      await WriteJSON(filePath, normalized.data);
-    }
-
     this.cacheData(filePath, EQUIP_EXTENSIONS_FILE_NAME, normalized.data);
     return normalized.data;
   }

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { buildDataReloadConfirmMessage, normalizeDataPathKey, resolveDataChangeImpact } from './BaseDataReloadService';
+import {
+  buildDataReloadBatchConfirmMessage,
+  buildDataReloadConfirmMessage,
+  normalizeDataPathKey,
+  resolveDataChangeBatch,
+  resolveDataChangeImpact,
+} from './BaseDataReloadService';
 
 describe('BaseDataReloadService', () => {
   it('当前文件发生外部变化时需要确认并重载当前文件', () => {
@@ -289,5 +295,59 @@ describe('BaseDataReloadService', () => {
 
   it('标准化路径键时统一斜杠与盘符大小写', () => {
     expect(normalizeDataPathKey('D:\\Project\\data\\Actors.json')).toBe('d:/project/data/actors.json');
+  });
+
+  it('会将同一批外部依赖变更聚合为一次确认计划', () => {
+    const plan = resolveDataChangeBatch({
+      uiMode: 'projectile',
+      currentFilePath: 'D:/Project/data/Projectiles.json',
+      currentMapId: null,
+    }, [
+      {
+        filePath: 'D:/Project/data/Animations.json',
+        fileName: 'Animations.json',
+        changeType: 'write',
+      },
+      {
+        filePath: 'D:/Project/data/Weapons.json',
+        fileName: 'Weapons.json',
+        changeType: 'write',
+      },
+    ]);
+
+    expect(plan.shouldConfirm).toBe(true);
+    expect(plan.shouldReloadCurrentSelection).toBe(true);
+    expect(plan.affectsCurrentFile).toBe(false);
+    expect(plan.entries.map((entry) => entry.fileName)).toEqual(['Animations.json', 'Weapons.json']);
+  });
+
+  it('批量确认文案会列出全部变更文件', () => {
+    const snapshot = {
+      uiMode: 'projectile' as const,
+      currentFilePath: 'D:/Project/data/Projectiles.json',
+      currentMapId: null,
+    };
+    const plan = resolveDataChangeBatch(snapshot, [
+      {
+        filePath: 'D:/Project/data/Animations.json',
+        fileName: 'Animations.json',
+        changeType: 'write',
+      },
+      {
+        filePath: 'D:/Project/data/Weapons.json',
+        fileName: 'Weapons.json',
+        changeType: 'write',
+      },
+    ]);
+
+    expect(buildDataReloadBatchConfirmMessage(snapshot, plan, false)).toBe(
+      [
+        '当前弹道面板依赖的多个文件发生了外部变化。确认后将统一重新加载一次当前编辑上下文。',
+        '',
+        '变更文件：',
+        '- Animations.json',
+        '- Weapons.json',
+      ].join('\n'),
+    );
   });
 });

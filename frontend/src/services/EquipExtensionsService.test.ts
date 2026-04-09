@@ -4,6 +4,7 @@ import {
   getActorEquipStateFromExtensions,
   getWeaponEquipTypeAtIndex,
   normalizeEquipExtensions,
+  previewEquipExtensionsNormalization,
 } from './EquipExtensionsService';
 
 describe('EquipExtensionsService', () => {
@@ -56,5 +57,21 @@ describe('EquipExtensionsService', () => {
       actorEquipSlots: [null],
       actorEquips: [null],
     }, 2)).toBe(11);
+  });
+
+  it('builds normalization preview summary for changed sections', () => {
+    const result = previewEquipExtensionsNormalization({
+      weaponEquipTypes: [999, '10', -1, 'abc'],
+      systemWeaponEquipTypes: [10, '11', 11, 0, -1],
+      actorEquipSlots: [999, [10, '11'], 'bad'],
+      actorEquips: [999, [1, '2'], [3]],
+    }, 4, 3);
+
+    expect(result.changed).toBe(true);
+    expect(result.changedSections).toEqual([
+      'systemWeaponEquipTypes：将整理为 [10, 11]',
+    ]);
+    expect(result.summary).toContain('检测到 EquipExtensions.json 需要规范化。');
+    expect(result.summary).toContain('确认后才会写入 EquipExtensions.json。');
   });
 });

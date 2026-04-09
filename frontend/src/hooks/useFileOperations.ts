@@ -6,10 +6,12 @@ import { EventSystem } from '../core/EventSystem';
 import { useEditorStore } from '../stores/editorStore';
 import type { FileType, RPGMapInfo } from '../types';
 import {
+  buildDataReloadBatchConfirmMessage,
   buildDataReloadConfirmMessage,
   extractFileName,
   isReloadableDataFile,
   normalizeDataPathKey,
+  resolveDataChangeBatch,
   resolveDataChangeImpact,
   type DataFileChangePayload,
 } from '../services/BaseDataReloadService';
@@ -21,6 +23,7 @@ import { normalizeItemScriptPaths, resolveScriptFilePath } from '../services/Scr
 import { ScriptCacheManager } from '../services/ScriptCacheManager';
 import { copyScript, createScript, deleteAllScripts, deleteScript, renameScript, saveAllScripts, saveCurrentScript, saveScript } from '../services/ScriptOperations';
 import { ScriptPathManager } from '../services/ScriptPathManager';
+import { EQUIP_EXTENSIONS_FILE_NAME, previewEquipExtensionsNormalization } from '../services/EquipExtensionsService';
 
 interface WorkspacePayload {
   projectRoot: string;
@@ -54,7 +57,6 @@ const ACTORS_FILE_NAME = 'Actors.json';
 const ENEMIES_FILE_NAME = 'Enemies.json';
 const EFFECTS_FILE_NAME = 'Effects.json';
 const WEAPONS_FILE_NAME = 'Weapons.json';
-const EQUIP_EXTENSIONS_FILE_NAME = 'EquipExtensions.json';
 
 const joinPath = (basePath: string, fileName: string) => {
   if (!basePath) return fileName;
@@ -411,8 +413,10 @@ export function useFileOperations() {
   };
 
   const setupMenuListeners = () => {
-    const activeChangeConfirmations = new Set<string>();
     let closeRequestPending = false;
+    const pendingExternalChanges = new Map<string, DataFileChangePayload>();
+    let externalChangeFlushTimer: ReturnType<typeof setTimeout> | null = null;
+    let isProcessingExternalChanges = false;
 
     const reloadCurrentSelection = async () => {
       const state = useEditorStore.getState();
@@ -530,66 +534,83 @@ export function useFileOperations() {
       }
 
       const normalizedPath = normalizeDataPathKey(payload.filePath);
-      const changeKey = `${normalizedPath}:${payload.changeType}`;
-      if (activeChangeConfirmations.has(changeKey)) {
-        return;
-      }
-
-      const state = useEditorStore.getState();
-      const impact = resolveDataChangeImpact({
-        uiMode: state.uiMode,
-        currentFilePath: state.currentFilePath,
-        currentMapId: state.currentMapId,
-      }, {
+      pendingExternalChanges.set(normalizedPath, {
         ...payload,
         fileName,
       });
+      if (externalChangeFlushTimer) {
+        clearTimeout(externalChangeFlushTimer);
+      }
+      externalChangeFlushTimer = setTimeout(() => {
+        void flushExternalDataChanges();
+      }, 180);
+    };
 
-      if (!impact.shouldReload) {
+    const flushExternalDataChanges = async () => {
+      if (isProcessingExternalChanges) {
         return;
       }
-
-      if (!impact.shouldConfirm) {
-        await reloadChangedFile({ ...payload, fileName });
-        return;
+      isProcessingExternalChanges = true;
+      if (externalChangeFlushTimer) {
+        clearTimeout(externalChangeFlushTimer);
+        externalChangeFlushTimer = null;
       }
 
-      activeChangeConfirmations.add(changeKey);
       try {
-        const isCurrentFile = normalizeDataPathKey(state.currentFilePath) === normalizedPath;
-        const hasUnsavedChanges = isCurrentFile && state.isFileDirty(state.currentFilePath);
-        const confirmed = await InputDialog.confirm({
-          title: '检测到外部数据变化',
-          content: buildDataReloadConfirmMessage({
+        while (pendingExternalChanges.size > 0) {
+          const queuedPayloads = Array.from(pendingExternalChanges.values());
+          pendingExternalChanges.clear();
+
+          const state = useEditorStore.getState();
+          const snapshot = {
             uiMode: state.uiMode,
             currentFilePath: state.currentFilePath,
             currentMapId: state.currentMapId,
-          }, impact, fileName, hasUnsavedChanges),
-          confirmText: '重新加载',
-          cancelText: '稍后处理',
-          type: 'warning',
-        });
+          };
+          const plan = resolveDataChangeBatch(snapshot, queuedPayloads);
 
-        if (!confirmed) {
-          return;
-        }
-
-        if (impact.target === 'current-file' || impact.target === 'map-browser') {
-          const reloaded = await reloadChangedFile({ ...payload, fileName });
-          if (!reloaded) {
-            return;
+          if (plan.entries.length === 0) {
+            continue;
           }
-          await reloadCurrentSelection();
-          if (impact.target === 'current-file' && state.currentFilePath) {
-            useEditorStore.getState().markFileClean(state.currentFilePath);
-          }
-          ToastManager.success(`已重新加载当前数据: ${fileName}`);
-          return;
-        }
 
-        await reloadChangedFile({ ...payload, fileName }, true);
+          if (!plan.shouldConfirm) {
+            for (const entry of plan.entries) {
+              await reloadChangedFile(entry.payload);
+            }
+            continue;
+          }
+
+          const hasUnsavedChanges = plan.affectsCurrentFile
+            && !!state.currentFilePath
+            && state.isFileDirty(state.currentFilePath);
+          const confirmed = await InputDialog.confirm({
+            title: '检测到外部数据变化',
+            content: buildDataReloadBatchConfirmMessage(snapshot, plan, hasUnsavedChanges),
+            confirmText: '统一重新加载',
+            cancelText: '稍后处理',
+            type: 'warning',
+          });
+
+          if (!confirmed) {
+            continue;
+          }
+
+          for (const entry of plan.entries) {
+            await reloadChangedFile(entry.payload);
+          }
+
+          if (plan.shouldReloadCurrentSelection) {
+            await reloadCurrentSelection();
+            if (plan.affectsCurrentFile && state.currentFilePath) {
+              useEditorStore.getState().markFileClean(state.currentFilePath);
+            }
+          }
+
+          const changedFileNames = Array.from(new Set(plan.entries.map((entry) => entry.fileName)));
+          ToastManager.success(`已统一重新加载 ${changedFileNames.length} 个外部变更文件`);
+        }
       } finally {
-        activeChangeConfirmations.delete(changeKey);
+        isProcessingExternalChanges = false;
       }
     };
 
@@ -624,28 +645,84 @@ export function useFileOperations() {
           writeJson: async (filePath, data) => WriteJSON(filePath, prepareDataForWrite(filePath, data)),
         });
 
-        for (const result of summary.results) {
-          if (!result.changed || !isAuditTargetFile(result.fileName)) {
-            continue;
+        const equipExtensionsPath = joinPath(dataPath, EQUIP_EXTENSIONS_FILE_NAME);
+        const equipExtensionsExists = await FileExists(equipExtensionsPath);
+        let repairedEquipExtensions = false;
+        if (equipExtensionsExists) {
+          const [actorsRaw, weaponsRaw, equipExtensionsRaw] = await Promise.all([
+            ReadJSON(joinPath(dataPath, ACTORS_FILE_NAME)),
+            ReadJSON(joinPath(dataPath, WEAPONS_FILE_NAME)),
+            ReadJSON(equipExtensionsPath),
+          ]);
+          const actorsData = normalizeStandardDataForEditor(ACTORS_FILE_NAME, actorsRaw);
+          const weaponsData = normalizeStandardDataForEditor(WEAPONS_FILE_NAME, weaponsRaw);
+          const actorCount = Array.isArray(actorsData) ? actorsData.length : 1;
+          const weaponCount = Array.isArray(weaponsData) ? weaponsData.length : 1;
+          const preview = previewEquipExtensionsNormalization(equipExtensionsRaw, actorCount, weaponCount);
+          if (preview.changed) {
+            const confirmedNormalize = await InputDialog.confirm({
+              title: '检测到装备扩展需要修复',
+              content: preview.summary,
+              confirmText: '确认写入',
+              cancelText: '跳过',
+              type: 'warning',
+            });
+            if (confirmedNormalize) {
+              await WriteJSON(equipExtensionsPath, prepareDataForWrite(equipExtensionsPath, preview.data));
+              DataLoaderService.cacheFileData(equipExtensionsPath, EQUIP_EXTENSIONS_FILE_NAME, preview.data);
+              await DataLoaderService.reloadFile(equipExtensionsPath, { emitEvent: true });
+              useEditorStore.getState().markFileClean(equipExtensionsPath);
+              repairedEquipExtensions = true;
+            }
           }
-          await DataLoaderService.reloadFile(result.filePath, { emitEvent: true });
-          useEditorStore.getState().markFileClean(result.filePath);
+        }
+
+        const changedFileEntries = summary.results
+          .filter((result) => result.changed && isAuditTargetFile(result.fileName))
+          .map((result) => ({ fileName: result.fileName, filePath: result.filePath }));
+        if (repairedEquipExtensions) {
+          changedFileEntries.push({
+            fileName: EQUIP_EXTENSIONS_FILE_NAME,
+            filePath: equipExtensionsPath,
+          });
         }
 
         const latestState = useEditorStore.getState();
-        if (summary.results.some((item) => item.changed && normalizePathKey(item.filePath) === normalizePathKey(latestState.currentFilePath))) {
-          await reloadCurrentSelection();
-          if (latestState.currentFilePath) {
-            useEditorStore.getState().markFileClean(latestState.currentFilePath);
-          }
-        }
-
-        if (summary.repairedFiles === 0) {
+        if (changedFileEntries.length === 0) {
           ToastManager.info(toAuditSummaryText(summary));
           return;
         }
 
-        ToastManager.success(toAuditSummaryText(summary));
+        const changedFileNames = Array.from(new Set(changedFileEntries.map((item) => item.fileName)));
+        const reloadConfirmed = await InputDialog.confirm({
+          title: '修复已完成',
+          content: [
+            toAuditSummaryText(summary),
+            '',
+            '以下文件已发生变更：',
+            ...changedFileNames.map((fileName) => `- ${fileName}`),
+            '',
+            '确认后将统一重新加载一次当前编辑上下文。',
+          ].join('\n'),
+          confirmText: '确认并重新加载',
+          cancelText: '暂不重新加载',
+          type: 'success',
+        });
+
+        if (!reloadConfirmed) {
+          ToastManager.info('已保留当前界面，文件变更已写入磁盘');
+          return;
+        }
+
+        for (const entry of changedFileEntries) {
+          await DataLoaderService.reloadFile(entry.filePath, { emitEvent: false });
+          useEditorStore.getState().markFileClean(entry.filePath);
+        }
+        await reloadCurrentSelection();
+        if (latestState.currentFilePath) {
+          useEditorStore.getState().markFileClean(latestState.currentFilePath);
+        }
+        ToastManager.success(`已统一重新加载 ${changedFileNames.length} 个变更文件`);
       } catch (error) {
         console.error('Failed to audit and repair data files:', error);
         ToastManager.error(`数据体检/修复失败: ${error instanceof Error ? error.message : String(error)}`);

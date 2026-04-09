@@ -20,6 +20,20 @@ export interface DataChangeImpact {
   target: DataChangeReloadTarget;
 }
 
+export interface DataChangeBatchEntry {
+  payload: DataFileChangePayload;
+  fileName: string;
+  normalizedPath: string;
+  impact: DataChangeImpact;
+}
+
+export interface DataChangeBatchPlan {
+  entries: DataChangeBatchEntry[];
+  shouldConfirm: boolean;
+  shouldReloadCurrentSelection: boolean;
+  affectsCurrentFile: boolean;
+}
+
 const QUEST_DEPENDENCY_FILES = new Set([
   'quests.json',
   'actors.json',
@@ -144,6 +158,52 @@ export const resolveDataChangeImpact = (
   return { shouldReload: true, shouldConfirm: false, target: 'dependency' };
 };
 
+export const resolveDataChangeBatch = (
+  snapshot: ActivePanelSnapshot,
+  payloads: DataFileChangePayload[],
+): DataChangeBatchPlan => {
+  const deduped = new Map<string, DataFileChangePayload>();
+  for (const payload of payloads) {
+    const fileName = payload.fileName || extractFileName(payload.filePath);
+    if (!isReloadableDataFile(fileName)) {
+      continue;
+    }
+    const normalizedPath = normalizeDataPathKey(payload.filePath);
+    deduped.set(normalizedPath, {
+      ...payload,
+      fileName,
+    });
+  }
+
+  const entries: DataChangeBatchEntry[] = [];
+  let shouldConfirm = false;
+  let shouldReloadCurrentSelection = false;
+  let affectsCurrentFile = false;
+
+  for (const [normalizedPath, payload] of deduped.entries()) {
+    const impact = resolveDataChangeImpact(snapshot, payload);
+    if (!impact.shouldReload) {
+      continue;
+    }
+    entries.push({
+      payload,
+      fileName: payload.fileName || extractFileName(payload.filePath),
+      normalizedPath,
+      impact,
+    });
+    shouldConfirm = shouldConfirm || impact.shouldConfirm;
+    shouldReloadCurrentSelection = shouldReloadCurrentSelection || impact.shouldConfirm;
+    affectsCurrentFile = affectsCurrentFile || impact.target === 'current-file';
+  }
+
+  return {
+    entries,
+    shouldConfirm,
+    shouldReloadCurrentSelection,
+    affectsCurrentFile,
+  };
+};
+
 export const buildDataReloadConfirmMessage = (
   snapshot: ActivePanelSnapshot,
   impact: DataChangeImpact,
@@ -170,4 +230,30 @@ export const buildDataReloadConfirmMessage = (
   }
 
   return `当前面板正在使用的 ${fileName} 已发生变化，是否立即重新加载？`;
+};
+
+export const buildDataReloadBatchConfirmMessage = (
+  snapshot: ActivePanelSnapshot,
+  plan: DataChangeBatchPlan,
+  hasUnsavedChanges: boolean,
+): string => {
+  const fileNames = Array.from(new Set(plan.entries.map((entry) => entry.fileName)));
+  if (fileNames.length === 0) {
+    return '检测到外部数据变化，是否立即重新加载？';
+  }
+
+  const lines: string[] = [];
+  if (hasUnsavedChanges && plan.affectsCurrentFile) {
+    lines.push('当前正在编辑的数据文件及其依赖文件发生了外部变化，重新加载会覆盖未保存修改。是否继续？');
+  } else if (snapshot.uiMode === 'projectile') {
+    lines.push('当前弹道面板依赖的多个文件发生了外部变化。确认后将统一重新加载一次当前编辑上下文。');
+  } else {
+    lines.push('检测到当前面板使用的多个文件发生了外部变化。确认后将统一重新加载一次当前编辑上下文。');
+  }
+
+  lines.push('', '变更文件：');
+  for (const fileName of fileNames) {
+    lines.push(`- ${fileName}`);
+  }
+  return lines.join('\n');
 };
