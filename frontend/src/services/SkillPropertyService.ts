@@ -223,6 +223,14 @@ const extractSkillMeta = (skill: unknown): Record<string, unknown> => {
   return isRecord(skill.meta) ? skill.meta : {};
 };
 
+const buildMetaPatch = (skill: unknown, meta: Record<string, unknown>) => {
+  if (!isRecord(skill)) return {};
+  if (hasOwn(skill, 'meta') || Object.keys(meta).length > 0) {
+    return { meta };
+  }
+  return {};
+};
+
 export function normalizeSkillEditorValues(skill: unknown): SkillEditorValues {
   if (!isRecord(skill)) {
     return {
@@ -263,7 +271,7 @@ export function normalizeSkillDataEntry(skill: unknown): RPGItem | null {
 
   return {
     ...(restSkill as unknown as RPGItem),
-    meta: currentMeta,
+    ...buildMetaPatch(skill, currentMeta),
     projectileId: normalized.projectileId,
     skillProjectileTag: normalized.skillProjectileTag,
     reactionSuccessRate: normalized.reactionSuccessRate,
@@ -299,7 +307,7 @@ export function buildSkillSaveData(sourceItem: RPGItem, nextValues: SkillEditorI
 
   return {
     ...(restItem as unknown as RPGItem),
-    meta: currentMeta,
+    ...buildMetaPatch(sourceItem as unknown as Record<string, unknown>, currentMeta),
     projectileId: normalizeProjectileId(nextValues.projectileId),
     skillProjectileTag: normalizeProjectileTag(nextValues.skillProjectileTag),
     reactionSuccessRate: clampPercent(nextValues.reactionSuccessRate),

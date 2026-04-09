@@ -5,10 +5,12 @@ import { arePlainDataEqual } from './PlainDataCompare';
 import { normalizeProjectileDataEntry } from './ProjectileTemplateService';
 import { normalizeCommonRangeDataEntry } from './RangePropertyService';
 import { normalizeSkillDataEntry } from './SkillPropertyService';
+import { normalizeStateDataEntry } from './StateChargePropertyService';
 import { normalizeStandardDataForEditor } from './DataFileFormatService';
 
 export const AUDIT_TARGET_FILE_NAMES = [
   'Skills.json',
+  'States.json',
   'Enemies.json',
   'Items.json',
   'Weapons.json',
@@ -70,8 +72,19 @@ const normalizeEntryByFileName = (
     return normalizeEnemyDataEntry(entry) ?? entry;
   }
 
+  if (fileName === 'States.json') {
+    return normalizeStateDataEntry(entry) ?? entry;
+  }
+
   if (fileName === 'Items.json') {
-    return normalizeCommonRangeDataEntry(entry) ?? entry;
+    const normalized = normalizeSkillDataEntry(entry) ?? entry;
+    const itemNormalized = normalizeCommonRangeDataEntry(normalized) ?? normalized;
+    if (itemNormalized && typeof itemNormalized === 'object' && !Array.isArray(itemNormalized)) {
+      const nextItem = { ...(itemNormalized as Record<string, unknown>) };
+      delete nextItem.skillCosts;
+      return nextItem;
+    }
+    return itemNormalized;
   }
 
   if (fileName === 'Weapons.json') {

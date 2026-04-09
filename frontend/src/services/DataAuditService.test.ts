@@ -18,9 +18,24 @@ describe('DataAuditService', () => {
           ],
         },
       ]],
+      ['D:/Project/data/States.json', [
+        null,
+        {
+          id: 1,
+          name: '蓄力',
+          chargeConfig: {
+            blockActions: true,
+            releaseSkillId: 6,
+          },
+        },
+        {
+          id: 2,
+          name: '空蓄力',
+        },
+      ]],
       ['D:/Project/data/Items.json', [
         null,
-        { id: 1, name: '手雷', targetCamp: 2, areaMode: 2, areaTargetCount: 3, repeatTime: 2 },
+        { id: 1, name: '手雷', projectileId: 5, skillProjectileTag: 1, targetCamp: 2, areaMode: 2, areaTargetCount: 3, repeatTime: 2 },
       ]],
       ['D:/Project/data/Enemies.json', [
         null,
@@ -75,10 +90,10 @@ describe('DataAuditService', () => {
       }),
     });
 
-    expect(summary.checkedFiles).toBe(7);
-    expect(summary.repairedFiles).toBe(7);
-    expect(summary.repairedEntries).toBe(8);
-    expect(writes).toHaveLength(7);
+    expect(summary.checkedFiles).toBe(8);
+    expect(summary.repairedFiles).toBe(8);
+    expect(summary.repairedEntries).toBe(10);
+    expect(writes).toHaveLength(8);
 
     const skillPayload = writes.find((item) => item.filePath.endsWith('Skills.json'))?.data as unknown[];
     expect(skillPayload[1]).toMatchObject({
@@ -104,8 +119,36 @@ describe('DataAuditService', () => {
     });
     expect(skillPayload[1]).not.toHaveProperty('isUsedForProjectile');
 
+    const statePayload = writes.find((item) => item.filePath.endsWith('States.json'))?.data as unknown[];
+    expect(statePayload[1]).toMatchObject({
+      id: 1,
+      name: '蓄力',
+      chargeConfig: {
+        blockActions: true,
+        grantAction: false,
+        releaseSkillId: 6,
+        queueScope: 0,
+        queueShift: 0,
+      },
+    });
+    expect(statePayload[2]).toMatchObject({
+      id: 2,
+      name: '空蓄力',
+      chargeConfig: {
+        blockActions: false,
+        grantAction: false,
+        releaseSkillId: 0,
+        queueScope: 0,
+        queueShift: 0,
+      },
+    });
+
     const itemPayload = writes.find((item) => item.filePath.endsWith('Items.json'))?.data as unknown[];
     expect(itemPayload[1]).toMatchObject({
+      projectileId: 5,
+      skillProjectileTag: 1,
+      reactionSuccessRate: 0,
+      reactionPriority: 0,
       targetCamp: 2,
       targetLifeState: 1,
       selectMode: 1,
@@ -236,6 +279,10 @@ describe('DataAuditService', () => {
           return [null, {
             id: 1,
             name: '已规范手雷',
+            projectileId: 0,
+            skillProjectileTag: -1,
+            reactionSuccessRate: 0,
+            reactionPriority: 0,
             targetCamp: 2,
             targetLifeState: 1,
             selectMode: 1,
@@ -259,6 +306,13 @@ describe('DataAuditService', () => {
           skillProjectileTag: -1,
           reactionSuccessRate: 0,
           reactionPriority: 0,
+          chargeConfig: {
+            blockActions: false,
+            grantAction: false,
+            releaseSkillId: 0,
+            queueScope: 0,
+            queueShift: 0,
+          },
           skillCosts: [],
           targetCamp: 1,
           targetLifeState: 1,

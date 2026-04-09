@@ -30,6 +30,13 @@ import {
   normalizeBattleOrderEffects,
 } from '../../services/BattleOrderEffectsService';
 import {
+  areStateChargeConfigsEqual,
+  buildStateChargeSaveData,
+  normalizeStateChargeEditorValues,
+  STATE_CHARGE_QUEUE_SCOPE_CURRENT,
+  STATE_CHARGE_QUEUE_SCOPE_NEXT,
+} from '../../services/StateChargePropertyService';
+import {
   EXTRA_PARAM_FIELDS,
   normalizeArmorElementRateFloats,
   normalizeArmorElementRates,
@@ -235,6 +242,7 @@ const ENEMY_BOUNTY_FIELD_KEY = 'enemyBounty';
 const ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY = 'enemyAttackAnimationId';
 const ENEMY_REACTION_SKILL_ID_FIELD_KEY = 'enemyReactionSkillId';
 const STATE_WEAKNESS_EFFECTS_FIELD_KEY = 'stateWeaknessEffects';
+const STATE_CHARGE_CONFIG_FIELD_KEY = 'stateChargeConfig';
 const ORDER_EFFECTS_FIELD_KEY = 'orderEffects';
 
 const TARGET_CAMP_OPTIONS = [
@@ -629,6 +637,7 @@ export function PropertyPanel() {
   const isSkillFile = currentFileName === SKILLS_FILE_NAME.toLowerCase();
   const isEnemyFile = currentFileName === ENEMIES_FILE_NAME.toLowerCase();
   const isStateFile = currentFileName === STATES_FILE_NAME.toLowerCase();
+  const supportsProjectileConfig = isSkillFile || isItemFile;
   const supportsTemplateParams = isWeaponItem || isArmorItem;
   const supportsPrice = isItemFile || isWeaponItem || isArmorItem;
   const supportsCommonRange = isItemFile || isSkillFile;
@@ -845,16 +854,19 @@ export function PropertyPanel() {
         Object.assign(baseFormValues, getCommonRangeValues(item));
         baseFormValues[ORDER_EFFECTS_FIELD_KEY] = normalizeBattleOrderEffects(item.orderEffects);
       }
-      if (isSkillFile) {
+      if (supportsProjectileConfig) {
         const skillValues = normalizeSkillEditorValues(item);
         baseFormValues[SKILL_PROJECTILE_ID_FIELD_KEY] = skillValues.projectileId;
         baseFormValues[SKILL_PROJECTILE_TAG_FIELD_KEY] = skillValues.skillProjectileTag;
         baseFormValues[SKILL_REACTION_SUCCESS_RATE_FIELD_KEY] = skillValues.reactionSuccessRate;
         baseFormValues[SKILL_REACTION_PRIORITY_FIELD_KEY] = skillValues.reactionPriority;
-        baseFormValues[SKILL_COSTS_FIELD_KEY] = skillValues.skillCosts;
+        if (isSkillFile) {
+          baseFormValues[SKILL_COSTS_FIELD_KEY] = skillValues.skillCosts;
+        }
       }
       if (isStateFile) {
         baseFormValues[STATE_WEAKNESS_EFFECTS_FIELD_KEY] = normalizeStateWeaknessEffects(item.weaknessStateEffects);
+        baseFormValues[STATE_CHARGE_CONFIG_FIELD_KEY] = normalizeStateChargeEditorValues(item.chargeConfig);
       }
       if (isEnemyFile) {
         const enemyValues = normalizeEnemyEditorValues(item as RPGEnemy);
@@ -1130,10 +1142,13 @@ export function PropertyPanel() {
     const nextStateWeaknessEffects = isStateFile
       ? buildStateWeaknessEffectsSaveData(values[STATE_WEAKNESS_EFFECTS_FIELD_KEY])
       : null;
+    const nextStateChargeConfig = isStateFile
+      ? buildStateChargeSaveData(values[STATE_CHARGE_CONFIG_FIELD_KEY])
+      : null;
     const nextQualityLock = (isWeaponItem || isArmorItem)
       ? values[QUALITY_LOCK_FIELD_KEY] === true
       : false;
-    const nextSkillValues = isSkillFile
+    const nextSkillValues = supportsProjectileConfig
       ? {
           projectileId: values[SKILL_PROJECTILE_ID_FIELD_KEY],
           skillProjectileTag: values[SKILL_PROJECTILE_TAG_FIELD_KEY],
@@ -1143,7 +1158,7 @@ export function PropertyPanel() {
           targetLifeState: values[TARGET_LIFE_STATE_FIELD_KEY],
           selectMode: values[SELECT_MODE_FIELD_KEY],
           areaMode: values[AREA_MODE_FIELD_KEY],
-          skillCosts: values[SKILL_COSTS_FIELD_KEY],
+          skillCosts: isSkillFile ? values[SKILL_COSTS_FIELD_KEY] : undefined,
         }
       : null;
     const nextEnemyValues = isEnemyFile
@@ -1219,7 +1234,8 @@ export function PropertyPanel() {
       || (isEnemyFile && nextEnemyBaseWeaknessGroup !== null && !areEnemyWeaknessGroupsEqual((sourceItem as RPGEnemy).baseWeaknessGroup, nextEnemyBaseWeaknessGroup))
       || (isEnemyFile && nextEnemyDynamicWeaknessGroups !== null && !areEnemyWeaknessGroupListsEqual((sourceItem as RPGEnemy).dynamicWeaknessGroups, nextEnemyDynamicWeaknessGroups))
       || (isStateFile && !areStateWeaknessEffectsEqual(sourceItem.weaknessStateEffects, nextStateWeaknessEffects ?? undefined))
-      || (isSkillFile && nextSkillValues !== null && hasSkillEditorChanges(sourceItem, nextSkillValues))
+      || (isStateFile && !areStateChargeConfigsEqual(sourceItem.chargeConfig, nextStateChargeConfig ?? undefined))
+      || (supportsProjectileConfig && nextSkillValues !== null && hasSkillEditorChanges(sourceItem, nextSkillValues))
       || ((isWeaponItem || isArmorItem) && (sourceItem.qualityLock === true) !== nextQualityLock)
       || (isEnemyFile && nextEnemyValues !== null && hasEnemyEditorChanges(sourceItem as RPGEnemy, nextEnemyValues));
     const nextEquipTypeId = isWeaponItem ? toIntOrZero(values[EQUIP_TYPE_FIELD_KEY]) : 0;
@@ -1249,6 +1265,7 @@ export function PropertyPanel() {
         ...(isArmorItem && nextArmorElementRates ? { elementRates: nextArmorElementRates } : {}),
         ...(isArmorItem && nextElementRateFloats ? { elementRateFloats: nextElementRateFloats } : {}),
         ...(isStateFile ? { weaknessStateEffects: nextStateWeaknessEffects ?? undefined } : {}),
+        ...(isStateFile ? { chargeConfig: nextStateChargeConfig ?? undefined } : {}),
         ...(isEnemyFile && nextEnemyBaseWeaknessGroup ? {
           baseWeaknessGroup: nextEnemyBaseWeaknessGroup,
           dynamicWeaknessGroups: nextEnemyDynamicWeaknessGroups ?? [],
@@ -1261,14 +1278,21 @@ export function PropertyPanel() {
         floatParams: newFloatParams,
       };
 
-      if (isSkillFile && nextSkillValues !== null) {
+      if (supportsProjectileConfig && nextSkillValues !== null) {
         nextItem = buildSkillSaveData(nextItem as RPGItem, nextSkillValues);
+        if (isItemFile) {
+          delete (nextItem as RPGItem).skillCosts;
+        }
         if (nextCommonRangeValues) {
           nextItem = {
             ...nextItem,
-            ...nextCommonRangeValues,
-          };
-        }
+          ...nextCommonRangeValues,
+        };
+      }
+    }
+
+      if (isStateFile && nextStateWeaknessEffects == null) {
+        delete (nextItem as RPGItem).weaknessStateEffects;
       }
 
       if (isEnemyFile && nextEnemyValues !== null) {
@@ -1856,6 +1880,75 @@ export function PropertyPanel() {
     </div>
   );
 
+  const renderStateChargeEditor = () => (
+    <Card
+      title="状态蓄力配置"
+      className="mb-4"
+      headStyle={{
+        backgroundColor: '#252b3d',
+        borderBottom: '1px solid var(--color-border)',
+        color: 'var(--color-accent)',
+      }}
+      bodyStyle={{ backgroundColor: '#1a1f2e' }}
+    >
+      <div className="text-xs text-gray-500 mb-4">
+        这里定义状态级 `chargeConfig`。当前结构化蓄力只在状态移除时触发：`禁止行动` 会让状态持续期间视为不可行动；`结束后给一动` 与 `结束时释放技能` 会在状态结束时新增一条行动；`顺位队列` 决定它写入当前回合还是下回合，`顺位偏移` 里正数表示提前，负数表示延后。
+      </div>
+      <div className="grid grid-cols-5 gap-4">
+        <Form.Item
+          name={[STATE_CHARGE_CONFIG_FIELD_KEY, 'blockActions']}
+          label={<span className="text-xs text-gray-400">禁止行动</span>}
+          valuePropName="checked"
+          className="mb-0"
+        >
+          <Switch />
+        </Form.Item>
+        <Form.Item
+          name={[STATE_CHARGE_CONFIG_FIELD_KEY, 'grantAction']}
+          label={<span className="text-xs text-gray-400">结束后给一动</span>}
+          valuePropName="checked"
+          className="mb-0"
+        >
+          <Switch />
+        </Form.Item>
+        <Form.Item
+          name={[STATE_CHARGE_CONFIG_FIELD_KEY, 'releaseSkillId']}
+          label={<span className="text-xs text-gray-400">结束时释放技能</span>}
+          className="mb-0"
+        >
+          <Select
+            options={skillOptions}
+            className="w-full"
+            placeholder="未选择技能"
+            showSearch
+            optionFilterProp="label"
+          />
+        </Form.Item>
+        <Form.Item
+          name={[STATE_CHARGE_CONFIG_FIELD_KEY, 'queueScope']}
+          label={<span className="text-xs text-gray-400">顺位队列</span>}
+          className="mb-0"
+        >
+          <Select
+            options={[
+              { value: STATE_CHARGE_QUEUE_SCOPE_CURRENT, label: '当前回合' },
+              { value: STATE_CHARGE_QUEUE_SCOPE_NEXT, label: '下回合' },
+            ]}
+            className="w-full"
+            placeholder="选择队列"
+          />
+        </Form.Item>
+        <Form.Item
+          name={[STATE_CHARGE_CONFIG_FIELD_KEY, 'queueShift']}
+          label={<span className="text-xs text-gray-400">顺位偏移</span>}
+          className="mb-0"
+        >
+          <InputNumber step={1} className="w-full" style={{ width: '100%' }} />
+        </Form.Item>
+      </div>
+    </Card>
+  );
+
   if (!currentItem) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -2009,9 +2102,9 @@ export function PropertyPanel() {
           </div>
         </Card>
 
-        {isSkillFile ? (
+        {supportsProjectileConfig ? (
           <Card
-            title="技能弹道 / 迎击配置"
+            title="技能 / 物品弹道 / 迎击配置"
             className="mb-4"
             headStyle={{
               backgroundColor: '#252b3d',
@@ -2021,9 +2114,9 @@ export function PropertyPanel() {
             bodyStyle={{ backgroundColor: '#1a1f2e' }}
           >
             <div className="text-xs text-gray-500 mb-4">
-              这里维护技能的结构化弹道与迎击字段，不再依赖 `meta.projectileId / skillProjectileTag / reactionSuccessRate / reactionPriority`。
-              只要 `弹道模板 id {'>'} 0`，运行时就会把该技能视为弹道技能。
-              `迎击类型` 含义与 `Zaun_ProjectileReaction.js` 保持一致：`0` 表示该技能可作为迎击技能，`1` 表示该技能发出的弹道可被迎击。
+              这里维护技能/物品共用的结构化弹道与迎击字段，不再依赖 `meta.projectileId / skillProjectileTag / reactionSuccessRate / reactionPriority`。
+              只要 `弹道模板 id {'>'} 0`，运行时就会把该技能或物品视为弹道宿主。
+              `迎击类型` 含义与 `Zaun_ProjectileReaction.js` 保持一致：`0` 表示当前动作可作为迎击技能，`1` 表示当前动作发出的弹道可被迎击。物品现在也能发射并被迎击，但拦截动作本身仍来自敌人 `reactionSkillId` 或角色迎击武器绑定的反应技能。
             </div>
             <div className="grid grid-cols-4 gap-x-4 gap-y-4">
               <Form.Item
@@ -2259,24 +2352,27 @@ export function PropertyPanel() {
         ) : null}
 
         {isStateFile ? (
-          <Card
-            title="状态即时弱点效果"
-            className="mb-4"
-            headStyle={{
-              backgroundColor: '#252b3d',
-              borderBottom: '1px solid var(--color-border)',
-              color: 'var(--color-accent)',
-            }}
-            bodyStyle={{ backgroundColor: '#1a1f2e' }}
-          >
-            <div className="text-xs text-gray-500 mb-4">
-              这里只控制状态添加/移除时的一次性弱点操作。`切换弱点组` 写 `-1` 表示不切组，`0` 表示切回基础组，`1..n` 对应敌人的动态弱点组。
-            </div>
-            <div className="space-y-4">
-              {renderStateWeaknessPhaseEditor('onAdd', '添加时触发', '状态首次附加到目标时执行，适合进入阶段、锁定弱点。')}
-              {renderStateWeaknessPhaseEditor('onRemove', '移除时触发', '状态移除时执行，适合回到基础组或解除保护。')}
-            </div>
-          </Card>
+          <>
+            {renderStateChargeEditor()}
+            <Card
+              title="状态即时弱点效果"
+              className="mb-4"
+              headStyle={{
+                backgroundColor: '#252b3d',
+                borderBottom: '1px solid var(--color-border)',
+                color: 'var(--color-accent)',
+              }}
+              bodyStyle={{ backgroundColor: '#1a1f2e' }}
+            >
+              <div className="text-xs text-gray-500 mb-4">
+                这里只控制状态添加/移除时的一次性弱点操作。`切换弱点组` 写 `-1` 表示不切组，`0` 表示切回基础组，`1..n` 对应敌人的动态弱点组。
+              </div>
+              <div className="space-y-4">
+                {renderStateWeaknessPhaseEditor('onAdd', '添加时触发', '状态首次附加到目标时执行，适合进入阶段、锁定弱点。')}
+                {renderStateWeaknessPhaseEditor('onRemove', '移除时触发', '状态移除时执行，适合回到基础组或解除保护。')}
+              </div>
+            </Card>
+          </>
         ) : null}
 
         {isEnemyFile ? (
@@ -2378,7 +2474,7 @@ export function PropertyPanel() {
             bodyStyle={{ backgroundColor: '#1a1f2e' }}
           >
             <div className="text-xs text-gray-500 mb-4">
-              这里直接维护技能/物品的结构化 `orderEffects` 字段，后续 OTB 运行时将直接读取，不再依赖备注正则。
+              这里直接维护技能/物品的结构化 `orderEffects` 字段，后续 OTB 运行时将直接读取，不再依赖备注正则。正数表示提前，负数表示延后；`targetCurrent` 改目标本回合，`targetNext` 改目标下回合，`targetFollow` 只会让 `targetNext` 在目标仍留在当前队列时改写到本回合。`userNext / speedConvert` 只影响使用者下回合顺位，不负责新增行动机会；状态结束后新增一动请改上面的“状态蓄力配置”。
             </div>
             <div className="grid grid-cols-4 gap-x-4 gap-y-4">
               <Form.Item

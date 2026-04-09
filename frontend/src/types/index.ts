@@ -205,6 +205,7 @@ export interface RPGItem {
   reactionPriority?: number;
   skillCosts?: SkillCostEntry[];
   weaknessStateEffects?: StateWeaknessEffects;
+  chargeConfig?: StateChargeConfig;
   elementRates?: number[];
   elementRateFloats?: number[];
   qualityLock?: boolean;
@@ -241,6 +242,14 @@ export interface StateWeaknessPhaseEffect {
 export interface StateWeaknessEffects {
   onAdd?: StateWeaknessPhaseEffect;
   onRemove?: StateWeaknessPhaseEffect;
+}
+
+export interface StateChargeConfig {
+  blockActions?: boolean;
+  grantAction?: boolean;
+  releaseSkillId?: number;
+  queueScope?: number;
+  queueShift?: number;
 }
 
 export interface RPGEnemy extends RPGItem {
