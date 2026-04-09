@@ -1,4 +1,5 @@
 import { Card, Input, InputNumber, Button, Form, Space, Select, Switch } from 'antd';
+import type { FormListFieldData } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
@@ -45,10 +46,17 @@ import type {
   ParamTemplate,
   RPGEnemy,
   RPGItem,
+  SkillCostEntry,
+  SkillCostType,
   StateWeaknessEffects,
 } from '../../types';
 import { normalizeEffectIdList } from '../../services/GameEffectService';
 import { arePlainDataEqual } from '../../services/PlainDataCompare';
+import {
+  areShapeParamsEqual,
+  normalizeCommonRangeValues,
+  normalizeWeaponRangeValues,
+} from '../../services/RangePropertyService';
 
 interface CustomAttribute {
   name: string;
@@ -65,7 +73,6 @@ interface PendingDraftState {
   hasEffectChanges?: boolean;
 }
 
-type ShapeParams = Record<string, Record<string, number>>;
 type FixedParamGroupKey = 'extraParams' | 'vehicleParams' | 'upgradeParams';
 
 interface FixedParamFieldDefinition {
@@ -179,11 +186,6 @@ const areParamGroupsEqual = (
   fields: FixedParamFieldDefinition[],
 ) => arePlainDataEqual(normalizeGroupValues(left, fields), right);
 
-const readRangeFieldValue = (raw: Record<string, unknown>, key: string, defaultValue: number): number => {
-  const value = raw[key];
-  return value === undefined ? defaultValue : value as number;
-};
-
 const getFloatFieldKey = (key: string) => `${key}_float`;
 const EQUIP_TYPE_FIELD_KEY = 'etypeId';
 const PRICE_FIELD_KEY = 'price';
@@ -220,6 +222,7 @@ const SKILL_PROJECTILE_ID_FIELD_KEY = 'skillProjectileId';
 const SKILL_PROJECTILE_TAG_FIELD_KEY = 'skillProjectileTag';
 const SKILL_REACTION_SUCCESS_RATE_FIELD_KEY = 'skillReactionSuccessRate';
 const SKILL_REACTION_PRIORITY_FIELD_KEY = 'skillReactionPriority';
+const SKILL_COSTS_FIELD_KEY = 'skillCosts';
 const ENEMY_CLASS_ID_FIELD_KEY = 'enemyClassId';
 const ENEMY_LEVEL_FIELD_KEY = 'enemyLevel';
 const ENEMY_LEVEL_SCOPE_FIELD_KEY = 'enemyLevelScope';
@@ -275,11 +278,17 @@ const SKILL_PROJECTILE_TAG_OPTIONS = [
   { value: SKILL_PROJECTILE_TAG_INTERCEPTABLE, label: '1 : 发射可被迎击的弹道' },
 ];
 
-const DEFAULT_SHAPE_PARAMS: ShapeParams = Object.freeze({
-  '1': Object.freeze({ radius: 120 }),
-  '2': Object.freeze({ radius: 180, angleDeg: 60 }),
-  '3': Object.freeze({ width: 80, length: 240 }),
-});
+const SKILL_COST_TYPE_OPTIONS: Array<{ value: SkillCostType; label: string }> = [
+  { value: 'hp', label: '生命值固定值' },
+  { value: 'hpRate', label: '生命值百分比' },
+  { value: 'gold', label: '金钱固定值' },
+  { value: 'goldRate', label: '金钱百分比' },
+  { value: 'variable', label: '变量值' },
+  { value: 'variableRate', label: '变量百分比' },
+  { value: 'item', label: '指定物品' },
+  { value: 'weapon', label: '指定武器' },
+  { value: 'armor', label: '指定防具' },
+];
 
 const areArraysEqual = (left: number[], right: number[]) => {
   if (left.length !== right.length) {
@@ -330,96 +339,6 @@ const areFloatArraysEqual = (left: unknown, right: number[]): boolean => {
   return right.every((value, index) => Math.abs(toFloatOrZero(left[index]) - value) < 1e-8);
 };
 
-const normalizeShapeParams = (value: unknown): ShapeParams => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return DEFAULT_SHAPE_PARAMS;
-  }
-
-  return value as ShapeParams;
-};
-
-const areShapeParamsEqual = (left: unknown, right: ShapeParams): boolean => {
-  const normalizedLeft = normalizeShapeParams(left);
-  return arePlainDataEqual(normalizedLeft, right);
-};
-
-const normalizeCommonRangeValues = (raw: Record<string, unknown>) => {
-  let targetCamp = Math.max(1, readRangeFieldValue(raw, TARGET_CAMP_FIELD_KEY, 1));
-  let targetLifeState = Math.max(1, readRangeFieldValue(raw, TARGET_LIFE_STATE_FIELD_KEY, 1));
-  let selectMode = Math.max(1, readRangeFieldValue(raw, SELECT_MODE_FIELD_KEY, 1));
-  let areaMode = Math.max(1, readRangeFieldValue(raw, AREA_MODE_FIELD_KEY, 1));
-  let shapeType = Math.max(0, readRangeFieldValue(raw, SHAPE_TYPE_FIELD_KEY, 0));
-  let areaTargetCount = Math.max(0, readRangeFieldValue(raw, AREA_TARGET_COUNT_FIELD_KEY, 0));
-
-  if (targetCamp === 3) {
-    targetLifeState = 1;
-    selectMode = 1;
-    areaMode = 1;
-  } else if (targetCamp === 4) {
-    selectMode = 2;
-    areaMode = 4;
-  }
-
-  if (selectMode === 2) {
-    areaMode = 4;
-  }
-
-  if (areaMode === 1 || areaMode === 4) {
-    shapeType = 0;
-    areaTargetCount = 0;
-  } else if (areaMode === 3) {
-    shapeType = 3;
-    areaTargetCount = 0;
-  } else {
-    if (shapeType !== 1 && shapeType !== 2) shapeType = 1;
-    areaTargetCount = Math.max(1, areaTargetCount || 1);
-  }
-
-  return {
-    targetCamp,
-    targetLifeState: Math.min(3, targetLifeState),
-    selectMode: Math.min(2, selectMode),
-    areaMode: Math.min(4, areaMode),
-    shapeType: Math.min(3, shapeType),
-    areaTargetCount,
-    shapeParams: normalizeShapeParams(raw[SHAPE_PARAMS_FIELD_KEY]),
-    repeatTime: Math.max(1, readRangeFieldValue(raw, REPEAT_TIME_FIELD_KEY, 1)),
-    repeatTimeFloat: Math.max(0, readRangeFieldValue(raw, REPEAT_TIME_FLOAT_FIELD_KEY, 0)),
-  };
-};
-
-const normalizeWeaponRangeValues = (raw: Record<string, unknown>) => {
-  let areaOverride = Math.max(0, readRangeFieldValue(raw, AREA_OVERRIDE_FIELD_KEY, 0));
-  let areaMode = Math.max(1, readRangeFieldValue(raw, AREA_MODE_FIELD_KEY, 1));
-  let shapeType = Math.max(0, readRangeFieldValue(raw, SHAPE_TYPE_FIELD_KEY, 0));
-  let areaTargetCount = Math.max(0, readRangeFieldValue(raw, AREA_TARGET_COUNT_FIELD_KEY, 0));
-
-  if (areaOverride === 0) {
-    areaMode = 1;
-    shapeType = 0;
-    areaTargetCount = 0;
-  } else if (areaMode === 1 || areaMode === 4) {
-    shapeType = 0;
-    areaTargetCount = 0;
-  } else if (areaMode === 3) {
-    shapeType = 3;
-    areaTargetCount = 0;
-  } else {
-    if (shapeType !== 1 && shapeType !== 2) shapeType = 1;
-    areaTargetCount = Math.max(1, areaTargetCount || 1);
-  }
-
-  return {
-    areaOverride: Math.min(1, areaOverride),
-    areaMode: Math.min(4, areaMode),
-    shapeType: Math.min(3, shapeType),
-    areaTargetCount,
-    shapeParams: normalizeShapeParams(raw[SHAPE_PARAMS_FIELD_KEY]),
-    repeatTime: Math.max(1, readRangeFieldValue(raw, REPEAT_TIME_FIELD_KEY, 1)),
-    repeatTimeFloat: Math.max(0, readRangeFieldValue(raw, REPEAT_TIME_FLOAT_FIELD_KEY, 0)),
-  };
-};
-
 const getCommonRangeValues = (item: RPGItem) => {
   return normalizeCommonRangeValues(item as unknown as Record<string, unknown>);
 };
@@ -466,6 +385,32 @@ const getElementOptions = (systemData: unknown) => {
 
   return options;
 };
+
+const getVariableOptions = (systemData: unknown) => {
+  const systemRecord = getSystemRecord(systemData);
+  const rawVariables = Array.isArray(systemRecord?.variables) ? systemRecord.variables : [];
+  const options = [{ value: 0, label: '0 : 未选择变量' }];
+
+  for (let index = 1; index < rawVariables.length; index++) {
+    const rawName = typeof rawVariables[index] === 'string' ? rawVariables[index].trim() : '';
+    options.push({
+      value: index,
+      label: `${index} : ${rawName || `变量${index}`}`,
+    });
+  }
+
+  return options;
+};
+
+const createEmptySkillCostEntry = (): SkillCostEntry => ({
+  type: 'hp',
+  value: 0,
+  variableId: 0,
+  itemId: 0,
+  weaponId: 0,
+  armorId: 0,
+  amount: 1,
+});
 
 const getElementRateFieldDefinitions = (systemData: unknown) => {
   const systemRecord = getSystemRecord(systemData);
@@ -707,6 +652,18 @@ export function PropertyPanel() {
     () => DataLoaderService.getCachedDataByName<unknown[]>(SKILLS_FILE_NAME),
     [currentFilePath, currentItem, referenceRevision],
   );
+  const itemsData = useMemo(
+    () => DataLoaderService.getCachedDataByName<unknown[]>(ITEMS_FILE_NAME),
+    [currentFilePath, currentItem, referenceRevision],
+  );
+  const weaponsData = useMemo(
+    () => DataLoaderService.getCachedDataByName<unknown[]>(WEAPONS_FILE_NAME),
+    [currentFilePath, currentItem, referenceRevision],
+  );
+  const armorsData = useMemo(
+    () => DataLoaderService.getCachedDataByName<unknown[]>(ARMORS_FILE_NAME),
+    [currentFilePath, currentItem, referenceRevision],
+  );
   const projectilesData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown[]>(PROJECTILES_FILE_NAME),
     [currentFilePath, currentItem, referenceRevision],
@@ -744,8 +701,24 @@ export function PropertyPanel() {
     () => buildDataOptions(projectilesData, '未选择弹道'),
     [projectilesData],
   );
+  const itemReferenceOptions = useMemo(
+    () => buildDataOptions(itemsData, '未选择物品'),
+    [itemsData],
+  );
+  const weaponReferenceOptions = useMemo(
+    () => buildDataOptions(weaponsData, '未选择武器'),
+    [weaponsData],
+  );
+  const armorReferenceOptions = useMemo(
+    () => buildDataOptions(armorsData, '未选择防具'),
+    [armorsData],
+  );
   const elementOptions = useMemo(
     () => getElementOptions(systemData),
+    [systemData],
+  );
+  const variableOptions = useMemo(
+    () => getVariableOptions(systemData),
     [systemData],
   );
   const weaknessElementOptions = useMemo(
@@ -806,6 +779,9 @@ export function PropertyPanel() {
         EQUIP_EXTENSIONS_FILE_NAME.toLowerCase(),
         SYSTEM_FILE_NAME.toLowerCase(),
         SKILLS_FILE_NAME.toLowerCase(),
+        ITEMS_FILE_NAME.toLowerCase(),
+        WEAPONS_FILE_NAME.toLowerCase(),
+        ARMORS_FILE_NAME.toLowerCase(),
         PROJECTILES_FILE_NAME.toLowerCase(),
         EFFECTS_FILE_NAME.toLowerCase(),
         CLASSES_FILE_NAME.toLowerCase(),
@@ -875,6 +851,7 @@ export function PropertyPanel() {
         baseFormValues[SKILL_PROJECTILE_TAG_FIELD_KEY] = skillValues.skillProjectileTag;
         baseFormValues[SKILL_REACTION_SUCCESS_RATE_FIELD_KEY] = skillValues.reactionSuccessRate;
         baseFormValues[SKILL_REACTION_PRIORITY_FIELD_KEY] = skillValues.reactionPriority;
+        baseFormValues[SKILL_COSTS_FIELD_KEY] = skillValues.skillCosts;
       }
       if (isStateFile) {
         baseFormValues[STATE_WEAKNESS_EFFECTS_FIELD_KEY] = normalizeStateWeaknessEffects(item.weaknessStateEffects);
@@ -1162,6 +1139,11 @@ export function PropertyPanel() {
           skillProjectileTag: values[SKILL_PROJECTILE_TAG_FIELD_KEY],
           reactionSuccessRate: values[SKILL_REACTION_SUCCESS_RATE_FIELD_KEY],
           reactionPriority: values[SKILL_REACTION_PRIORITY_FIELD_KEY],
+          targetCamp: values[TARGET_CAMP_FIELD_KEY],
+          targetLifeState: values[TARGET_LIFE_STATE_FIELD_KEY],
+          selectMode: values[SELECT_MODE_FIELD_KEY],
+          areaMode: values[AREA_MODE_FIELD_KEY],
+          skillCosts: values[SKILL_COSTS_FIELD_KEY],
         }
       : null;
     const nextEnemyValues = isEnemyFile
@@ -1281,6 +1263,12 @@ export function PropertyPanel() {
 
       if (isSkillFile && nextSkillValues !== null) {
         nextItem = buildSkillSaveData(nextItem as RPGItem, nextSkillValues);
+        if (nextCommonRangeValues) {
+          nextItem = {
+            ...nextItem,
+            ...nextCommonRangeValues,
+          };
+        }
       }
 
       if (isEnemyFile && nextEnemyValues !== null) {
@@ -1307,6 +1295,106 @@ export function PropertyPanel() {
       ToastManager.success('基础属性已保存');
     }
   };
+
+  const renderSkillCostConfigFields = (field: FormListFieldData) => (
+    <Form.Item
+      noStyle
+      shouldUpdate={(prevValues, nextValues) => {
+        const prevType = prevValues?.[SKILL_COSTS_FIELD_KEY]?.[field.name]?.type;
+        const nextType = nextValues?.[SKILL_COSTS_FIELD_KEY]?.[field.name]?.type;
+        return prevType !== nextType;
+      }}
+    >
+      {({ getFieldValue }) => {
+        const costType = (getFieldValue([SKILL_COSTS_FIELD_KEY, field.name, 'type']) || 'hp') as SkillCostType;
+        if (costType === 'variable' || costType === 'variableRate') {
+          return (
+            <>
+              <Form.Item
+                name={[field.name, 'variableId']}
+                label={<span className="text-xs text-gray-400">变量</span>}
+                className="mb-0"
+              >
+                <Select
+                  options={variableOptions}
+                  className="w-full"
+                  placeholder="选择变量"
+                  showSearch
+                  optionFilterProp="label"
+                />
+              </Form.Item>
+              <Form.Item
+                name={[field.name, 'value']}
+                label={<span className="text-xs text-gray-400">{costType === 'variableRate' ? '百分比' : '扣减值'}</span>}
+                className="mb-0"
+              >
+                <InputNumber
+                  min={0}
+                  max={costType === 'variableRate' ? 100 : undefined}
+                  step={1}
+                  className="w-full"
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+            </>
+          );
+        }
+
+        if (costType === 'item' || costType === 'weapon' || costType === 'armor') {
+          const options = costType === 'item'
+            ? itemReferenceOptions
+            : (costType === 'weapon' ? weaponReferenceOptions : armorReferenceOptions);
+          const referenceName = costType === 'item'
+            ? 'itemId'
+            : (costType === 'weapon' ? 'weaponId' : 'armorId');
+          const referenceLabel = costType === 'item'
+            ? '物品'
+            : (costType === 'weapon' ? '武器' : '防具');
+
+          return (
+            <>
+              <Form.Item
+                name={[field.name, referenceName]}
+                label={<span className="text-xs text-gray-400">{referenceLabel}</span>}
+                className="mb-0"
+              >
+                <Select
+                  options={options}
+                  className="w-full"
+                  placeholder={`选择${referenceLabel}`}
+                  showSearch
+                  optionFilterProp="label"
+                />
+              </Form.Item>
+              <Form.Item
+                name={[field.name, 'amount']}
+                label={<span className="text-xs text-gray-400">数量</span>}
+                className="mb-0"
+              >
+                <InputNumber min={1} step={1} className="w-full" style={{ width: '100%' }} />
+              </Form.Item>
+            </>
+          );
+        }
+
+        return (
+          <Form.Item
+            name={[field.name, 'value']}
+            label={<span className="text-xs text-gray-400">{costType === 'hpRate' || costType === 'goldRate' ? '百分比' : '消耗值'}</span>}
+            className="mb-0"
+          >
+            <InputNumber
+              min={0}
+              max={costType === 'hpRate' || costType === 'goldRate' ? 100 : undefined}
+              step={1}
+              className="w-full"
+              style={{ width: '100%' }}
+            />
+          </Form.Item>
+        );
+      }}
+    </Form.Item>
+  );
 
   const handleSaveCustomAttributes = (silent = false) => {
     if (!currentData || currentItemIndex < 0) return;
@@ -1992,6 +2080,77 @@ export function PropertyPanel() {
               </Form.Item>
             </div>
           </Card>
+        ) : null}
+
+        {isSkillFile ? (
+          <Form.List name={SKILL_COSTS_FIELD_KEY}>
+            {(fields, { add, remove }) => (
+              <Card
+                title={(
+                  <div className="flex justify-between items-center">
+                    <span>技能消耗规则</span>
+                    <Button
+                      type="dashed"
+                      size="small"
+                      icon={<PlusOutlined />}
+                      onClick={() => add(createEmptySkillCostEntry())}
+                    >
+                      添加消耗
+                    </Button>
+                  </div>
+                )}
+                className="mb-4"
+                headStyle={{
+                  backgroundColor: '#252b3d',
+                  borderBottom: '1px solid var(--color-border)',
+                  color: 'var(--color-accent)',
+                }}
+                bodyStyle={{ backgroundColor: '#1a1f2e' }}
+              >
+                <div className="text-xs text-gray-500 mb-4">
+                  所有消耗会并行生效并共同决定技能是否可释放。生命、金钱、变量使用 `value`，
+                  物品/武器/防具使用目标 id + `amount`。
+                </div>
+                {fields.length === 0 ? (
+                  <div className="rounded border border-dashed border-gray-600 px-4 py-6 text-sm text-gray-500 text-center">
+                    当前没有技能消耗规则，技能只保留默认可用条件。
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {fields.map((field) => (
+                      <div
+                        key={field.key}
+                        className="rounded border border-gray-700 bg-[#141a27] px-4 py-4"
+                      >
+                        <div className="grid grid-cols-4 gap-x-4 gap-y-4 items-end">
+                          <Form.Item
+                            name={[field.name, 'type']}
+                            label={<span className="text-xs text-gray-400">消耗来源</span>}
+                            className="mb-0"
+                          >
+                            <Select
+                              options={SKILL_COST_TYPE_OPTIONS}
+                              className="w-full"
+                              placeholder="选择消耗来源"
+                            />
+                          </Form.Item>
+                          {renderSkillCostConfigFields(field)}
+                          <div className="flex justify-end">
+                            <Button
+                              type="text"
+                              danger
+                              icon={<DeleteOutlined />}
+                              onClick={() => remove(field.name)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            )}
+          </Form.List>
         ) : null}
 
         {isEnemyFile ? (

@@ -111,6 +111,8 @@ describe('EnemyPropertyService', () => {
     expect(normalized).toMatchObject({
       id: 3,
       name: '炮台',
+      classId: 1,
+      level: 1,
       canReaction: true,
       reactionSkillId: 9,
       meta: {

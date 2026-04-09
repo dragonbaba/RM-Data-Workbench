@@ -47,16 +47,13 @@ const parseDescription = (value: string): string[] =>
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
 
-const asRecord = (value: unknown): Record<string, unknown> | null => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-  return value as Record<string, unknown>;
+const getNumberArg = (effect: GameEffectEntry, key: string): number | null => {
+  const value = effect.config.args[key as keyof typeof effect.config.args];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 };
 
-const getNumberArg = (effect: GameEffectEntry, key: string): number | null => {
-  const value = asRecord(effect.config.args)?.[key];
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+const parseEffectOpRows = (effect: GameEffectEntry): EffectOpRow[] => {
+  return parseOpsToRows(effect.config.args.ops);
 };
 
 const SELECTOR_FIELD_DEFINITIONS: Array<{
@@ -181,7 +178,7 @@ export function EffectPanel() {
       return;
     }
     normalized.id = normalized.id && normalized.id > 0 ? normalized.id : currentItemIndex;
-    const nextRows = parseOpsToRows(asRecord(normalized.config.args)?.ops || []);
+    const nextRows = parseEffectOpRows(normalized);
     setEffect(normalized);
     setOriginalEffect(normalized);
     setDescriptionText(stringifyDescription(normalized.description));
@@ -216,7 +213,7 @@ export function EffectPanel() {
     }
     setEffect(template);
     setDescriptionText(stringifyDescription(template.description));
-    setOpRows(parseOpsToRows(asRecord(template.config.args)?.ops || []));
+    setOpRows(parseEffectOpRows(template));
   };
 
   const getDefaultKeyForGroup = (effectType: GameEffectType, group: GameEffectOpGroup): string => {
@@ -281,7 +278,7 @@ export function EffectPanel() {
       return false;
     }
 
-    const rawArgs = asRecord(effect.config.args) || {};
+    const rawArgs = effect.config.args;
     const argsPayload: Record<string, unknown> = {
       ops: serializeRowsToOps(opRows),
     };
@@ -333,7 +330,7 @@ export function EffectPanel() {
       markFileDirty(currentFilePath);
       markItemDirty(currentFilePath, currentItemIndex);
     }
-    const nextRows = parseOpsToRows(asRecord(normalized.config.args)?.ops || []);
+    const nextRows = parseEffectOpRows(normalized);
     setEffect(normalized);
     setOriginalEffect(normalized);
     setDescriptionText(stringifyDescription(normalized.description));
@@ -397,8 +394,8 @@ export function EffectPanel() {
     );
   }
 
-  const selector = asRecord(effect.config.selector) || {};
-  const argsRecord = asRecord(effect.config.args) || {};
+  const selector = effect.config.selector;
+  const argsRecord = effect.config.args;
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-4 bg-dark-900">
@@ -501,13 +498,13 @@ export function EffectPanel() {
                         value={field.stringify(selector[field.key])}
                         onChange={(event) => setEffect((current) => current ? ({
                           ...current,
-                          config: {
-                            ...current.config,
+                          config: createGameEffectConfig(current.effectType, {
                             selector: {
-                              ...(asRecord(current.config.selector) || {}),
+                              ...current.config.selector,
                               [field.key]: field.parse(event.target.value),
                             },
-                          },
+                            args: current.config.args,
+                          }, systemData),
                         }) : current)}
                         placeholder={field.placeholder}
                       />
@@ -530,13 +527,13 @@ export function EffectPanel() {
                 value={getNumberArg(effect, 'requiredCount')}
                 onChange={(value) => setEffect((current) => current ? ({
                   ...current,
-                  config: {
-                    ...current.config,
+                  config: createGameEffectConfig(current.effectType, {
+                    selector: current.config.selector,
                     args: {
-                      ...(asRecord(current.config.args) || {}),
+                      ...current.config.args,
                       requiredCount: typeof value === 'number' ? value : 0,
                     },
-                  },
+                  }, systemData),
                 }) : current)}
                 min={0}
                 className="w-full"
@@ -551,13 +548,13 @@ export function EffectPanel() {
                 value={stringifyNumberList(argsRecord.weaponIds)}
                 onChange={(event) => setEffect((current) => current ? ({
                   ...current,
-                  config: {
-                    ...current.config,
+                  config: createGameEffectConfig(current.effectType, {
+                    selector: current.config.selector,
                     args: {
-                      ...(asRecord(current.config.args) || {}),
+                      ...current.config.args,
                       weaponIds: parseNumberListText(event.target.value),
                     },
-                  },
+                  }, systemData),
                 }) : current)}
                 placeholder="例如: 1, 2, 3"
               />
@@ -571,13 +568,13 @@ export function EffectPanel() {
                 value={stringifyNumberList(argsRecord.armorIds)}
                 onChange={(event) => setEffect((current) => current ? ({
                   ...current,
-                  config: {
-                    ...current.config,
+                  config: createGameEffectConfig(current.effectType, {
+                    selector: current.config.selector,
                     args: {
-                      ...(asRecord(current.config.args) || {}),
+                      ...current.config.args,
                       armorIds: parseNumberListText(event.target.value),
                     },
-                  },
+                  }, systemData),
                 }) : current)}
                 placeholder="例如: 2, 5, 10"
               />

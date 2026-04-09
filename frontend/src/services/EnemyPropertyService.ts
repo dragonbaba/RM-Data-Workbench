@@ -53,6 +53,14 @@ const toBooleanFlag = (value: unknown): boolean => {
   return value === true;
 };
 
+const normalizeEnemyClassId = (value: unknown): number => {
+  return Math.max(1, toIntOrZero(value) || 1);
+};
+
+const normalizeEnemyLevel = (value: unknown): number => {
+  return Math.max(1, toIntOrZero(value) || 1);
+};
+
 export const getEnemyReferenceValue = (
   data: unknown[] | null,
   emptyLabel: string,
@@ -93,8 +101,8 @@ export const getEnemyReferenceValue = (
 export function normalizeEnemyEditorValues(enemy: unknown): EnemyEditorValues {
   if (!isRecord(enemy)) {
     return {
-      classId: 0,
-      level: 0,
+      classId: 1,
+      level: 1,
       levelScope: 0,
       isBoss: false,
       allowBreak: false,
@@ -106,8 +114,8 @@ export function normalizeEnemyEditorValues(enemy: unknown): EnemyEditorValues {
   }
 
   return {
-    classId: toIntOrZero(enemy.classId),
-    level: toIntOrZero(enemy.level),
+    classId: normalizeEnemyClassId(enemy.classId),
+    level: normalizeEnemyLevel(enemy.level),
     levelScope: toIntOrZero(enemy.levelScope),
     isBoss: toBooleanFlag(enemy.isBoss),
     allowBreak: toBooleanFlag(enemy.allowBreak),
@@ -143,8 +151,8 @@ export function normalizeEnemyDataEntry(enemy: unknown): RPGEnemy | null {
 export function hasEnemyEditorChanges(sourceItem: RPGEnemy, nextValues: EnemyEditorInput): boolean {
   const currentValues = normalizeEnemyEditorValues(sourceItem);
 
-  return currentValues.classId !== toIntOrZero(nextValues.classId)
-    || currentValues.level !== toIntOrZero(nextValues.level)
+  return currentValues.classId !== normalizeEnemyClassId(nextValues.classId)
+    || currentValues.level !== normalizeEnemyLevel(nextValues.level)
     || currentValues.levelScope !== toIntOrZero(nextValues.levelScope)
     || currentValues.isBoss !== toBooleanFlag(nextValues.isBoss)
     || currentValues.allowBreak !== toBooleanFlag(nextValues.allowBreak)
@@ -158,8 +166,8 @@ export function buildEnemySaveData(sourceItem: RPGEnemy, nextValues: EnemyEditor
   const currentMeta = isRecord(sourceItem.meta) ? sourceItem.meta : {};
   return {
     ...sourceItem,
-    classId: toIntOrZero(nextValues.classId),
-    level: toIntOrZero(nextValues.level),
+    classId: normalizeEnemyClassId(nextValues.classId),
+    level: normalizeEnemyLevel(nextValues.level),
     levelScope: toIntOrZero(nextValues.levelScope),
     isBoss: toBooleanFlag(nextValues.isBoss),
     allowBreak: toBooleanFlag(nextValues.allowBreak),

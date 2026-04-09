@@ -1,16 +1,20 @@
 import { normalizeEnemyDataEntry } from './EnemyPropertyService';
 import { normalizeEquipmentDataEntry } from './EquipmentPropertyService';
+import { EFFECTS_FILE_NAME, normalizeGameEffectEntry } from './GameEffectService';
 import { arePlainDataEqual } from './PlainDataCompare';
 import { normalizeProjectileDataEntry } from './ProjectileTemplateService';
+import { normalizeCommonRangeDataEntry } from './RangePropertyService';
 import { normalizeSkillDataEntry } from './SkillPropertyService';
 import { normalizeStandardDataForEditor } from './DataFileFormatService';
 
 export const AUDIT_TARGET_FILE_NAMES = [
   'Skills.json',
   'Enemies.json',
+  'Items.json',
   'Weapons.json',
   'Armors.json',
   'Projectiles.json',
+  EFFECTS_FILE_NAME,
 ] as const;
 
 export const SYSTEM_FILE_NAME = 'System.json';
@@ -58,11 +62,16 @@ const normalizeEntryByFileName = (
   }
 
   if (fileName === 'Skills.json') {
-    return normalizeSkillDataEntry(entry) ?? entry;
+    const normalized = normalizeSkillDataEntry(entry) ?? entry;
+    return normalizeCommonRangeDataEntry(normalized) ?? normalized;
   }
 
   if (fileName === 'Enemies.json') {
     return normalizeEnemyDataEntry(entry) ?? entry;
+  }
+
+  if (fileName === 'Items.json') {
+    return normalizeCommonRangeDataEntry(entry) ?? entry;
   }
 
   if (fileName === 'Weapons.json') {
@@ -75,6 +84,10 @@ const normalizeEntryByFileName = (
 
   if (fileName === 'Projectiles.json') {
     return normalizeProjectileDataEntry(entry) ?? entry;
+  }
+
+  if (fileName === EFFECTS_FILE_NAME) {
+    return normalizeGameEffectEntry(entry, systemData) ?? entry;
   }
 
   return entry;

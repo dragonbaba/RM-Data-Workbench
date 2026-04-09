@@ -37,10 +37,10 @@ export type GameEffectParamRateKey =
 export type GameEffectElementRateKey = string;
 
 export interface GameEffectSelector {
-  slotIndexes?: number[];
-  etypeIds?: number[];
-  wtypeIds?: number[];
-  atypeIds?: number[];
+  slotIndexes: number[];
+  etypeIds: number[];
+  wtypeIds: number[];
+  atypeIds: number[];
 }
 
 export interface GameEffectBaseOp {
@@ -81,10 +81,10 @@ export type GameEffectAttributeOp =
   | GameEffectElementRateOp;
 
 export interface GameEffectArgs {
-  ops?: GameEffectAttributeOp[];
-  requiredCount?: number;
-  weaponIds?: number[];
-  armorIds?: number[];
+  ops: GameEffectAttributeOp[];
+  requiredCount: number;
+  weaponIds: number[];
+  armorIds: number[];
 }
 
 export interface GameEffectConfig {
@@ -114,6 +114,27 @@ export interface BattleOrderEffects {
   targetNext?: number;
   targetFollow?: boolean;
   speedConvert?: number;
+}
+
+export type SkillCostType =
+  | 'hp'
+  | 'hpRate'
+  | 'gold'
+  | 'goldRate'
+  | 'variable'
+  | 'variableRate'
+  | 'item'
+  | 'weapon'
+  | 'armor';
+
+export interface SkillCostEntry {
+  type: SkillCostType;
+  value: number;
+  variableId: number;
+  itemId: number;
+  weaponId: number;
+  armorId: number;
+  amount: number;
 }
 
 export type EquipExtraParamKey =
@@ -182,6 +203,7 @@ export interface RPGItem {
   skillProjectileTag?: number;
   reactionSuccessRate?: number;
   reactionPriority?: number;
+  skillCosts?: SkillCostEntry[];
   weaknessStateEffects?: StateWeaknessEffects;
   elementRates?: number[];
   elementRateFloats?: number[];

@@ -89,15 +89,20 @@ describe('GameEffectService', () => {
       config: {
         selector: { slotIndexes: [], etypeIds: [], wtypeIds: [], atypeIds: [] },
         args: {
+          requiredCount: 0,
+          weaponIds: [],
+          armorIds: [],
           ops: [{ group: 'vehicleParams', key: 'repeat', op: 'add', value: 1 }],
         },
       },
     });
 
     expect(createGameEffectConfig('pair_same_engine_bonus')).toEqual({
-      selector: {},
+      selector: { slotIndexes: [], etypeIds: [], wtypeIds: [], atypeIds: [] },
       args: {
         requiredCount: 2,
+        weaponIds: [],
+        armorIds: [],
         ops: [{ group: 'vehicleParams', key: 'loadValue', op: 'add', value: 5000 }],
       },
     });
@@ -185,7 +190,12 @@ describe('GameEffectService', () => {
   it('保存前会校验 selector 和 args 必须存在且为对象', () => {
     expect(validateGameEffectConfig('equip_stat_bonus', {
       selector: { slotIndexes: [], etypeIds: [], wtypeIds: [], atypeIds: [] },
-      args: { ops: [{ group: 'vehicleParams', key: 'repeat', op: 'add', value: 1 }] },
+      args: {
+        ops: [{ group: 'vehicleParams', key: 'repeat', op: 'add', value: 1 }],
+        requiredCount: 0,
+        weaponIds: [],
+        armorIds: [],
+      },
     })).toEqual({ valid: true });
 
     expect(validateGameEffectConfig('equip_stat_bonus', { args: {} })).toEqual({
@@ -199,21 +209,37 @@ describe('GameEffectService', () => {
     });
   });
 
-  it('共享模板会拒绝未定义字段和错误 key', () => {
+  it('共享模板会接受固定 selector 键，但仍会拒绝错误 key', () => {
     expect(validateGameEffectEntry({
       name: '测试',
       description: '',
       effectType: 'owner_stat_bonus',
       isStatic: true,
-      config: { selector: { etypeIds: [10] }, args: { ops: [{ group: 'extraParams', key: 'finalDamage', op: 'add', value: 0.2 }] } },
-    })).toEqual({ valid: false, message: 'selector 存在未定义字段: etypeIds' });
+      config: {
+        selector: { slotIndexes: [], etypeIds: [10], wtypeIds: [], atypeIds: [] },
+        args: {
+          ops: [{ group: 'extraParams', key: 'finalDamage', op: 'add', value: 0.2 }],
+          requiredCount: 0,
+          weaponIds: [],
+          armorIds: [],
+        },
+      },
+    })).toEqual({ valid: true });
 
     expect(validateGameEffectEntry({
       name: '载重补正',
       description: '',
       effectType: 'equip_stat_bonus',
       isStatic: true,
-      config: { selector: {}, args: { ops: [{ group: 'vehicleParams', key: 'loadValue', op: 'add', value: 300 }] } },
+      config: {
+        selector: { slotIndexes: [], etypeIds: [], wtypeIds: [], atypeIds: [] },
+        args: {
+          ops: [{ group: 'vehicleParams', key: 'loadValue', op: 'add', value: 300 }],
+          requiredCount: 0,
+          weaponIds: [],
+          armorIds: [],
+        },
+      },
     })).toEqual({
       valid: false,
       message: 'args.ops 必须是合法的对象数组，且属性分组与 key 必须符合当前模板约束',
@@ -222,20 +248,22 @@ describe('GameEffectService', () => {
 
   it('装备合集模板会校验 weaponIds 和 armorIds', () => {
     expect(validateGameEffectConfig('equip_id_set_bonus', {
-      selector: {},
+      selector: { slotIndexes: [], etypeIds: [], wtypeIds: [], atypeIds: [] },
       args: {
         weaponIds: [1],
         armorIds: [2, 5, 10],
         ops: [{ group: 'scalar', key: 'expRate', op: 'mul', value: 2 }],
+        requiredCount: 0,
       },
     }, systemData)).toEqual({ valid: true });
 
     expect(validateGameEffectConfig('equip_id_set_bonus', {
-      selector: {},
+      selector: { slotIndexes: [], etypeIds: [], wtypeIds: [], atypeIds: [] },
       args: {
         weaponIds: '1',
         armorIds: [2],
         ops: [{ group: 'scalar', key: 'expRate', op: 'mul', value: 2 }],
+        requiredCount: 0,
       },
     }, systemData)).toEqual({ valid: false, message: 'args.weaponIds 必须是数字数组' });
   });
