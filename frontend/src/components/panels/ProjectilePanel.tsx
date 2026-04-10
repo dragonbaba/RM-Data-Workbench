@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Card, Button, Select, Input, InputNumber, Space, Collapse, Slider, Popconfirm, Tag } from 'antd';
 import { 
   PlayCircleOutlined, 
@@ -217,37 +217,50 @@ export function ProjectilePanel() {
     };
   }, [config.dataPath, config.projectRoot, loadReferenceData]);
 
-  // 生成动画 Select 选项
-  const getAnimationOptions = () => {
-    return [
-      { value: 0, label: '无动画' },
-      ...animationOptions.map(item => ({
-        value: item.id || 0,
-        label: `${item.id} : ${item.name}`,
-      })),
-    ];
-  };
+  const animationSelectOptions = useMemo(() => [
+    { value: 0, label: '无动画' },
+    ...animationOptions.map((item) => ({
+      value: item.id || 0,
+      label: `${item.id} : ${item.name}`,
+    })),
+  ], [animationOptions]);
 
-  // 生成数据 Select 选项
-  const getDataOptions = (items: DataItem[]) => {
-    return [
-      { value: 0, label: '未选择' },
-      ...items.map(item => ({
-        value: item.id,
-        label: `${item.id} : ${item.name}`,
-      })),
-    ];
-  };
-
-  // 获取发射方选项（根据类型）
-  const getSourceOptions = () => {
-    return sourceType === 'actor' ? getDataOptions(actors) : getDataOptions(enemies);
-  };
-
-  // 获取目标方选项（根据类型）
-  const getTargetOptions = () => {
-    return targetType === 'actor' ? getDataOptions(actors) : getDataOptions(enemies);
-  };
+  const actorSelectOptions = useMemo(() => [
+    { value: 0, label: '未选择' },
+    ...actors.map((item) => ({
+      value: item.id,
+      label: `${item.id} : ${item.name}`,
+    })),
+  ], [actors]);
+  const enemySelectOptions = useMemo(() => [
+    { value: 0, label: '未选择' },
+    ...enemies.map((item) => ({
+      value: item.id,
+      label: `${item.id} : ${item.name}`,
+    })),
+  ], [enemies]);
+  const weaponSelectOptions = useMemo(() => [
+    { value: 0, label: '未选择' },
+    ...weapons.map((item) => ({
+      value: item.id,
+      label: `${item.id} : ${item.name}`,
+    })),
+  ], [weapons]);
+  const skillSelectOptions = useMemo(() => [
+    { value: 0, label: '未选择' },
+    ...skills.map((item) => ({
+      value: item.id,
+      label: `${item.id} : ${item.name}`,
+    })),
+  ], [skills]);
+  const sourceOptions = useMemo(
+    () => (sourceType === 'actor' ? actorSelectOptions : enemySelectOptions),
+    [actorSelectOptions, enemySelectOptions, sourceType],
+  );
+  const targetOptions = useMemo(
+    () => (targetType === 'actor' ? actorSelectOptions : enemySelectOptions),
+    [actorSelectOptions, enemySelectOptions, targetType],
+  );
 
   // 更新模板
   const updateTemplate = useCallback((updates: Partial<ProjectileTemplate>) => {
@@ -750,7 +763,7 @@ export function ProjectilePanel() {
                     <Select
                       value={actorOffsetActorId}
                       onChange={setActorOffsetActorId}
-                      options={getDataOptions(actors)}
+                      options={actorSelectOptions}
                       className="w-full"
                     />
                   </div>
@@ -759,7 +772,7 @@ export function ProjectilePanel() {
                     <Select
                       value={actorOffsetWeaponId}
                       onChange={setActorOffsetWeaponId}
-                      options={getDataOptions(weapons)}
+                      options={weaponSelectOptions}
                       className="w-full"
                     />
                   </div>
@@ -792,7 +805,7 @@ export function ProjectilePanel() {
                     <Select
                       value={enemyOffsetEnemyId}
                       onChange={setEnemyOffsetEnemyId}
-                      options={getDataOptions(enemies)}
+                      options={enemySelectOptions}
                       className="w-full"
                     />
                   </div>
@@ -801,7 +814,7 @@ export function ProjectilePanel() {
                     <Select
                       value={enemyOffsetSkillId}
                       onChange={setEnemyOffsetSkillId}
-                      options={getDataOptions(skills)}
+                      options={skillSelectOptions}
                       className="w-full"
                     />
                   </div>
@@ -882,7 +895,7 @@ export function ProjectilePanel() {
                     <Select
                       value={template?.sourceId || 0}
                       onChange={(value) => handleSourceIdChange(value)}
-                      options={getSourceOptions()}
+                      options={sourceOptions}
                       className="w-full"
                       placeholder="选择发射方"
                     />
@@ -893,7 +906,7 @@ export function ProjectilePanel() {
                       <Select
                         value={template?.weaponId || 0}
                         onChange={(value) => handleSourceWeaponChange(value)}
-                        options={getDataOptions(weapons)}
+                        options={weaponSelectOptions}
                         className="w-full"
                         placeholder="选择武器"
                       />
@@ -904,7 +917,7 @@ export function ProjectilePanel() {
                       <Select
                         value={template?.skillId || 0}
                         onChange={(value) => handleSourceSkillChange(value)}
-                        options={getDataOptions(skills)}
+                        options={skillSelectOptions}
                         className="w-full"
                         placeholder="选择技能"
                       />
@@ -937,7 +950,7 @@ export function ProjectilePanel() {
                     <Select
                       value={template?.targetId || 0}
                       onChange={(value) => updateTemplate({ targetId: value })}
-                      options={getTargetOptions()}
+                      options={targetOptions}
                       className="w-full"
                       placeholder="选择目标"
                     />
@@ -1023,7 +1036,7 @@ export function ProjectilePanel() {
                   <Select
                     value={template.startAnimationId || 0}
                     onChange={(value) => updateTemplate({ startAnimationId: value || undefined })}
-                    options={getAnimationOptions()}
+                    options={animationSelectOptions}
                     className="w-full"
                     placeholder="选择起始动画"
                   />
@@ -1040,7 +1053,7 @@ export function ProjectilePanel() {
                         },
                       });
                     }}
-                    options={getAnimationOptions()}
+                    options={animationSelectOptions}
                     className="w-full"
                     placeholder="选择发射动画"
                   />
@@ -1050,7 +1063,7 @@ export function ProjectilePanel() {
                   <Select
                     value={template.endAnimationId || 0}
                     onChange={(value) => updateTemplate({ endAnimationId: value || undefined })}
-                    options={getAnimationOptions()}
+                    options={animationSelectOptions}
                     className="w-full"
                     placeholder="选择结束动画"
                   />

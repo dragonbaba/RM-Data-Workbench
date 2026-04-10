@@ -56,9 +56,12 @@ const DIFFICULTIES = [
   { value: 4, label: '专家', color: 'red' },
   { value: 5, label: '大师', color: 'purple' },
 ];
+const DIFFICULTY_OPTIONS = DIFFICULTIES.map((item) => ({ value: item.value, label: item.label }));
 
 const OPERATORS = ['>', '>=', '<', '<=', '===', '!=='];
 const VARIABLE_OPERATORS = ['+', '-', '*', '/', '='];
+const OPERATOR_OPTIONS = OPERATORS.map((op) => ({ value: op, label: op }));
+const VARIABLE_OPERATOR_OPTIONS = VARIABLE_OPERATORS.map((op) => ({ value: op, label: op }));
 
 type SwitchActionKey = 'startSwitches' | 'switches';
 type VariableActionKey = 'startVariables' | 'variables';
@@ -128,17 +131,8 @@ export function QuestPanel() {
   const markItemDirty = useEditorStore((state) => state.markItemDirty);
   const currentFilePath = useEditorStore((state) => state.currentFilePath);
   const config = useEditorStore((state) => state.config);
+  const [referenceRevision, setReferenceRevision] = useState(0);
   const [activeKeys, setActiveKeys] = useState<string[]>(['template', 'basic', 'actions', 'chain', 'objectives', 'rewards']);
-  const [dataOptions, setDataOptions] = useState({
-    actors: [] as DataItem[],
-    enemies: [] as DataItem[],
-    items: [] as DataItem[],
-    weapons: [] as DataItem[],
-    armors: [] as DataItem[],
-    quests: [] as DataItem[],
-    switches: [] as DataItem[],
-    variables: [] as DataItem[],
-  });
 
   const quest = currentItem as RPGQuest | null;
   const questData = useMemo(() => (Array.isArray(currentData) ? (currentData as (RPGQuest | null)[]) : null), [currentData]);
@@ -198,49 +192,91 @@ export function QuestPanel() {
   };
 
   useEffect(() => {
-    const loadDataOptions = () => {
-      const actorsData = DataLoaderService.getCachedDataByName('Actors.json');
-      const enemiesData = DataLoaderService.getCachedDataByName('Enemies.json');
-      const itemsData = DataLoaderService.getCachedDataByName('Items.json');
-      const weaponsData = DataLoaderService.getCachedDataByName('Weapons.json');
-      const armorsData = DataLoaderService.getCachedDataByName('Armors.json');
-      const questsData = DataLoaderService.getCachedDataByName('Quests.json');
-      const systemData = DataLoaderService.getCachedDataByName('System.json');
-
-      const { switches, variables } = extractSystemData(systemData);
-      setDataOptions({
-        actors: extractDataItems(actorsData),
-        enemies: extractDataItems(enemiesData),
-        items: extractDataItems(itemsData),
-        weapons: extractDataItems(weaponsData),
-        armors: extractDataItems(armorsData),
-        quests: extractDataItems(questsData),
-        switches,
-        variables,
-      });
+    const refreshReferences = (payload?: unknown) => {
+      const fileName = payload && typeof payload === 'object' && !Array.isArray(payload) && 'fileName' in payload
+        ? String((payload as { fileName?: unknown }).fileName || '').toLowerCase()
+        : '';
+      if (!fileName || [
+        'actors.json',
+        'enemies.json',
+        'items.json',
+        'weapons.json',
+        'armors.json',
+        'quests.json',
+        'system.json',
+      ].includes(fileName)) {
+        setReferenceRevision((value) => value + 1);
+      }
     };
 
-    loadDataOptions();
-    EventSystem.on('data:file-loaded', loadDataOptions);
+    EventSystem.on('data:file-loaded', refreshReferences);
+    EventSystem.on('data:manifest-loaded', refreshReferences);
+
     const retryTimer = setTimeout(() => {
       const enemiesData = DataLoaderService.getCachedDataByName('Enemies.json');
       if (!enemiesData || enemiesData.length < 2) {
-        loadDataOptions();
+        setReferenceRevision((value) => value + 1);
       }
     }, 500);
 
     return () => {
-      EventSystem.off('data:file-loaded', loadDataOptions);
+      EventSystem.off('data:file-loaded', refreshReferences);
+      EventSystem.off('data:manifest-loaded', refreshReferences);
       clearTimeout(retryTimer);
     };
   }, [config.dataPath, config.projectRoot]);
 
-  const getSelectOptions = (items: DataItem[]) => {
-    return items.map((item) => ({
-      value: item.id || 0,
-      label: `${item.id} : ${item.name}`,
-    }));
-  };
+  const actorsData = useMemo(() => DataLoaderService.getCachedDataByName('Actors.json'), [referenceRevision]);
+  const enemiesData = useMemo(() => DataLoaderService.getCachedDataByName('Enemies.json'), [referenceRevision]);
+  const itemsData = useMemo(() => DataLoaderService.getCachedDataByName('Items.json'), [referenceRevision]);
+  const weaponsData = useMemo(() => DataLoaderService.getCachedDataByName('Weapons.json'), [referenceRevision]);
+  const armorsData = useMemo(() => DataLoaderService.getCachedDataByName('Armors.json'), [referenceRevision]);
+  const questsData = useMemo(() => DataLoaderService.getCachedDataByName('Quests.json'), [referenceRevision]);
+  const systemData = useMemo(() => DataLoaderService.getCachedDataByName('System.json'), [referenceRevision]);
+  const systemOptionData = useMemo(() => extractSystemData(systemData), [systemData]);
+  const dataOptions = useMemo(() => ({
+    actors: extractDataItems(actorsData),
+    enemies: extractDataItems(enemiesData),
+    items: extractDataItems(itemsData),
+    weapons: extractDataItems(weaponsData),
+    armors: extractDataItems(armorsData),
+    quests: extractDataItems(questsData),
+    switches: systemOptionData.switches,
+    variables: systemOptionData.variables,
+  }), [actorsData, armorsData, enemiesData, itemsData, questsData, systemOptionData.switches, systemOptionData.variables, weaponsData]);
+
+  const actorSelectOptions = useMemo(() => dataOptions.actors.map((item) => ({
+    value: item.id || 0,
+    label: `${item.id} : ${item.name}`,
+  })), [dataOptions.actors]);
+  const enemySelectOptions = useMemo(() => dataOptions.enemies.map((item) => ({
+    value: item.id || 0,
+    label: `${item.id} : ${item.name}`,
+  })), [dataOptions.enemies]);
+  const itemSelectOptions = useMemo(() => dataOptions.items.map((item) => ({
+    value: item.id || 0,
+    label: `${item.id} : ${item.name}`,
+  })), [dataOptions.items]);
+  const weaponSelectOptions = useMemo(() => dataOptions.weapons.map((item) => ({
+    value: item.id || 0,
+    label: `${item.id} : ${item.name}`,
+  })), [dataOptions.weapons]);
+  const armorSelectOptions = useMemo(() => dataOptions.armors.map((item) => ({
+    value: item.id || 0,
+    label: `${item.id} : ${item.name}`,
+  })), [dataOptions.armors]);
+  const questSelectOptions = useMemo(() => dataOptions.quests.map((item) => ({
+    value: item.id || 0,
+    label: `${item.id} : ${item.name}`,
+  })), [dataOptions.quests]);
+  const switchSelectOptions = useMemo(() => dataOptions.switches.map((item) => ({
+    value: item.id || 0,
+    label: `${item.id} : ${item.name}`,
+  })), [dataOptions.switches]);
+  const variableSelectOptions = useMemo(() => dataOptions.variables.map((item) => ({
+    value: item.id || 0,
+    label: `${item.id} : ${item.name}`,
+  })), [dataOptions.variables]);
 
   const selectQuestByIndex = useCallback((index: number) => {
     if (index <= 0) return;
@@ -255,7 +291,6 @@ export function QuestPanel() {
     loadData(nextData as any[], currentFilePath || '', 'quest');
     const clamped = Math.min(Math.max(nextIndex, 1), Math.max(nextData.length - 1, 1));
     selectItem(clamped);
-    setDataOptions((prev) => ({ ...prev, quests: extractDataItems(nextData as unknown[]) }));
     if (currentFilePath) {
       markFileDirty(currentFilePath);
       markItemDirty(currentFilePath, clamped);
@@ -550,7 +585,7 @@ export function QuestPanel() {
                 value={quest.difficulty}
                 onChange={(value) => updateQuest({ difficulty: value })}
                 className="w-full"
-                options={DIFFICULTIES.map((item) => ({ value: item.value, label: item.label }))}
+                options={DIFFICULTY_OPTIONS}
               />
             </div>
             <div className="flex items-end gap-4">
@@ -590,7 +625,7 @@ export function QuestPanel() {
                       value={action.switchId || getDefaultOptionId(dataOptions.switches)}
                       onChange={(value) => updateSwitchAction('startSwitches', actionIndex, { switchId: value })}
                       style={{ width: 220 }}
-                      options={getSelectOptions(dataOptions.switches)}
+                      options={switchSelectOptions}
                       placeholder="选择开关"
                     />
                     <Select
@@ -627,7 +662,7 @@ export function QuestPanel() {
                       value={action.switchId || getDefaultOptionId(dataOptions.switches)}
                       onChange={(value) => updateSwitchAction('switches', actionIndex, { switchId: value })}
                       style={{ width: 220 }}
-                      options={getSelectOptions(dataOptions.switches)}
+                      options={switchSelectOptions}
                       placeholder="选择开关"
                     />
                     <Select
@@ -664,14 +699,14 @@ export function QuestPanel() {
                       value={action.variableId || getDefaultOptionId(dataOptions.variables)}
                       onChange={(value) => updateVariableAction('startVariables', actionIndex, { variableId: value })}
                       style={{ width: 220 }}
-                      options={getSelectOptions(dataOptions.variables)}
+                      options={variableSelectOptions}
                       placeholder="选择变量"
                     />
                     <Select
                       value={action.op || '='}
                       onChange={(value) => updateVariableAction('startVariables', actionIndex, { op: value })}
                       style={{ width: 80 }}
-                      options={VARIABLE_OPERATORS.map((op) => ({ value: op, label: op }))}
+                      options={VARIABLE_OPERATOR_OPTIONS}
                     />
                     <InputNumber
                       value={action.value ?? 0}
@@ -703,14 +738,14 @@ export function QuestPanel() {
                       value={action.variableId || getDefaultOptionId(dataOptions.variables)}
                       onChange={(value) => updateVariableAction('variables', actionIndex, { variableId: value })}
                       style={{ width: 220 }}
-                      options={getSelectOptions(dataOptions.variables)}
+                      options={variableSelectOptions}
                       placeholder="选择变量"
                     />
                     <Select
                       value={action.op || '='}
                       onChange={(value) => updateVariableAction('variables', actionIndex, { op: value })}
                       style={{ width: 80 }}
-                      options={VARIABLE_OPERATORS.map((op) => ({ value: op, label: op }))}
+                      options={VARIABLE_OPERATOR_OPTIONS}
                     />
                     <InputNumber
                       value={action.value ?? 0}
@@ -771,7 +806,7 @@ export function QuestPanel() {
                       value={req.questId || 1}
                       onChange={(value) => updateRequirement(index, { questId: value })}
                       style={{ width: 200 }}
-                      options={getSelectOptions(dataOptions.quests)}
+                      options={questSelectOptions}
                       placeholder="选择前置任务"
                     />
                   )}
@@ -781,7 +816,7 @@ export function QuestPanel() {
                         value={req.itemId || 1}
                         onChange={(value) => updateRequirement(index, { itemId: value })}
                         style={{ width: 200 }}
-                        options={getSelectOptions(dataOptions.items)}
+                        options={itemSelectOptions}
                         placeholder="选择物品"
                       />
                       <InputNumber
@@ -797,7 +832,7 @@ export function QuestPanel() {
                         value={req.weaponId || 1}
                         onChange={(value) => updateRequirement(index, { weaponId: value })}
                         style={{ width: 200 }}
-                        options={getSelectOptions(dataOptions.weapons)}
+                        options={weaponSelectOptions}
                         placeholder="选择武器"
                       />
                       <InputNumber
@@ -813,7 +848,7 @@ export function QuestPanel() {
                         value={req.armorId || 1}
                         onChange={(value) => updateRequirement(index, { armorId: value })}
                         style={{ width: 200 }}
-                        options={getSelectOptions(dataOptions.armors)}
+                        options={armorSelectOptions}
                         placeholder="选择防具"
                       />
                       <InputNumber
@@ -835,7 +870,7 @@ export function QuestPanel() {
                           value={req.actorId ?? getDefaultOptionId(dataOptions.actors)}
                           onChange={(value) => updateRequirement(index, { actorId: value })}
                           style={{ width: 220 }}
-                          options={getSelectOptions(dataOptions.actors)}
+                          options={actorSelectOptions}
                           placeholder="选择角色"
                         />
                       ) : (
@@ -849,7 +884,7 @@ export function QuestPanel() {
                         value={req.operator || '>='}
                         onChange={(value) => updateRequirement(index, { operator: value })}
                         style={{ width: 80 }}
-                        options={OPERATORS.map((op) => ({ value: op, label: op }))}
+                        options={OPERATOR_OPTIONS}
                       />
                     </>
                   )}
@@ -859,7 +894,7 @@ export function QuestPanel() {
                         value={req.switchId || 1}
                         onChange={(value) => updateRequirement(index, { switchId: value })}
                         style={{ width: 200 }}
-                        options={getSelectOptions(dataOptions.switches)}
+                        options={switchSelectOptions}
                         placeholder="选择开关"
                       />
                       <Select
@@ -879,14 +914,14 @@ export function QuestPanel() {
                         value={req.variableId || 1}
                         onChange={(value) => updateRequirement(index, { variableId: value })}
                         style={{ width: 200 }}
-                        options={getSelectOptions(dataOptions.variables)}
+                        options={variableSelectOptions}
                         placeholder="选择变量"
                       />
                       <Select
                         value={req.operator || '>='}
                         onChange={(value) => updateRequirement(index, { operator: value })}
                         style={{ width: 80 }}
-                        options={OPERATORS.map((op) => ({ value: op, label: op }))}
+                        options={OPERATOR_OPTIONS}
                       />
                       <InputNumber
                         value={(req.targetValue as number) ?? 0}
@@ -906,7 +941,7 @@ export function QuestPanel() {
                         value={req.operator || '>='}
                         onChange={(value) => updateRequirement(index, { operator: value })}
                         style={{ width: 80 }}
-                        options={OPERATORS.map((op) => ({ value: op, label: op }))}
+                        options={OPERATOR_OPTIONS}
                       />
                     </>
                   )}
@@ -1056,7 +1091,7 @@ export function QuestPanel() {
                         value={obj.enemyId || 1}
                         onChange={(value) => updateObjective(index, { enemyId: value })}
                         style={{ width: 200 }}
-                        options={getSelectOptions(dataOptions.enemies)}
+                        options={enemySelectOptions}
                         placeholder="选择敌人"
                       />
                     )}
@@ -1065,7 +1100,7 @@ export function QuestPanel() {
                         value={obj.itemId || 1}
                         onChange={(value) => updateObjective(index, { itemId: value })}
                         style={{ width: 200 }}
-                        options={getSelectOptions(dataOptions.items)}
+                        options={itemSelectOptions}
                         placeholder="选择物品"
                       />
                     )}
@@ -1074,7 +1109,7 @@ export function QuestPanel() {
                         value={obj.weaponId || 1}
                         onChange={(value) => updateObjective(index, { weaponId: value })}
                         style={{ width: 200 }}
-                        options={getSelectOptions(dataOptions.weapons)}
+                        options={weaponSelectOptions}
                         placeholder="选择武器"
                       />
                     )}
@@ -1083,7 +1118,7 @@ export function QuestPanel() {
                         value={obj.armorId || 1}
                         onChange={(value) => updateObjective(index, { armorId: value })}
                         style={{ width: 200 }}
-                        options={getSelectOptions(dataOptions.armors)}
+                        options={armorSelectOptions}
                         placeholder="选择防具"
                       />
                     )}
@@ -1093,7 +1128,7 @@ export function QuestPanel() {
                           value={obj.switchId || 1}
                           onChange={(value) => updateObjective(index, { switchId: value })}
                           style={{ width: 200 }}
-                          options={getSelectOptions(dataOptions.switches)}
+                          options={switchSelectOptions}
                           placeholder="选择开关"
                         />
                         <Select
@@ -1113,14 +1148,14 @@ export function QuestPanel() {
                           value={obj.variableId || 1}
                           onChange={(value) => updateObjective(index, { variableId: value })}
                           style={{ width: 200 }}
-                          options={getSelectOptions(dataOptions.variables)}
+                          options={variableSelectOptions}
                           placeholder="选择变量"
                         />
                         <Select
                           value={obj.operator || '>='}
                           onChange={(value) => updateObjective(index, { operator: value })}
                           style={{ width: 80 }}
-                          options={OPERATORS.map((op) => ({ value: op, label: op }))}
+                          options={OPERATOR_OPTIONS}
                         />
                         <InputNumber
                           value={(obj.targetValue as number) ?? 0}
@@ -1142,7 +1177,7 @@ export function QuestPanel() {
                           value={obj.operator || '>='}
                           onChange={(value) => updateObjective(index, { operator: value })}
                           style={{ width: 80 }}
-                          options={OPERATORS.map((op) => ({ value: op, label: op }))}
+                          options={OPERATOR_OPTIONS}
                         />
                         <InputNumber
                           value={(obj.targetValue as number) ?? 1}
@@ -1188,7 +1223,7 @@ export function QuestPanel() {
                                 value={action.switchId || getDefaultOptionId(dataOptions.switches)}
                                 onChange={(value) => updateObjectiveSwitchAction(index, actionIndex, { switchId: value })}
                                 style={{ width: 220 }}
-                                options={getSelectOptions(dataOptions.switches)}
+                                options={switchSelectOptions}
                                 placeholder="选择开关"
                               />
                               <Select
@@ -1235,14 +1270,14 @@ export function QuestPanel() {
                                 value={action.variableId || getDefaultOptionId(dataOptions.variables)}
                                 onChange={(value) => updateObjectiveVariableAction(index, actionIndex, { variableId: value })}
                                 style={{ width: 220 }}
-                                options={getSelectOptions(dataOptions.variables)}
+                                options={variableSelectOptions}
                                 placeholder="选择变量"
                               />
                               <Select
                                 value={action.op || '+'}
                                 onChange={(value) => updateObjectiveVariableAction(index, actionIndex, { op: value })}
                                 style={{ width: 80 }}
-                                options={VARIABLE_OPERATORS.map((op) => ({ value: op, label: op }))}
+                                options={VARIABLE_OPERATOR_OPTIONS}
                               />
                               <InputNumber
                                 value={action.value ?? 0}
@@ -1313,7 +1348,7 @@ export function QuestPanel() {
                       value={reward.itemId || 1}
                       onChange={(value) => updateReward(index, { itemId: value })}
                       style={{ width: 200 }}
-                      options={getSelectOptions(dataOptions.items)}
+                      options={itemSelectOptions}
                       placeholder="选择物品"
                     />
                   )}
@@ -1322,7 +1357,7 @@ export function QuestPanel() {
                       value={reward.weaponId || 1}
                       onChange={(value) => updateReward(index, { weaponId: value })}
                       style={{ width: 200 }}
-                      options={getSelectOptions(dataOptions.weapons)}
+                      options={weaponSelectOptions}
                       placeholder="选择武器"
                     />
                   )}
@@ -1331,7 +1366,7 @@ export function QuestPanel() {
                       value={reward.armorId || 1}
                       onChange={(value) => updateReward(index, { armorId: value })}
                       style={{ width: 200 }}
-                      options={getSelectOptions(dataOptions.armors)}
+                      options={armorSelectOptions}
                       placeholder="选择防具"
                     />
                   )}
@@ -1341,7 +1376,7 @@ export function QuestPanel() {
                         value={reward.switchId || 1}
                         onChange={(value) => updateReward(index, { switchId: value })}
                         style={{ width: 200 }}
-                        options={getSelectOptions(dataOptions.switches)}
+                        options={switchSelectOptions}
                         placeholder="选择开关"
                       />
                       <Select
@@ -1361,14 +1396,14 @@ export function QuestPanel() {
                         value={reward.variableId || 1}
                         onChange={(value) => updateReward(index, { variableId: value })}
                         style={{ width: 200 }}
-                        options={getSelectOptions(dataOptions.variables)}
+                        options={variableSelectOptions}
                         placeholder="选择变量"
                       />
                       <Select
                         value={reward.op || '='}
                         onChange={(value) => updateReward(index, { op: value })}
                         style={{ width: 80 }}
-                        options={VARIABLE_OPERATORS.map((op) => ({ value: op, label: op }))}
+                        options={VARIABLE_OPERATOR_OPTIONS}
                       />
                     </>
                   )}

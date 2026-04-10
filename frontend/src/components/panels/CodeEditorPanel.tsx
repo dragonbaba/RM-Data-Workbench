@@ -49,6 +49,7 @@ export const CodeEditorPanel = memo(() => {
   const [editorReady, setEditorReady] = useState(false);
   const pendingLoadRef = useRef<{ key: string; storedPath: string; resolvedPath: string } | null>(null);
   const preloadErrorRef = useRef<Record<string, string>>({});
+  const preloadedScriptManifestRef = useRef<Record<string, string> | null>(null);
 
   const scripts = useMemo(() => {
     return ((currentItem as any)?.scripts || {}) as Record<string, string>;
@@ -332,15 +333,21 @@ export const CodeEditorPanel = memo(() => {
   }, [currentScriptKey, scripts, applyEditorContent, requestScriptLoad, getLegacyPathError]);
 
   useEffect(() => {
-    if (!currentItem || typeof currentItem !== 'object') {
-      return;
-    }
-    if (!('scripts' in currentItem)) {
-      return;
-    }
-    const scripts = (currentItem as { scripts?: Record<string, unknown> }).scripts || {};
-    const entries = Object.entries(scripts);
+    const entries = scriptKeys.map((key) => [key, typeof scripts[key] === 'string' ? scripts[key] : ''] as const);
     if (entries.length === 0) return;
+    const nextManifest: Record<string, string> = {};
+    let sameManifest = !!preloadedScriptManifestRef.current;
+    for (let index = 0; index < entries.length; index++) {
+      const [key, storedPathValue] = entries[index];
+      nextManifest[key] = storedPathValue;
+      if (!sameManifest || preloadedScriptManifestRef.current?.[key] !== storedPathValue) {
+        sameManifest = false;
+      }
+    }
+    if (sameManifest && Object.keys(preloadedScriptManifestRef.current || {}).length === entries.length) {
+      return;
+    }
+    preloadedScriptManifestRef.current = nextManifest;
 
     const preload = async () => {
       for (const [key, value] of entries) {
@@ -367,7 +374,7 @@ export const CodeEditorPanel = memo(() => {
     };
 
     void preload();
-  }, [currentItem, getLegacyPathError]);
+  }, [getLegacyPathError, scriptKeys, scripts]);
 
   useEffect(() => {
     if (!editorReady) return;

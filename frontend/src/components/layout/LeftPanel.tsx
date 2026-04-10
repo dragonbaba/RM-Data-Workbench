@@ -34,7 +34,7 @@ export function LeftPanel() {
   const listContainerRef = useRef<HTMLDivElement | null>(null);
   const [listHeight, setListHeight] = useState(200);
 
-  const items = currentData?.slice(1) || [];
+  const items = useMemo(() => currentData?.slice(1) || [], [currentData]);
   const mapItems = currentMapInfos || [];
   
   // 检查当前文件是否有未保存的更改
@@ -65,6 +65,17 @@ export function LeftPanel() {
     return false;
   }, [activeDirtyFilePaths, dirtyFiles]);
 
+  const indexedItems = useMemo(() => (
+    items.flatMap((item, index) => (
+      uiMode === 'effect' && !item
+        ? []
+        : [{
+          item,
+          actualIndex: index + 1,
+        }]
+    ))
+  ), [items, uiMode]);
+
   // 过滤项目
   const filteredItems = useMemo(() => {
     if (uiMode === 'map') {
@@ -73,23 +84,14 @@ export function LeftPanel() {
       return mapItems.filter((item) => (item.name || '').toLowerCase().includes(term));
     }
 
-    const itemsWithIndex = items.flatMap((item, index) => (
-      uiMode === 'effect' && !item
-        ? []
-        : [{
-          item,
-          actualIndex: index + 1,
-        }]
-    ));
-
-    if (!searchTerm) return itemsWithIndex;
+    if (!searchTerm) return indexedItems;
 
     const term = searchTerm.toLowerCase();
-    return itemsWithIndex.filter(({ item }) => {
+    return indexedItems.filter(({ item }) => {
       const name = ((item as any)?.name || (item as any)?.title || '').toLowerCase();
       return name.includes(term);
     });
-  }, [items, mapItems, searchTerm, uiMode]);
+  }, [indexedItems, mapItems, searchTerm, uiMode]);
 
   useLayoutEffect(() => {
     const updateHeight = () => {

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { DataLoaderService } from '../../services/DataLoaderService';
 import { ToastManager } from '../common/ToastManager';
+import { EventSystem } from '../../core/EventSystem';
 import type { EffectOpRow, GameEffectSelectorFieldKey, GameEffectTypeDefinition } from '../../services/GameEffectService';
 import type { GameEffectEntry, GameEffectOpGroup, GameEffectType } from '../../types';
 import {
@@ -22,6 +23,7 @@ import {
   validateEffectOpRows,
   validateGameEffectEntry,
 } from '../../services/GameEffectService';
+import { arePlainDataEqual } from '../../services/PlainDataCompare';
 
 const SYSTEM_FILE_NAME = 'System.json';
 
@@ -112,10 +114,11 @@ export function EffectPanel() {
   const markFileDirty = useEditorStore((state) => state.markFileDirty);
   const markItemDirty = useEditorStore((state) => state.markItemDirty);
   const selectItem = useEditorStore((state) => state.selectItem);
+  const [referenceRevision, setReferenceRevision] = useState(0);
 
   const systemData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown>(SYSTEM_FILE_NAME),
-    [currentFilePath, currentItemIndex],
+    [referenceRevision],
   );
 
   const [effect, setEffect] = useState<GameEffectEntry | null>(null);
@@ -124,7 +127,30 @@ export function EffectPanel() {
   const [originalDescriptionText, setOriginalDescriptionText] = useState('');
   const [opRows, setOpRows] = useState<EffectOpRow[]>([]);
   const [originalOpRows, setOriginalOpRows] = useState<EffectOpRow[]>([]);
-  const lastAutoSaveFailedSignatureRef = useRef('');
+  const lastAutoSaveFailedDraftRef = useRef<{
+    effect: GameEffectEntry | null;
+    descriptionText: string;
+    opRows: EffectOpRow[];
+  } | null>(null);
+
+  useEffect(() => {
+    const refreshReferences = (payload?: unknown) => {
+      const fileName = payload && typeof payload === 'object' && !Array.isArray(payload) && 'fileName' in payload
+        ? String((payload as { fileName?: unknown }).fileName || '').toLowerCase()
+        : '';
+      if (!fileName || fileName === SYSTEM_FILE_NAME.toLowerCase()) {
+        setReferenceRevision((value) => value + 1);
+      }
+    };
+
+    EventSystem.on('data:file-loaded', refreshReferences);
+    EventSystem.on('data:manifest-loaded', refreshReferences);
+
+    return () => {
+      EventSystem.off('data:file-loaded', refreshReferences);
+      EventSystem.off('data:manifest-loaded', refreshReferences);
+    };
+  }, []);
 
   const definitions = useMemo(
     () => getGameEffectTypeDefinitions(),
@@ -188,9 +214,9 @@ export function EffectPanel() {
   }, [currentItem, currentItemIndex, isEffectsFile, systemData]);
 
   const hasChanges = useMemo(
-    () => JSON.stringify(effect) !== JSON.stringify(originalEffect)
+    () => !arePlainDataEqual(effect, originalEffect)
       || descriptionText !== originalDescriptionText
-      || JSON.stringify(opRows) !== JSON.stringify(originalOpRows),
+      || !arePlainDataEqual(opRows, originalOpRows),
     [descriptionText, effect, opRows, originalDescriptionText, originalEffect, originalOpRows],
   );
 
@@ -258,12 +284,12 @@ export function EffectPanel() {
       return false;
     }
 
-    const currentSignature = JSON.stringify({
+    const currentDraft = {
       effect,
       descriptionText,
       opRows,
-    });
-    if (silent && lastAutoSaveFailedSignatureRef.current === currentSignature) {
+    };
+    if (silent && arePlainDataEqual(lastAutoSaveFailedDraftRef.current, currentDraft)) {
       return false;
     }
 
@@ -273,7 +299,7 @@ export function EffectPanel() {
         ToastManager.error(opValidation.message || '属性操作无效');
       }
       if (silent) {
-        lastAutoSaveFailedSignatureRef.current = currentSignature;
+        lastAutoSaveFailedDraftRef.current = currentDraft;
       }
       return false;
     }
@@ -308,7 +334,7 @@ export function EffectPanel() {
         ToastManager.error(validation.message || '效果配置无效');
       }
       if (silent) {
-        lastAutoSaveFailedSignatureRef.current = currentSignature;
+        lastAutoSaveFailedDraftRef.current = currentDraft;
       }
       return false;
     }
@@ -318,7 +344,7 @@ export function EffectPanel() {
         ToastManager.error('effectType 无效');
       }
       if (silent) {
-        lastAutoSaveFailedSignatureRef.current = currentSignature;
+        lastAutoSaveFailedDraftRef.current = currentDraft;
       }
       return false;
     }
@@ -337,7 +363,7 @@ export function EffectPanel() {
     setOriginalDescriptionText(stringifyDescription(normalized.description));
     setOpRows(nextRows);
     setOriginalOpRows(nextRows);
-    lastAutoSaveFailedSignatureRef.current = '';
+    lastAutoSaveFailedDraftRef.current = null;
     if (!silent) {
       ToastManager.success('效果已保存');
     }

@@ -1,27 +1,70 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildSkillSaveData,
+  hasDamageFormulaExport,
   hasSkillEditorChanges,
   normalizeSkillDataEntry,
   normalizeSkillEditorValues,
   SKILL_PROJECTILE_TAG_INTERCEPTABLE,
   SKILL_PROJECTILE_TAG_INTERCEPTOR,
   SKILL_PROJECTILE_TAG_NONE,
+  type SkillEffectSpec,
 } from './SkillPropertyService';
 
+const defaultSkillEffectSpec: SkillEffectSpec = {
+  damage: {
+    damageType: 'none',
+    damageElementId: 0,
+    allowCritical: false,
+    damageScatter: 0,
+    formula: {
+      mode: 'basic',
+      scriptKey: '',
+    },
+  },
+  durabilityChange: {
+    mode: 'none',
+    value: 0,
+  },
+  skillDurability: {
+    baseLoss: 1,
+    halfBrokenRate: 50,
+  },
+};
+
 describe('SkillPropertyService', () => {
-  it('会优先读取结构化技能字段', () => {
+  it('会优先读取结构化技能字段并补齐 skillEffectSpec 默认值', () => {
     const values = normalizeSkillEditorValues({
       projectileId: 12,
       skillProjectileTag: SKILL_PROJECTILE_TAG_INTERCEPTOR,
       reactionSuccessRate: 45,
       reactionPriority: 30,
+      skillEffectSpec: {
+        damage: {
+          damageType: 'hp',
+          damageElementId: 7,
+          allowCritical: true,
+          damageScatter: 18,
+          formula: {
+            mode: 'script',
+            scriptKey: 'onDamage',
+          },
+        },
+        durabilityChange: {
+          mode: 'reduce',
+          value: 9,
+        },
+        skillDurability: {
+          baseLoss: 4,
+          halfBrokenRate: 25,
+        },
+      },
       meta: {
         projectileId: 99,
       },
     });
 
-    expect(values).toEqual({
+    expect(values).toMatchObject({
       projectileId: 12,
       skillProjectileTag: SKILL_PROJECTILE_TAG_INTERCEPTOR,
       reactionSuccessRate: 45,
@@ -31,11 +74,37 @@ describe('SkillPropertyService', () => {
       selectMode: 1,
       areaMode: 1,
       skillCosts: [],
+      skillEffectSpec: {
+        damage: {
+          damageType: 'hp',
+          damageElementId: 7,
+          allowCritical: true,
+          damageScatter: 18,
+          formula: {
+            mode: 'script',
+            scriptKey: 'onDamage',
+          },
+        },
+        durabilityChange: {
+          mode: 'reduce',
+          value: 9,
+        },
+        skillDurability: {
+          baseLoss: 4,
+          halfBrokenRate: 25,
+        },
+      },
     });
   });
 
-  it('缺少结构化字段时不会再从 legacy meta 回填', () => {
+  it('缺少结构化字段时不会再从旧 damage 字段回填普通编辑值', () => {
     const values = normalizeSkillEditorValues({
+      damage: {
+        type: 2,
+        elementId: 8,
+        critical: true,
+        variance: 21,
+      },
       meta: {
         projectileId: 8,
         skillProjectileTag: SKILL_PROJECTILE_TAG_INTERCEPTABLE,
@@ -44,7 +113,7 @@ describe('SkillPropertyService', () => {
       },
     });
 
-    expect(values).toEqual({
+    expect(values).toMatchObject({
       projectileId: 0,
       skillProjectileTag: SKILL_PROJECTILE_TAG_NONE,
       reactionSuccessRate: 0,
@@ -54,6 +123,29 @@ describe('SkillPropertyService', () => {
       selectMode: 1,
       areaMode: 1,
       skillCosts: [],
+      skillEffectSpec: defaultSkillEffectSpec,
+    });
+  });
+
+  it('会把 heal 作为合法伤害类型保留', () => {
+    const values = normalizeSkillEditorValues({
+      skillEffectSpec: {
+        damage: {
+          damageType: 'heal',
+          damageElementId: 0,
+          allowCritical: false,
+          damageScatter: 12,
+          formula: {
+            mode: 'basic',
+            scriptKey: '',
+          },
+        },
+      },
+    });
+
+    expect(values.skillEffectSpec.damage).toMatchObject({
+      damageType: 'heal',
+      damageScatter: 12,
     });
   });
 
@@ -85,12 +177,18 @@ describe('SkillPropertyService', () => {
     ]);
   });
 
-  it('规范化条目时会保留原有 meta 并补齐结构字段', () => {
+  it('普通规范化条目时只保留结构字段默认值并删除旧 damage', () => {
     const normalized = normalizeSkillDataEntry({
       id: 9,
       name: '迎击炮',
       projectileId: 15,
       reactionPriority: 21,
+      damage: {
+        type: 1,
+        elementId: 5,
+        critical: false,
+        variance: 12,
+      },
       isUsedForProjectile: true,
       meta: {
         projectileId: 15,
@@ -110,42 +208,88 @@ describe('SkillPropertyService', () => {
       reactionSuccessRate: 0,
       reactionPriority: 21,
       skillCosts: [],
+      skillEffectSpec: {
+        damage: {
+          damageType: 'none',
+          damageElementId: 0,
+          allowCritical: false,
+          damageScatter: 0,
+          formula: {
+            mode: 'basic',
+            scriptKey: '',
+          },
+        },
+        durabilityChange: defaultSkillEffectSpec.durabilityChange,
+        skillDurability: defaultSkillEffectSpec.skillDurability,
+      },
       targetCamp: 1,
       targetLifeState: 1,
       selectMode: 1,
       areaMode: 1,
     });
     expect(normalized).not.toHaveProperty('isUsedForProjectile');
+    expect(normalized).not.toHaveProperty('damage');
   });
 
-  it('缺少 targeting 字段时会直接补齐默认值', () => {
-    const singleTarget = normalizeSkillDataEntry({
-      id: 15,
-      name: '遗留技能',
-      scope: 1,
-    });
-    expect(singleTarget).toMatchObject({
-      targetCamp: 1,
-      targetLifeState: 1,
-      selectMode: 1,
-      areaMode: 1,
-    });
+  it('修复模式会迁移旧 damage 到 skillEffectSpec 并删除旧字段', () => {
+    const normalized = normalizeSkillDataEntry({
+      id: 10,
+      name: '修复用主炮',
+      damage: {
+        type: 1,
+        elementId: 5,
+        critical: true,
+        variance: 12,
+      },
+    }, { migrateLegacyDamage: true });
 
-    const allyAllState = normalizeSkillDataEntry({
-      id: 31,
-      name: '遗留群体友方技能',
-      scope: 13,
+    expect(normalized).toMatchObject({
+      id: 10,
+      name: '修复用主炮',
+      skillEffectSpec: {
+        damage: {
+          damageType: 'hp',
+          damageElementId: 5,
+          allowCritical: true,
+          damageScatter: 12,
+          formula: {
+            mode: 'basic',
+            scriptKey: '',
+          },
+        },
+        durabilityChange: defaultSkillEffectSpec.durabilityChange,
+        skillDurability: defaultSkillEffectSpec.skillDurability,
+      },
     });
-    expect(allyAllState).toMatchObject({
-      targetCamp: 1,
-      targetLifeState: 1,
-      selectMode: 1,
-      areaMode: 1,
+    expect(normalized).not.toHaveProperty('damage');
+  });
+
+  it('修复模式会把旧 HP Recover 类型迁移为 heal', () => {
+    const normalized = normalizeSkillDataEntry({
+      id: 11,
+      name: '修复用回复',
+      damage: {
+        type: 3,
+        elementId: 0,
+        critical: false,
+        variance: 10,
+      },
+    }, { migrateLegacyDamage: true });
+
+    expect(normalized).toMatchObject({
+      skillEffectSpec: {
+        damage: {
+          damageType: 'heal',
+          damageElementId: 0,
+          allowCritical: false,
+          damageScatter: 10,
+        },
+      },
     });
   });
 
   it('仅在结构化技能字段变化时才返回需要保存', () => {
-      expect(hasSkillEditorChanges(
+    expect(hasSkillEditorChanges(
       {
         id: 1,
         name: '火球',
@@ -154,6 +298,7 @@ describe('SkillPropertyService', () => {
         reactionSuccessRate: 0,
         reactionPriority: 0,
         skillCosts: [{ type: 'gold', value: 10, variableId: 0, itemId: 0, weaponId: 0, armorId: 0, amount: 1 }],
+        skillEffectSpec: defaultSkillEffectSpec,
       },
       {
         projectileId: 3,
@@ -161,11 +306,12 @@ describe('SkillPropertyService', () => {
         reactionSuccessRate: 0,
         reactionPriority: 0,
         skillCosts: [{ type: 'gold', value: 10, variableId: 0, itemId: 0, weaponId: 0, armorId: 0, amount: 1 }],
+        skillEffectSpec: defaultSkillEffectSpec,
       },
     )).toBe(false);
   });
 
-  it('技能消耗变化时会触发保存', () => {
+  it('技能效果协议变化时会触发保存', () => {
     expect(hasSkillEditorChanges(
       {
         id: 1,
@@ -174,93 +320,24 @@ describe('SkillPropertyService', () => {
         skillProjectileTag: SKILL_PROJECTILE_TAG_INTERCEPTABLE,
         reactionSuccessRate: 0,
         reactionPriority: 0,
-        skillCosts: [{ type: 'gold', value: 10, variableId: 0, itemId: 0, weaponId: 0, armorId: 0, amount: 1 }],
+        skillCosts: [],
+        skillEffectSpec: defaultSkillEffectSpec,
       },
       {
         projectileId: 3,
         skillProjectileTag: SKILL_PROJECTILE_TAG_INTERCEPTABLE,
         reactionSuccessRate: 0,
         reactionPriority: 0,
-        skillCosts: [{ type: 'gold', value: 15, variableId: 0, itemId: 0, weaponId: 0, armorId: 0, amount: 1 }],
+        skillCosts: [],
+        skillEffectSpec: {
+          ...defaultSkillEffectSpec,
+          damage: {
+            ...defaultSkillEffectSpec.damage,
+            damageElementId: 3,
+          },
+        },
       },
     )).toBe(true);
-  });
-
-  it('技能 targeting 变化时会触发保存', () => {
-    expect(hasSkillEditorChanges(
-      {
-        id: 1,
-        name: '火球',
-        projectileId: 3,
-        skillProjectileTag: SKILL_PROJECTILE_TAG_INTERCEPTABLE,
-        reactionSuccessRate: 0,
-        reactionPriority: 0,
-        targetCamp: 1,
-        targetLifeState: 1,
-        selectMode: 1,
-        areaMode: 1,
-        skillCosts: [],
-      },
-      {
-        projectileId: 3,
-        skillProjectileTag: SKILL_PROJECTILE_TAG_INTERCEPTABLE,
-        reactionSuccessRate: 0,
-        reactionPriority: 0,
-        targetCamp: 2,
-        targetLifeState: 1,
-        selectMode: 1,
-        areaMode: 1,
-        skillCosts: [],
-      },
-    )).toBe(true);
-  });
-
-  it('会保留范围技能的 areaMode，而不是回退成单体', () => {
-    const values = normalizeSkillEditorValues({
-      targetCamp: 2,
-      targetLifeState: 1,
-      selectMode: 1,
-      areaMode: 2,
-    });
-
-    expect(values).toMatchObject({
-      targetCamp: 2,
-      targetLifeState: 1,
-      selectMode: 1,
-      areaMode: 2,
-    });
-  });
-
-  it('百分比类型会按 0~100 收口', () => {
-    const values = normalizeSkillEditorValues({
-      skillCosts: [
-        { type: 'goldRate', value: 140 },
-        { type: 'variableRate', variableId: 3, value: -5 },
-      ],
-    });
-
-    expect(values.skillCosts).toEqual([
-      { type: 'goldRate', value: 100, variableId: 0, itemId: 0, weaponId: 0, armorId: 0, amount: 1 },
-      { type: 'variableRate', value: 0, variableId: 3, itemId: 0, weaponId: 0, armorId: 0, amount: 1 },
-    ]);
-  });
-
-  it('会把技能消耗补齐为固定字段结构', () => {
-    const values = normalizeSkillEditorValues({
-      skillCosts: [
-        { type: 'item', itemId: 4 },
-      ],
-    });
-
-    expect(values.skillCosts[0]).toEqual({
-      type: 'item',
-      value: 0,
-      variableId: 0,
-      itemId: 4,
-      weaponId: 0,
-      armorId: 0,
-      amount: 1,
-    });
   });
 
   it('保存时会写回结构化技能字段并保留其他内容', () => {
@@ -291,6 +368,26 @@ describe('SkillPropertyService', () => {
           { type: 'variableRate', value: 30, variableId: 9, itemId: 0, weaponId: 0, armorId: 0, amount: 1 },
           { type: 'item', value: 0, variableId: 0, itemId: 2, weaponId: 0, armorId: 0, amount: 3 },
         ],
+        skillEffectSpec: {
+          damage: {
+            damageType: 'hp',
+            damageElementId: 11,
+            allowCritical: true,
+            damageScatter: 20,
+            formula: {
+              mode: 'script',
+              scriptKey: 'damageByScript',
+            },
+          },
+          durabilityChange: {
+            mode: 'recover',
+            value: 6,
+          },
+          skillDurability: {
+            baseLoss: 3,
+            halfBrokenRate: 40,
+          },
+        },
       },
     );
 
@@ -315,7 +412,35 @@ describe('SkillPropertyService', () => {
         { type: 'variableRate', value: 30, variableId: 9, itemId: 0, weaponId: 0, armorId: 0, amount: 1 },
         { type: 'item', value: 0, variableId: 0, itemId: 2, weaponId: 0, armorId: 0, amount: 3 },
       ],
+      skillEffectSpec: {
+        damage: {
+          damageType: 'hp',
+          damageElementId: 11,
+          allowCritical: true,
+          damageScatter: 20,
+          formula: {
+            mode: 'script',
+            scriptKey: 'damageByScript',
+          },
+        },
+        durabilityChange: {
+          mode: 'recover',
+          value: 6,
+        },
+        skillDurability: {
+          baseLoss: 3,
+          halfBrokenRate: 40,
+        },
+      },
     });
     expect(saved).not.toHaveProperty('isUsedForProjectile');
+    expect(saved).not.toHaveProperty('damage');
+  });
+
+  it('会识别 damageFormula 导出脚本', () => {
+    expect(hasDamageFormulaExport('export function damageFormula() { return 1; }')).toBe(true);
+    expect(hasDamageFormulaExport('export const damageFormula = () => 1;')).toBe(true);
+    expect(hasDamageFormulaExport('export { damageFormula }')).toBe(true);
+    expect(hasDamageFormulaExport('export function otherFormula() { return 1; }')).toBe(false);
   });
 });

@@ -190,12 +190,25 @@ export function DropPanel() {
     return enemy.enemyDrops.map((entry) => normalizeDropEntry(entry));
   }, [enemy]);
 
+  const itemOptions = useMemo(
+    () => buildDataOptions(itemsData, '未选择物品'),
+    [itemsData],
+  );
+  const weaponOptions = useMemo(
+    () => buildDataOptions(weaponsData, '未选择武器'),
+    [weaponsData],
+  );
+  const armorOptions = useMemo(
+    () => buildDataOptions(armorsData, '未选择防具'),
+    [armorsData],
+  );
+
   const buildReferenceOptions = useCallback((dropType: 0 | 1 | 2, currentDropId: number): DataOption[] => {
     const baseOptions = dropType === 0
-      ? buildDataOptions(itemsData, '未选择物品')
+      ? itemOptions
       : dropType === 1
-        ? buildDataOptions(weaponsData, '未选择武器')
-        : buildDataOptions(armorsData, '未选择防具');
+        ? weaponOptions
+        : armorOptions;
 
     if (currentDropId > 0 && !hasDataOption(baseOptions, currentDropId)) {
       return [
@@ -205,7 +218,7 @@ export function DropPanel() {
     }
 
     return baseOptions;
-  }, [armorsData, itemsData, weaponsData]);
+  }, [armorOptions, itemOptions, weaponOptions]);
 
   const updateDropAt = useCallback((dropIndex: number, updates: Partial<EnemyDropEntry>) => {
     const currentDrop = enemyDrops[dropIndex];

@@ -99,19 +99,19 @@ export function EquipPanel() {
 
   const weaponsData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown[]>('Weapons.json'),
-    [referenceRevision, config.dataPath, config.projectRoot],
+    [referenceRevision],
   );
   const armorsData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown[]>('Armors.json'),
-    [referenceRevision, config.dataPath, config.projectRoot],
+    [referenceRevision],
   );
   const systemData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown>('System.json'),
-    [referenceRevision, config.dataPath, config.projectRoot],
+    [referenceRevision],
   );
   const equipExtensionsData = useMemo(
     () => DataLoaderService.getCachedDataByName<EquipExtensionsData>(EQUIP_EXTENSIONS_FILE_NAME),
-    [referenceRevision, config.dataPath, config.projectRoot],
+    [referenceRevision],
   );
 
   const actor = useMemo(() => {
@@ -151,7 +151,7 @@ export function EquipPanel() {
     const nextEquipTypeDrafts = buildEquipTypeDrafts(systemData);
     setEquipTypeDrafts(nextEquipTypeDrafts);
     setWeaponEquipTypeDrafts(buildWeaponEquipTypeDrafts(equipExtensionsData, nextEquipTypeDrafts));
-  }, [systemData, equipExtensionsData, referenceRevision]);
+  }, [systemData, equipExtensionsData]);
 
   const applyActorUpdate = useCallback((nextEquipSlots: number[], nextEquips: number[]) => {
     if (currentItemIndex <= 0 || !equipExtensionsFilePath || !equipExtensionsData) {

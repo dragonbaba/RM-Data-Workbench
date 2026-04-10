@@ -64,7 +64,7 @@ const normalizeEntryByFileName = (
   }
 
   if (fileName === 'Skills.json') {
-    const normalized = normalizeSkillDataEntry(entry) ?? entry;
+    const normalized = normalizeSkillDataEntry(entry, { migrateLegacyDamage: true }) ?? entry;
     return normalizeCommonRangeDataEntry(normalized) ?? normalized;
   }
 
@@ -81,7 +81,11 @@ const normalizeEntryByFileName = (
     const itemNormalized = normalizeCommonRangeDataEntry(normalized) ?? normalized;
     if (itemNormalized && typeof itemNormalized === 'object' && !Array.isArray(itemNormalized)) {
       const nextItem = { ...(itemNormalized as Record<string, unknown>) };
+      if ('damage' in (entry as Record<string, unknown>)) {
+        nextItem.damage = (entry as Record<string, unknown>).damage;
+      }
       delete nextItem.skillCosts;
+      delete nextItem.skillEffectSpec;
       return nextItem;
     }
     return itemNormalized;

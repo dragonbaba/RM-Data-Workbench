@@ -137,6 +137,39 @@ export interface SkillCostEntry {
   amount: number;
 }
 
+export type SkillDamageType = 'none' | 'hp' | 'heal';
+export type SkillDamageFormulaMode = 'basic' | 'script';
+export type SkillDurabilityChangeMode = 'none' | 'reduce' | 'recover';
+
+export interface SkillDamageFormulaSpec {
+  mode: SkillDamageFormulaMode;
+  scriptKey: string;
+}
+
+export interface SkillDamageSpec {
+  damageType: SkillDamageType;
+  damageElementId: number;
+  allowCritical: boolean;
+  damageScatter: number;
+  formula: SkillDamageFormulaSpec;
+}
+
+export interface SkillDurabilityChangeSpec {
+  mode: SkillDurabilityChangeMode;
+  value: number;
+}
+
+export interface SkillDurabilitySpec {
+  baseLoss: number;
+  halfBrokenRate: number;
+}
+
+export interface SkillEffectSpec {
+  damage: SkillDamageSpec;
+  durabilityChange: SkillDurabilityChangeSpec;
+  skillDurability: SkillDurabilitySpec;
+}
+
 export type EquipExtraParamKey =
   | 'interceptRate'
   | 'evadeRate'
@@ -204,6 +237,7 @@ export interface RPGItem {
   reactionSuccessRate?: number;
   reactionPriority?: number;
   skillCosts?: SkillCostEntry[];
+  skillEffectSpec?: SkillEffectSpec;
   weaknessStateEffects?: StateWeaknessEffects;
   chargeConfig?: StateChargeConfig;
   elementRates?: number[];

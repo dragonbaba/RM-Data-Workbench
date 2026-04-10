@@ -13,6 +13,12 @@ describe('DataAuditService', () => {
           name: '火球',
           projectileId: 7,
           skillProjectileTag: 1,
+          damage: {
+            type: 3,
+            elementId: 2,
+            critical: false,
+            variance: 17,
+          },
           skillCosts: [
             { type: 'item', itemId: 2 },
           ],
@@ -35,7 +41,21 @@ describe('DataAuditService', () => {
       ]],
       ['D:/Project/data/Items.json', [
         null,
-        { id: 1, name: '手雷', projectileId: 5, skillProjectileTag: 1, targetCamp: 2, areaMode: 2, areaTargetCount: 3, repeatTime: 2 },
+        {
+          id: 1,
+          name: '手雷',
+          projectileId: 5,
+          skillProjectileTag: 1,
+          targetCamp: 2,
+          areaMode: 2,
+          areaTargetCount: 3,
+          repeatTime: 2,
+          damage: {
+            type: 1,
+            elementId: 2,
+            variance: 8,
+          },
+        },
       ]],
       ['D:/Project/data/Enemies.json', [
         null,
@@ -107,6 +127,26 @@ describe('DataAuditService', () => {
       areaMode: 1,
       repeatTime: 1,
       repeatTimeFloat: 0,
+      skillEffectSpec: {
+        damage: {
+          damageType: 'heal',
+          damageElementId: 2,
+          allowCritical: false,
+          damageScatter: 17,
+          formula: {
+            mode: 'basic',
+            scriptKey: '',
+          },
+        },
+        durabilityChange: {
+          mode: 'none',
+          value: 0,
+        },
+        skillDurability: {
+          baseLoss: 1,
+          halfBrokenRate: 50,
+        },
+      },
     });
     expect((skillPayload[1] as any).skillCosts[0]).toEqual({
       type: 'item',
@@ -118,6 +158,7 @@ describe('DataAuditService', () => {
       amount: 1,
     });
     expect(skillPayload[1]).not.toHaveProperty('isUsedForProjectile');
+    expect(skillPayload[1]).not.toHaveProperty('damage');
 
     const statePayload = writes.find((item) => item.filePath.endsWith('States.json'))?.data as unknown[];
     expect(statePayload[1]).toMatchObject({
@@ -157,7 +198,13 @@ describe('DataAuditService', () => {
       areaTargetCount: 3,
       repeatTime: 2,
       repeatTimeFloat: 0,
+      damage: {
+        type: 1,
+        elementId: 2,
+        variance: 8,
+      },
     });
+    expect(itemPayload[1]).not.toHaveProperty('skillEffectSpec');
 
     const enemyPayload = writes.find((item) => item.filePath.endsWith('Enemies.json'))?.data as unknown[];
     expect(enemyPayload[1]).toMatchObject({
@@ -296,6 +343,90 @@ describe('DataAuditService', () => {
             },
             repeatTime: 1,
             repeatTimeFloat: 0,
+          }];
+        }
+        if (filePath.endsWith('Skills.json')) {
+          return [null, {
+            id: 1,
+            name: '已规范',
+            meta: {},
+            projectileId: 0,
+            skillProjectileTag: -1,
+            reactionSuccessRate: 0,
+            reactionPriority: 0,
+            skillCosts: [],
+            skillEffectSpec: {
+              damage: {
+                damageType: 'none',
+                damageElementId: 0,
+                allowCritical: false,
+                damageScatter: 0,
+                formula: {
+                  mode: 'basic',
+                  scriptKey: '',
+                },
+              },
+              durabilityChange: {
+                mode: 'none',
+                value: 0,
+              },
+              skillDurability: {
+                baseLoss: 1,
+                halfBrokenRate: 50,
+              },
+            },
+            targetCamp: 1,
+            targetLifeState: 1,
+            selectMode: 1,
+            classId: 1,
+            level: 1,
+            levelScope: 0,
+            isBoss: false,
+            allowBreak: false,
+            bounty: 0,
+            attackAnimationId: 0,
+            canReaction: false,
+            reactionSkillId: 0,
+            floatParams: [0, 0, 0, 0, 0, 0, 0, 0],
+            extraParams: {
+              interceptRate: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              evadeRate: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              critRate: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              critDamage: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              hitRate: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              finalDamage: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            },
+            vehicleParams: {
+              weight: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              carryValue: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              loadValue: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              durability: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              ammoCapacity: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              shellPrice: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              repeat: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              actionRepeat: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            },
+            upgradeParams: {
+              times: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              atk: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              def: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            },
+            qualityLock: false,
+            attackSkillId: 0,
+            attackElementId: 0,
+            areaOverride: 0,
+            areaMode: 1,
+            shapeType: 0,
+            areaTargetCount: 0,
+            shapeParams: {
+              1: { radius: 120 },
+              2: { angleDeg: 60, radius: 180 },
+              3: { length: 240, width: 80 },
+            },
+            repeatTime: 1,
+            repeatTimeFloat: 0,
+            elementRates: [0, 0],
+            elementRateFloats: [0, 0],
           }];
         }
         return [null, {

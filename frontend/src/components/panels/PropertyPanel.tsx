@@ -1,4 +1,4 @@
-import { Card, Input, InputNumber, Button, Form, Space, Select, Switch } from 'antd';
+import { Alert, Card, Input, InputNumber, Button, Form, Space, Select, Switch } from 'antd';
 import type { FormListFieldData } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -17,7 +17,9 @@ import {
 } from '../../services/EnemyPropertyService';
 import {
   buildSkillSaveData,
+  DAMAGE_FORMULA_EXPORT_NAME,
   hasSkillEditorChanges,
+  hasDamageFormulaExport,
   normalizeSkillDataEntry,
   normalizeSkillEditorValues,
   SKILL_PROJECTILE_TAG_INTERCEPTABLE,
@@ -64,6 +66,7 @@ import {
   normalizeCommonRangeValues,
   normalizeWeaponRangeValues,
 } from '../../services/RangePropertyService';
+import { loadScriptContent } from '../../services/ScriptOperations';
 
 interface CustomAttribute {
   name: string;
@@ -89,17 +92,16 @@ interface FixedParamFieldDefinition {
 
 const BASE_ATTRIBUTES: Array<{
   key: string;
-  label: string;
-  floatLabel: string;
+  fallbackLabel: string;
 }> = [
-  { key: 'mhp', label: '最大生命值', floatLabel: '生命波动' },
-  { key: 'mmp', label: '最大魔法值', floatLabel: '魔法波动' },
-  { key: 'atk', label: '攻击力', floatLabel: '攻击波动' },
-  { key: 'def', label: '防御力', floatLabel: '防御波动' },
-  { key: 'mat', label: '魔法攻击力', floatLabel: '魔攻波动' },
-  { key: 'mdf', label: '魔法防御力', floatLabel: '魔防波动' },
-  { key: 'agi', label: '速度', floatLabel: '速度波动' },
-  { key: 'luk', label: '幸运', floatLabel: '幸运波动' },
+  { key: 'mhp', fallbackLabel: '最大生命值' },
+  { key: 'mmp', fallbackLabel: '最大魔法值' },
+  { key: 'atk', fallbackLabel: '攻击力' },
+  { key: 'def', fallbackLabel: '防御力' },
+  { key: 'mat', fallbackLabel: '魔法攻击力' },
+  { key: 'mdf', fallbackLabel: '魔法防御力' },
+  { key: 'agi', fallbackLabel: '速度' },
+  { key: 'luk', fallbackLabel: '幸运' },
 ];
 
 const LEGACY_BUSINESS_CUSTOM_PARAM_KEYS = new Set(
@@ -230,6 +232,7 @@ const SKILL_PROJECTILE_TAG_FIELD_KEY = 'skillProjectileTag';
 const SKILL_REACTION_SUCCESS_RATE_FIELD_KEY = 'skillReactionSuccessRate';
 const SKILL_REACTION_PRIORITY_FIELD_KEY = 'skillReactionPriority';
 const SKILL_COSTS_FIELD_KEY = 'skillCosts';
+const SKILL_EFFECT_SPEC_FIELD_KEY = 'skillEffectSpec';
 const ENEMY_CLASS_ID_FIELD_KEY = 'enemyClassId';
 const ENEMY_LEVEL_FIELD_KEY = 'enemyLevel';
 const ENEMY_LEVEL_SCOPE_FIELD_KEY = 'enemyLevelScope';
@@ -296,6 +299,23 @@ const SKILL_COST_TYPE_OPTIONS: Array<{ value: SkillCostType; label: string }> = 
   { value: 'item', label: '指定物品' },
   { value: 'weapon', label: '指定武器' },
   { value: 'armor', label: '指定防具' },
+];
+
+const SKILL_DAMAGE_TYPE_OPTIONS = [
+  { value: 'none', label: '0 : 无伤害' },
+  { value: 'hp', label: '1 : 生命伤害' },
+  { value: 'heal', label: '2 : 生命恢复' },
+];
+
+const SKILL_DAMAGE_FORMULA_MODE_OPTIONS = [
+  { value: 'basic', label: '基础通用伤害公式' },
+  { value: 'script', label: '当前技能自定义公式脚本' },
+];
+
+const SKILL_DURABILITY_CHANGE_MODE_OPTIONS = [
+  { value: 'none', label: '0 : 无变化' },
+  { value: 'reduce', label: '1 : 降低耐久' },
+  { value: 'recover', label: '2 : 恢复耐久' },
 ];
 
 const areArraysEqual = (left: number[], right: number[]) => {
@@ -408,6 +428,23 @@ const getVariableOptions = (systemData: unknown) => {
   }
 
   return options;
+};
+
+const getBaseAttributeDisplayFields = (systemData: unknown) => {
+  const systemRecord = getSystemRecord(systemData);
+  const terms = systemRecord?.terms;
+  const rawParams = terms && typeof terms === 'object' && !Array.isArray(terms) && Array.isArray((terms as Record<string, unknown>).params)
+    ? (terms as Record<string, unknown>).params as unknown[]
+    : [];
+  return BASE_ATTRIBUTES.map((attribute, index) => {
+    const rawLabel = typeof rawParams[index] === 'string' ? rawParams[index].trim() : '';
+    const label = rawLabel || attribute.fallbackLabel;
+    return {
+      key: attribute.key,
+      label,
+      floatLabel: `${label}波动`,
+    };
+  });
 };
 
 const createEmptySkillCostEntry = (): SkillCostEntry => ({
@@ -628,6 +665,9 @@ export function PropertyPanel() {
   const [hasCustomChanges, setHasCustomChanges] = useState(false);
   const [effectIds, setEffectIds] = useState<number[]>([]);
   const [originalEffectIds, setOriginalEffectIds] = useState<number[]>([]);
+  const [damageFormulaScriptOptions, setDamageFormulaScriptOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [isDamageFormulaScriptOptionsLoading, setIsDamageFormulaScriptOptionsLoading] = useState(false);
+  const [damageFormulaScriptWarning, setDamageFormulaScriptWarning] = useState('');
   const [referenceRevision, setReferenceRevision] = useState(0);
   const pendingDraftRef = useRef<PendingDraftState | null>(null);
   const currentFileName = currentFilePath.split(/[\\/]/).pop()?.toLowerCase() || '';
@@ -647,35 +687,38 @@ export function PropertyPanel() {
   const watchedShapeType = Form.useWatch(SHAPE_TYPE_FIELD_KEY, form) ?? 0;
   const watchedAreaOverride = Form.useWatch(AREA_OVERRIDE_FIELD_KEY, form) ?? 0;
   const watchedSkillProjectileTag = Form.useWatch(SKILL_PROJECTILE_TAG_FIELD_KEY, form) ?? SKILL_PROJECTILE_TAG_NONE;
+  const watchedDamageFormulaMode = Form.useWatch([SKILL_EFFECT_SPEC_FIELD_KEY, 'damage', 'formula', 'mode'], form) ?? 'basic';
+  const watchedDamageFormulaScriptKey = Form.useWatch([SKILL_EFFECT_SPEC_FIELD_KEY, 'damage', 'formula', 'scriptKey'], form) ?? '';
   const watchedEnemyClassId = Form.useWatch(ENEMY_CLASS_ID_FIELD_KEY, form) ?? 0;
   const watchedEnemyAttackAnimationId = Form.useWatch(ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY, form) ?? 0;
   const watchedEnemyCanReaction = Form.useWatch(ENEMY_CAN_REACTION_FIELD_KEY, form) === true;
   const watchedEnemyReactionSkillId = Form.useWatch(ENEMY_REACTION_SKILL_ID_FIELD_KEY, form) ?? 0;
   const watchedEnemyBaseWeaknessGroup = Form.useWatch(ENEMY_BASE_WEAKNESS_GROUP_FIELD_KEY, form);
   const watchedEnemyDynamicWeaknessGroups = Form.useWatch(ENEMY_DYNAMIC_WEAKNESS_GROUPS_FIELD_KEY, form);
+  // Reference datasets come from the global cache and should only refresh when the cache revision changes.
   const systemData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown>(SYSTEM_FILE_NAME),
-    [currentFilePath, currentItem, referenceRevision],
+    [referenceRevision],
   );
   const skillsData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown[]>(SKILLS_FILE_NAME),
-    [currentFilePath, currentItem, referenceRevision],
+    [referenceRevision],
   );
   const itemsData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown[]>(ITEMS_FILE_NAME),
-    [currentFilePath, currentItem, referenceRevision],
+    [referenceRevision],
   );
   const weaponsData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown[]>(WEAPONS_FILE_NAME),
-    [currentFilePath, currentItem, referenceRevision],
+    [referenceRevision],
   );
   const armorsData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown[]>(ARMORS_FILE_NAME),
-    [currentFilePath, currentItem, referenceRevision],
+    [referenceRevision],
   );
   const projectilesData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown[]>(PROJECTILES_FILE_NAME),
-    [currentFilePath, currentItem, referenceRevision],
+    [referenceRevision],
   );
   const currentArmorEquipTypeId = isArmorItem
     ? toIntOrZero((currentItem as RPGItem | null)?.etypeId)
@@ -684,19 +727,19 @@ export function PropertyPanel() {
     && (currentArmorEquipTypeId === TANK_COMPUTER_EQUIP_TYPE_ID || currentArmorEquipTypeId === TANK_BASE_EQUIP_TYPE_ID);
   const equipExtensionsData = useMemo(
     () => DataLoaderService.getCachedDataByName<EquipExtensionsData>(EQUIP_EXTENSIONS_FILE_NAME),
-    [currentFilePath, currentItem, referenceRevision],
+    [referenceRevision],
   );
   const effectsData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown[]>(EFFECTS_FILE_NAME),
-    [currentFilePath, currentItem, referenceRevision],
+    [referenceRevision],
   );
   const classesData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown[]>(CLASSES_FILE_NAME),
-    [currentFilePath, currentItem, referenceRevision],
+    [referenceRevision],
   );
   const animationsData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown[]>(ANIMATIONS_FILE_NAME),
-    [currentFilePath, currentItem, referenceRevision],
+    [referenceRevision],
   );
   const equipTypeOptions = useMemo(
     () => getEquipTypeOptions(systemData),
@@ -722,6 +765,13 @@ export function PropertyPanel() {
     () => buildDataOptions(armorsData, '未选择防具'),
     [armorsData],
   );
+  const currentSkillScripts = useMemo(() => {
+    if (!isSkillFile || !currentItem || typeof currentItem !== 'object') {
+      return {};
+    }
+    const scripts = (currentItem as RPGItem).scripts;
+    return scripts && typeof scripts === 'object' ? scripts : {};
+  }, [currentItem, isSkillFile]);
   const elementOptions = useMemo(
     () => getElementOptions(systemData),
     [systemData],
@@ -736,6 +786,10 @@ export function PropertyPanel() {
   );
   const armorElementRateFields = useMemo(
     () => getElementRateFieldDefinitions(systemData),
+    [systemData],
+  );
+  const baseAttributeDisplayFields = useMemo(
+    () => getBaseAttributeDisplayFields(systemData),
     [systemData],
   );
   const enemyWeaknessDuplicateMessages = useMemo(
@@ -754,6 +808,75 @@ export function PropertyPanel() {
     () => buildEffectReferenceOptions(effectsData),
     [effectsData],
   );
+  useEffect(() => {
+    let active = true;
+
+    const applyDamageFormulaScriptState = (
+      options: Array<{ value: string; label: string }>,
+      warning: string,
+    ) => {
+      if (!active) return;
+      setDamageFormulaScriptOptions(options);
+      setDamageFormulaScriptWarning(warning);
+      setIsDamageFormulaScriptOptionsLoading(false);
+    };
+
+    const refreshDamageFormulaScriptOptions = async () => {
+      if (!isSkillFile || watchedDamageFormulaMode !== 'script') {
+        setIsDamageFormulaScriptOptionsLoading(false);
+        setDamageFormulaScriptWarning('');
+        setDamageFormulaScriptOptions([]);
+        return;
+      }
+
+      setIsDamageFormulaScriptOptionsLoading(true);
+      setDamageFormulaScriptWarning('');
+      const scriptEntries = Object.entries(currentSkillScripts);
+      if (scriptEntries.length === 0) {
+        applyDamageFormulaScriptState(
+          watchedDamageFormulaScriptKey
+            ? [{ value: watchedDamageFormulaScriptKey, label: `${watchedDamageFormulaScriptKey}（当前选择，未通过校验）` }]
+            : [],
+          watchedDamageFormulaScriptKey
+            ? `当前技能没有可导出 \`${DAMAGE_FORMULA_EXPORT_NAME}\` 的脚本，当前选择的脚本键「${watchedDamageFormulaScriptKey}」也未通过校验。请先补齐脚本导出，或改回“基础通用伤害公式”。`
+            : `当前技能没有可导出 \`${DAMAGE_FORMULA_EXPORT_NAME}\` 的脚本。请先补齐脚本导出，或改回“基础通用伤害公式”。`,
+        );
+        return;
+      }
+
+      const resolvedOptions = await Promise.all(scriptEntries.map(async ([scriptKey, storedPath]) => {
+        try {
+          const content = await loadScriptContent(storedPath, { bypassCache: true });
+          if (!hasDamageFormulaExport(content)) {
+            return null;
+          }
+          return { value: scriptKey, label: scriptKey };
+        } catch {
+          return null;
+        }
+      }));
+
+      if (!active) return;
+
+      const options = resolvedOptions.filter((option): option is { value: string; label: string } => !!option);
+      let warning = '';
+      if (watchedDamageFormulaScriptKey && !options.some((option) => option.value === watchedDamageFormulaScriptKey)) {
+        options.push({
+          value: watchedDamageFormulaScriptKey,
+          label: `${watchedDamageFormulaScriptKey}（当前选择，未通过校验）`,
+        });
+        warning = `当前选中的公式脚本键「${watchedDamageFormulaScriptKey}」没有导出 \`${DAMAGE_FORMULA_EXPORT_NAME}\`。请重新选择有效脚本，或改回“基础通用伤害公式”。`;
+      } else if (options.length === 0) {
+        warning = `当前技能没有可导出 \`${DAMAGE_FORMULA_EXPORT_NAME}\` 的脚本。请先补齐脚本导出，或改回“基础通用伤害公式”。`;
+      }
+      applyDamageFormulaScriptState(options, warning);
+    };
+
+    void refreshDamageFormulaScriptOptions();
+    return () => {
+      active = false;
+    };
+  }, [currentSkillScripts, isSkillFile, watchedDamageFormulaMode, watchedDamageFormulaScriptKey]);
   const enemyClassOptions = useMemo(
     () => getEnemyReferenceValue(classesData, '未选择职业', watchedEnemyClassId, '职业'),
     [classesData, watchedEnemyClassId],
@@ -862,6 +985,7 @@ export function PropertyPanel() {
         baseFormValues[SKILL_REACTION_PRIORITY_FIELD_KEY] = skillValues.reactionPriority;
         if (isSkillFile) {
           baseFormValues[SKILL_COSTS_FIELD_KEY] = skillValues.skillCosts;
+          baseFormValues[SKILL_EFFECT_SPEC_FIELD_KEY] = skillValues.skillEffectSpec;
         }
       }
       if (isStateFile) {
@@ -1159,6 +1283,7 @@ export function PropertyPanel() {
           selectMode: values[SELECT_MODE_FIELD_KEY],
           areaMode: values[AREA_MODE_FIELD_KEY],
           skillCosts: isSkillFile ? values[SKILL_COSTS_FIELD_KEY] : undefined,
+          skillEffectSpec: isSkillFile ? values[SKILL_EFFECT_SPEC_FIELD_KEY] : undefined,
         }
       : null;
     const nextEnemyValues = isEnemyFile
@@ -1282,6 +1407,7 @@ export function PropertyPanel() {
         nextItem = buildSkillSaveData(nextItem as RPGItem, nextSkillValues);
         if (isItemFile) {
           delete (nextItem as RPGItem).skillCosts;
+          delete (nextItem as RPGItem).skillEffectSpec;
         }
         if (nextCommonRangeValues) {
           nextItem = {
@@ -1978,7 +2104,7 @@ export function PropertyPanel() {
           bodyStyle={{ backgroundColor: '#1a1f2e' }}
         >
           <div className="grid grid-cols-4 gap-x-4 gap-y-4">
-            {BASE_ATTRIBUTES.flatMap(({ key, label, floatLabel }) => {
+            {baseAttributeDisplayFields.flatMap(({ key, label, floatLabel }) => {
               const floatKey = getFloatFieldKey(key);
               return [
                 (
@@ -2172,6 +2298,122 @@ export function PropertyPanel() {
                 />
               </Form.Item>
             </div>
+          </Card>
+        ) : null}
+
+        {isSkillFile ? (
+          <Card
+            title="技能伤害 / 耐久协议"
+            className="mb-4"
+            headStyle={{
+              backgroundColor: '#252b3d',
+              borderBottom: '1px solid var(--color-border)',
+              color: 'var(--color-accent)',
+            }}
+            bodyStyle={{ backgroundColor: '#1a1f2e' }}
+          >
+            <div className="text-xs text-gray-500 mb-4">
+              这里维护技能真实战斗语义的单一顶层协议 `skillEffectSpec`。伤害元素已纳入新协议，不再读取旧 `damage.elementId`。`formula` 支持基础通用公式与当前技能脚本两种来源，脚本模式仅列出当前技能脚本中导出 `damageFormula` 的键。
+            </div>
+            <div className="grid grid-cols-4 gap-x-4 gap-y-4">
+              <Form.Item
+                name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'damage', 'damageType']}
+                label={<span className="text-xs text-gray-400">伤害类型</span>}
+                className="mb-0"
+              >
+                <Select options={SKILL_DAMAGE_TYPE_OPTIONS} className="w-full" />
+              </Form.Item>
+              <Form.Item
+                name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'damage', 'damageElementId']}
+                label={<span className="text-xs text-gray-400">伤害元素</span>}
+                className="mb-0"
+              >
+                <Select
+                  options={elementOptions}
+                  className="w-full"
+                  showSearch
+                  optionFilterProp="label"
+                />
+              </Form.Item>
+              <Form.Item
+                name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'damage', 'allowCritical']}
+                label={<span className="text-xs text-gray-400">允许暴击</span>}
+                className="mb-0"
+                valuePropName="checked"
+              >
+                <Switch checkedChildren="允许" unCheckedChildren="禁止" />
+              </Form.Item>
+              <Form.Item
+                name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'damage', 'damageScatter']}
+                label={<span className="text-xs text-gray-400">伤害浮动分散度</span>}
+                className="mb-0"
+              >
+                <InputNumber min={0} max={100} step={1} className="w-full" style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'damage', 'formula', 'mode']}
+                label={<span className="text-xs text-gray-400">伤害公式来源</span>}
+                className="mb-0"
+              >
+                <Select options={SKILL_DAMAGE_FORMULA_MODE_OPTIONS} className="w-full" />
+              </Form.Item>
+              <Form.Item
+                name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'damage', 'formula', 'scriptKey']}
+                label={<span className="text-xs text-gray-400">公式脚本键</span>}
+                className="mb-0"
+              >
+                <Select
+                  options={damageFormulaScriptOptions}
+                  className="w-full"
+                  placeholder="筛选当前技能脚本"
+                  showSearch
+                  optionFilterProp="label"
+                  disabled={watchedDamageFormulaMode !== 'script'}
+                />
+              </Form.Item>
+              <Form.Item
+                name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'durabilityChange', 'mode']}
+                label={<span className="text-xs text-gray-400">耐久度改变</span>}
+                className="mb-0"
+              >
+                <Select options={SKILL_DURABILITY_CHANGE_MODE_OPTIONS} className="w-full" />
+              </Form.Item>
+              <Form.Item
+                name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'durabilityChange', 'value']}
+                label={<span className="text-xs text-gray-400">耐久度改变值</span>}
+                className="mb-0"
+              >
+                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'skillDurability', 'baseLoss']}
+                label={<span className="text-xs text-gray-400">技能耐久基础损失</span>}
+                className="mb-0"
+              >
+                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'skillDurability', 'halfBrokenRate']}
+                label={<span className="text-xs text-gray-400">半耐久跳过概率</span>}
+                className="mb-0"
+              >
+                <InputNumber min={0} max={100} step={1} className="w-full" style={{ width: '100%' }} />
+              </Form.Item>
+            </div>
+            {watchedDamageFormulaMode === 'script' && isDamageFormulaScriptOptionsLoading ? (
+              <div className="mt-3 text-xs text-gray-500">
+                正在校验当前技能脚本的 `{DAMAGE_FORMULA_EXPORT_NAME}` 导出，请稍候。
+              </div>
+            ) : null}
+            {watchedDamageFormulaMode === 'script' && !isDamageFormulaScriptOptionsLoading && damageFormulaScriptWarning ? (
+              <Alert
+                className="mt-3"
+                type="warning"
+                showIcon
+                message="技能公式脚本配置异常"
+                description={damageFormulaScriptWarning}
+              />
+            ) : null}
           </Card>
         ) : null}
 
