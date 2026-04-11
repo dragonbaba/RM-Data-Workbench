@@ -65,6 +65,7 @@ const EQUIP_VEHICLE_PARAM_KEYS = ['repeat'] as const;
 const PAIR_CUNIT_EQUIP_VEHICLE_PARAM_KEYS = ['repeat', 'actionRepeat'] as const;
 const ACTION_REPEAT_KEYS = ['actionRepeat'] as const;
 const SCALAR_KEYS = ['expRate'] as const;
+const SPECIAL_PARAM_KEYS = ['tgr', 'grd', 'rec', 'pha', 'pdr'] as const;
 const OP_OPTIONS: EffectOption<GameEffectOpKind>[] = [
   { value: 'add', label: '加算' },
   { value: 'mul', label: '乘算' },
@@ -92,6 +93,7 @@ const GROUP_LABELS: Record<GameEffectOpGroup, string> = {
   extraParams: '额外属性',
   vehicleParams: '车辆属性',
   scalar: '标量',
+  specialParams: '特殊属性',
   paramRate: '基础参数率',
   elementRate: '元素率',
 };
@@ -112,10 +114,18 @@ const VEHICLE_PARAM_LABELS: Record<string, string> = {
 const SCALAR_LABELS: Record<string, string> = {
   expRate: '经验获取率',
 };
+const SPECIAL_PARAM_LABELS: Record<string, string> = {
+  tgr: '仇恨',
+  grd: '防御效率',
+  rec: '恢复效果',
+  pha: '药效',
+  pdr: '物理伤害',
+};
 const DEFAULT_KEY_BY_GROUP: Record<GameEffectOpGroup, string> = {
   extraParams: 'hitRate',
   vehicleParams: 'repeat',
   scalar: 'expRate',
+  specialParams: 'tgr',
   paramRate: 'mhp',
   elementRate: '1',
 };
@@ -123,6 +133,7 @@ const DEFAULT_KEY_BY_GROUP: Record<GameEffectOpGroup, string> = {
 const OWNER_STATIC_GROUPS: GameEffectAllowedGroupDefinition[] = [
   { group: 'extraParams', keys: [...EXTRA_PARAM_KEYS] },
   { group: 'vehicleParams', keys: [...OWNER_VEHICLE_PARAM_KEYS] },
+  { group: 'specialParams', keys: [...SPECIAL_PARAM_KEYS] },
 ];
 const EQUIP_STAT_GROUPS: GameEffectAllowedGroupDefinition[] = [
   { group: 'extraParams', keys: [...EXTRA_PARAM_KEYS] },
@@ -250,6 +261,7 @@ const getKeyLabel = (group: GameEffectOpGroup, key: string, systemData?: unknown
   if (group === 'extraParams') return EXTRA_PARAM_LABELS[key] || key;
   if (group === 'vehicleParams') return VEHICLE_PARAM_LABELS[key] || key;
   if (group === 'scalar') return SCALAR_LABELS[key] || key;
+  if (group === 'specialParams') return SPECIAL_PARAM_LABELS[key] || key;
   if (group === 'paramRate') {
     return buildParamRateOptions(systemData).find((option) => option.value === key)?.label || key;
   }
@@ -358,55 +370,6 @@ const GAME_EFFECT_TYPE_DEFINITIONS: GameEffectTypeDefinition[] = [
     allowedGroups: RUNTIME_STAT_GROUPS,
   }),
   createTypeDefinition({
-    effectType: 'owner_stat_bonus',
-    label: 'Owner 自身属性修正',
-    isStatic: true,
-    allowIsStaticToggle: true,
-    selectorMode: 'none',
-    argsMode: 'ops',
-    exampleName: '最终伤害强化',
-    exampleDescription: '直接给 owner 自身累计属性加值',
-    selectorTemplate: {},
-    argsTemplate: { ops: [{ group: 'extraParams', key: 'finalDamage', op: 'add', value: 0.2 }] },
-    allowedGroups: OWNER_STATIC_GROUPS,
-  }),
-  createTypeDefinition({
-    effectType: 'owner_scalar_bonus',
-    label: 'Owner 标量加成',
-    isStatic: true,
-    selectorMode: 'none',
-    argsMode: 'ops',
-    exampleName: '经验增益',
-    exampleDescription: '直接给 owner 的标量属性加值，例如经验率',
-    selectorTemplate: {},
-    argsTemplate: { ops: [{ group: 'scalar', key: 'expRate', op: 'add', value: 0.1 }] },
-    allowedGroups: SCALAR_GROUPS,
-  }),
-  createTypeDefinition({
-    effectType: 'owner_param_rate_bonus',
-    label: 'Owner 普通属性率修正',
-    isStatic: true,
-    selectorMode: 'none',
-    argsMode: 'ops',
-    exampleName: '驾驶率提升',
-    exampleDescription: '给 owner 的前 8 项普通属性率做加算或乘算',
-    selectorTemplate: {},
-    argsTemplate: { ops: [{ group: 'paramRate', key: 'mmp', op: 'add', value: 0.1 }] },
-    allowedGroups: PARAM_RATE_GROUPS,
-  }),
-  createTypeDefinition({
-    effectType: 'owner_element_rate_bonus',
-    label: 'Owner 元素率修正',
-    isStatic: true,
-    selectorMode: 'none',
-    argsMode: 'ops',
-    exampleName: '火炎耐性',
-    exampleDescription: '给 owner 的元素率做加算或乘算',
-    selectorTemplate: {},
-    argsTemplate: { ops: [{ group: 'elementRate', key: '2', op: 'add', value: -0.2 }] },
-    allowedGroups: ELEMENT_RATE_GROUPS,
-  }),
-  createTypeDefinition({
     effectType: 'single_engine_bonus',
     label: '单引擎奖励',
     isStatic: true,
@@ -488,23 +451,6 @@ const GAME_EFFECT_TYPE_DEFINITIONS: GameEffectTypeDefinition[] = [
     exampleDescription: 'owner 已装备 c 装中存在一对同基础 ID 时对 owner 应用属性',
     selectorTemplate: {},
     argsTemplate: { requiredCount: 2, ops: [{ group: 'extraParams', key: 'critRate', op: 'add', value: 5 }] },
-    allowedGroups: OWNER_STATIC_GROUPS,
-  }),
-  createTypeDefinition({
-    effectType: 'cunit_owner_stat_bonus',
-    label: 'C 装 Owner 属性修正',
-    isStatic: true,
-    selectorMode: 'none',
-    argsMode: 'ops',
-    exampleName: '迎击与暴击强化',
-    exampleDescription: 'C 装置直接给 owner 自身累计属性加值',
-    selectorTemplate: {},
-    argsTemplate: {
-      ops: [
-        { group: 'extraParams', key: 'interceptRate', op: 'add', value: 10 },
-        { group: 'extraParams', key: 'critRate', op: 'add', value: 5 },
-      ],
-    },
     allowedGroups: OWNER_STATIC_GROUPS,
   }),
   createTypeDefinition({
@@ -614,6 +560,7 @@ const normalizeEffectOpRow = (
     (group !== 'extraParams'
       && group !== 'vehicleParams'
       && group !== 'scalar'
+      && group !== 'specialParams'
       && group !== 'paramRate'
       && group !== 'elementRate')
     || typeof key !== 'string'
@@ -706,6 +653,7 @@ export const parseOpsToRows = (value: unknown): EffectOpRow[] => {
       (group !== 'extraParams'
         && group !== 'vehicleParams'
         && group !== 'scalar'
+        && group !== 'specialParams'
         && group !== 'paramRate'
         && group !== 'elementRate')
       || typeof key !== 'string'
@@ -736,6 +684,7 @@ export const validateEffectOpRows = (
       row?.group !== 'extraParams'
       && row?.group !== 'vehicleParams'
       && row?.group !== 'scalar'
+      && row?.group !== 'specialParams'
       && row?.group !== 'paramRate'
       && row?.group !== 'elementRate'
     ) {

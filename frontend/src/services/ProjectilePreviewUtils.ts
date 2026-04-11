@@ -51,9 +51,20 @@ export const buildTrajectoryPoints = (
 
 type RecordLike = Record<string, unknown>;
 
+export const THROW_PROJECTILE_WEAPON_OPTION_ID = -1;
+export const THROW_PROJECTILE_WEAPON_LABEL = '投掷物';
+
 const asInt = (value: unknown): number => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
+};
+
+const unwrapSystemRecord = (systemData: unknown): RecordLike | null => {
+  if (!Array.isArray(systemData)) {
+    return systemData && typeof systemData === 'object' ? systemData as RecordLike : null;
+  }
+  const wrapped = systemData[1];
+  return wrapped && typeof wrapped === 'object' ? wrapped as RecordLike : null;
 };
 
 const asOffset = (value: unknown): { x: number; y: number } => {
@@ -99,6 +110,11 @@ export const findDataEntryById = (data: unknown[] | null, id: number): RecordLik
   }
 
   return null;
+};
+
+export const resolveThrowProjectileWtypeId = (systemData: unknown): number => {
+  const record = unwrapSystemRecord(systemData) as RecordLike;
+  return (record.weaponTypes as unknown[]).length;
 };
 
 export const shouldUseStaticActorPreviewFrame = (entry: unknown): boolean => {

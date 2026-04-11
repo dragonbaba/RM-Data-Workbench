@@ -17,6 +17,11 @@ import {
 } from '../../services/EnemyPropertyService';
 import {
   buildSkillSaveData,
+  ACTION_SEQUENCE_TYPE_ITEM,
+  ACTION_SEQUENCE_TYPE_NORMAL,
+  ACTION_SEQUENCE_TYPE_PROJECTILE,
+  ACTION_SEQUENCE_TYPE_SELF,
+  ACTION_SEQUENCE_TYPE_THROW_PROJECTILE,
   DAMAGE_FORMULA_EXPORT_NAME,
   hasSkillEditorChanges,
   hasDamageFormulaExport,
@@ -46,12 +51,23 @@ import {
   UPGRADE_PARAM_FIELDS,
   VEHICLE_PARAM_FIELDS,
 } from '../../services/EquipmentPropertyService';
+import {
+  OWNER_EXTRA_PARAM_KEYS,
+  OWNER_PARAM_RATE_KEYS,
+  OWNER_SCALAR_KEYS,
+  OWNER_SPECIAL_PARAM_KEYS,
+} from '../../types';
 import type {
   BattleOrderEffects,
   EnemyWeaknessGroup,
   EquipExtraParamMap,
   EquipUpgradeParamMap,
   EquipVehicleParamMap,
+  OwnerExtraParamMap,
+  OwnerParamRateMap,
+  OwnerParams,
+  OwnerScalarMap,
+  OwnerSpecialParamMap,
   ParamTemplate,
   RPGEnemy,
   RPGItem,
@@ -84,10 +100,33 @@ interface PendingDraftState {
 }
 
 type FixedParamGroupKey = 'extraParams' | 'vehicleParams' | 'upgradeParams';
+type OwnerParamGroupKey = 'extraParams' | 'specialParams' | 'scalar' | 'paramRate';
 
 interface FixedParamFieldDefinition {
+  index: number;
   key: string;
   label: string;
+}
+
+interface OwnerParamFieldDefinition {
+  index: number;
+  key: string;
+  label: string;
+}
+
+interface OwnerParamsFormValues {
+  extraParams?: number[];
+  specialParams?: number[];
+  scalar?: number[];
+  paramRate?: number[];
+  elementRate?: number[];
+}
+
+interface ParamTemplateInput {
+  value?: unknown;
+  floatValue?: unknown;
+  upgradeValue?: unknown;
+  upgradeFloatValue?: unknown;
 }
 
 const BASE_ATTRIBUTES: Array<{
@@ -132,6 +171,106 @@ const EMPTY_PARAM_TEMPLATE: ParamTemplate = Object.freeze({
   upgradeFloatValue: 0,
 });
 
+const OWNER_EXTRA_PARAM_FIELDS: OwnerParamFieldDefinition[] = [
+  { index: 0, key: OWNER_EXTRA_PARAM_KEYS[0], label: '命中率' },
+  { index: 1, key: OWNER_EXTRA_PARAM_KEYS[1], label: '回避率' },
+  { index: 2, key: OWNER_EXTRA_PARAM_KEYS[2], label: '暴击率' },
+  { index: 3, key: OWNER_EXTRA_PARAM_KEYS[3], label: '暴击伤害' },
+  { index: 4, key: OWNER_EXTRA_PARAM_KEYS[4], label: '迎击率' },
+  { index: 5, key: OWNER_EXTRA_PARAM_KEYS[5], label: '最终伤害' },
+];
+
+const OWNER_SPECIAL_PARAM_FIELDS: OwnerParamFieldDefinition[] = [
+  { index: 0, key: OWNER_SPECIAL_PARAM_KEYS[0], label: '仇恨' },
+  { index: 1, key: OWNER_SPECIAL_PARAM_KEYS[1], label: '防御效率' },
+  { index: 2, key: OWNER_SPECIAL_PARAM_KEYS[2], label: '恢复效果' },
+  { index: 3, key: OWNER_SPECIAL_PARAM_KEYS[3], label: '药效' },
+  { index: 4, key: OWNER_SPECIAL_PARAM_KEYS[4], label: '物理伤害' },
+];
+
+const OWNER_SCALAR_FIELDS: OwnerParamFieldDefinition[] = [
+  { index: 0, key: OWNER_SCALAR_KEYS[0], label: '经验获取率' },
+];
+
+const OWNER_PARAM_RATE_FIELDS: OwnerParamFieldDefinition[] = BASE_ATTRIBUTES.map((attribute, index) => ({
+  index,
+  key: OWNER_PARAM_RATE_KEYS[index],
+  label: attribute.fallbackLabel,
+}));
+
+const buildOwnerNumberGroupFormValues = (
+  groupValue: number[] | undefined,
+  fields: OwnerParamFieldDefinition[],
+) => {
+  const source = Array.isArray(groupValue) ? groupValue : [];
+  return fields.map((field) => toFloatOrZero(source[field.index]));
+};
+
+const normalizeOwnerNumberGroupValues = <T extends number[]>(
+  value: unknown,
+  fields: OwnerParamFieldDefinition[],
+): T => {
+  const source = Array.isArray(value) ? value : [];
+  const result = new Array(fields.length);
+  for (let index = 0; index < fields.length; index++) {
+    result[index] = toFloatOrZero(source[index]);
+  }
+  return result as T;
+};
+
+const areOwnerNumberGroupsEqual = (
+  left: unknown,
+  right: number[],
+  fields: OwnerParamFieldDefinition[],
+) => arePlainDataEqual(normalizeOwnerNumberGroupValues(left, fields), right);
+
+const isOwnerNumberGroupEmpty = (
+  value: number[],
+  fields: OwnerParamFieldDefinition[],
+) => fields.every((field) => Math.abs(toFloatOrZero(value[field.index])) < 1e-8);
+
+const normalizeOwnerElementRates = (value: unknown, systemData: unknown): number[] => {
+  return normalizeArmorElementRates(value, systemData);
+};
+
+const buildOwnerParamsFormValues = (
+  ownerParams: OwnerParams | undefined,
+  ownerParamRateFields: OwnerParamFieldDefinition[],
+  systemData: unknown,
+) => ({
+  extraParams: buildOwnerNumberGroupFormValues(ownerParams?.extraParams, OWNER_EXTRA_PARAM_FIELDS),
+  specialParams: buildOwnerNumberGroupFormValues(ownerParams?.specialParams, OWNER_SPECIAL_PARAM_FIELDS),
+  scalar: buildOwnerNumberGroupFormValues(ownerParams?.scalar, OWNER_SCALAR_FIELDS),
+  paramRate: buildOwnerNumberGroupFormValues(ownerParams?.paramRate, ownerParamRateFields),
+  elementRate: normalizeOwnerElementRates(ownerParams?.elementRate, systemData),
+});
+
+const buildOwnerParamsSaveData = (
+  extraParams: OwnerExtraParamMap | null,
+  specialParams: OwnerSpecialParamMap | null,
+  scalar: OwnerScalarMap | null,
+  paramRate: OwnerParamRateMap | null,
+  elementRate: number[] | null,
+): OwnerParams | undefined => {
+  const nextOwnerParams: OwnerParams = {};
+  if (extraParams && !isOwnerNumberGroupEmpty(extraParams, OWNER_EXTRA_PARAM_FIELDS)) {
+    nextOwnerParams.extraParams = extraParams;
+  }
+  if (specialParams && !isOwnerNumberGroupEmpty(specialParams, OWNER_SPECIAL_PARAM_FIELDS)) {
+    nextOwnerParams.specialParams = specialParams;
+  }
+  if (scalar && !isOwnerNumberGroupEmpty(scalar, OWNER_SCALAR_FIELDS)) {
+    nextOwnerParams.scalar = scalar;
+  }
+  if (paramRate && !isOwnerNumberGroupEmpty(paramRate, OWNER_PARAM_RATE_FIELDS)) {
+    nextOwnerParams.paramRate = paramRate;
+  }
+  if (elementRate && elementRate.some((value) => Math.abs(value) >= 1e-8)) {
+    nextOwnerParams.elementRate = elementRate;
+  }
+  return Object.keys(nextOwnerParams).length > 0 ? nextOwnerParams : undefined;
+};
+
 const toIntOrZero = (value: unknown): number => {
   const n = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(n)) return 0;
@@ -146,11 +285,8 @@ const toFloatOrZero = (value: unknown): number => {
 
 const hasOwn = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key);
 
-const normalizeParamTemplate = (value: unknown): ParamTemplate => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return { ...EMPTY_PARAM_TEMPLATE };
-  }
-  const record = value as Record<string, unknown>;
+const normalizeParamTemplate = (value: ParamTemplateInput | undefined): ParamTemplate => {
+  const record = value ?? {};
   return {
     value: toFloatOrZero(record.value),
     floatValue: toFloatOrZero(record.floatValue),
@@ -160,40 +296,38 @@ const normalizeParamTemplate = (value: unknown): ParamTemplate => {
 };
 
 const buildGroupFormValues = (
-  groupValue: unknown,
+  groupValue: ParamTemplate[] | undefined,
   fields: FixedParamFieldDefinition[],
 ) => {
-  const groupRecord = groupValue && typeof groupValue === 'object' && !Array.isArray(groupValue)
-    ? groupValue as Record<string, unknown>
-    : {};
-  const result: Record<string, ParamTemplate> = {};
-  for (const field of fields) {
-    result[field.key] = hasOwn(groupRecord, field.key)
-      ? normalizeParamTemplate(groupRecord[field.key])
-      : { ...EMPTY_PARAM_TEMPLATE };
+  const source = Array.isArray(groupValue) ? groupValue : [];
+  const result: ParamTemplate[] = new Array(fields.length);
+  for (let index = 0; index < fields.length; index++) {
+    const field = fields[index];
+    result[index] = normalizeParamTemplate(source[field.index] as ParamTemplateInput | undefined);
   }
   return result;
 };
 
-const normalizeGroupValues = <T extends Record<string, ParamTemplate>>(
+const normalizeGroupValues = <T extends ParamTemplate[]>(
   value: unknown,
   fields: FixedParamFieldDefinition[],
 ): T => {
-  const source = value && typeof value === 'object' && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : {};
-  const result: Record<string, ParamTemplate> = {};
-  for (const field of fields) {
-    result[field.key] = normalizeParamTemplate(source[field.key]);
+  const source = Array.isArray(value) ? value : [];
+  const result: ParamTemplate[] = new Array(fields.length);
+  for (let index = 0; index < fields.length; index++) {
+    result[index] = normalizeParamTemplate(source[index] as ParamTemplateInput | undefined);
   }
   return result as T;
 };
 
 const areParamGroupsEqual = (
   left: unknown,
-  right: Record<string, ParamTemplate>,
+  right: ParamTemplate[],
   fields: FixedParamFieldDefinition[],
-) => arePlainDataEqual(normalizeGroupValues(left, fields), right);
+) => arePlainDataEqual(
+  normalizeGroupValues(left, fields),
+  right,
+);
 
 const getFloatFieldKey = (key: string) => `${key}_float`;
 const EQUIP_TYPE_FIELD_KEY = 'etypeId';
@@ -215,6 +349,7 @@ const REPEAT_TIME_FIELD_KEY = 'repeatTime';
 const REPEAT_TIME_FLOAT_FIELD_KEY = 'repeatTimeFloat';
 const AREA_OVERRIDE_FIELD_KEY = 'areaOverride';
 const ITEMS_FILE_NAME = 'Items.json';
+const ACTORS_FILE_NAME = 'Actors.json';
 const WEAPONS_FILE_NAME = 'Weapons.json';
 const ARMORS_FILE_NAME = 'Armors.json';
 const SKILLS_FILE_NAME = 'Skills.json';
@@ -227,10 +362,20 @@ const ENEMIES_FILE_NAME = 'Enemies.json';
 const STATES_FILE_NAME = 'States.json';
 const CLASSES_FILE_NAME = 'Classes.json';
 const ANIMATIONS_FILE_NAME = 'Animations.json';
+const OWNER_PARAMS_HOST_FILE_NAMES = new Set([
+  ACTORS_FILE_NAME.toLowerCase(),
+  CLASSES_FILE_NAME.toLowerCase(),
+  ENEMIES_FILE_NAME.toLowerCase(),
+  STATES_FILE_NAME.toLowerCase(),
+  WEAPONS_FILE_NAME.toLowerCase(),
+  ARMORS_FILE_NAME.toLowerCase(),
+]);
 const SKILL_PROJECTILE_ID_FIELD_KEY = 'skillProjectileId';
 const SKILL_PROJECTILE_TAG_FIELD_KEY = 'skillProjectileTag';
 const SKILL_REACTION_SUCCESS_RATE_FIELD_KEY = 'skillReactionSuccessRate';
 const SKILL_REACTION_PRIORITY_FIELD_KEY = 'skillReactionPriority';
+const ACTION_SEQUENCE_TYPE_FIELD_KEY = 'actionSequenceType';
+const ACTION_SEQUENCE_SCRIPT_KEY_FIELD_KEY = 'actionSequenceScriptKey';
 const SKILL_COSTS_FIELD_KEY = 'skillCosts';
 const SKILL_EFFECT_SPEC_FIELD_KEY = 'skillEffectSpec';
 const ENEMY_CLASS_ID_FIELD_KEY = 'enemyClassId';
@@ -289,6 +434,14 @@ const SKILL_PROJECTILE_TAG_OPTIONS = [
   { value: SKILL_PROJECTILE_TAG_INTERCEPTABLE, label: '1 : 发射可被迎击的弹道' },
 ];
 
+const ACTION_SEQUENCE_TYPE_OPTIONS = [
+  { value: ACTION_SEQUENCE_TYPE_NORMAL, label: '0 : 通常动作序列' },
+  { value: ACTION_SEQUENCE_TYPE_PROJECTILE, label: '1 : 弹道动作序列' },
+  { value: ACTION_SEQUENCE_TYPE_THROW_PROJECTILE, label: '2 : 投掷物动作序列' },
+  { value: ACTION_SEQUENCE_TYPE_ITEM, label: '3 : 通常物品动作序列' },
+  { value: ACTION_SEQUENCE_TYPE_SELF, label: '4 : 技能/物品自身动作序列' },
+];
+
 const SKILL_COST_TYPE_OPTIONS: Array<{ value: SkillCostType; label: string }> = [
   { value: 'hp', label: '生命值固定值' },
   { value: 'hpRate', label: '生命值百分比' },
@@ -329,6 +482,8 @@ const areArraysEqual = (left: number[], right: number[]) => {
   }
   return true;
 };
+
+const supportsOwnerParamsFile = (fileName: string) => OWNER_PARAMS_HOST_FILE_NAMES.has(fileName);
 
 const getNextEffectReferenceId = (
   currentIds: number[],
@@ -672,13 +827,17 @@ export function PropertyPanel() {
   const pendingDraftRef = useRef<PendingDraftState | null>(null);
   const currentFileName = currentFilePath.split(/[\\/]/).pop()?.toLowerCase() || '';
   const isItemFile = currentFileName === ITEMS_FILE_NAME.toLowerCase();
+  const isActorFile = currentFileName === ACTORS_FILE_NAME.toLowerCase();
+  const isClassFile = currentFileName === CLASSES_FILE_NAME.toLowerCase();
   const isWeaponItem = currentFileName === WEAPONS_FILE_NAME.toLowerCase();
   const isArmorItem = currentFileName === ARMORS_FILE_NAME.toLowerCase();
   const isSkillFile = currentFileName === SKILLS_FILE_NAME.toLowerCase();
   const isEnemyFile = currentFileName === ENEMIES_FILE_NAME.toLowerCase();
   const isStateFile = currentFileName === STATES_FILE_NAME.toLowerCase();
   const supportsProjectileConfig = isSkillFile || isItemFile;
+  const projectileConfigSourceName = isItemFile ? '物品' : '技能';
   const supportsTemplateParams = isWeaponItem || isArmorItem;
+  const supportsOwnerParams = supportsOwnerParamsFile(currentFileName);
   const supportsPrice = isItemFile || isWeaponItem || isArmorItem;
   const supportsCommonRange = isItemFile || isSkillFile;
   const watchedTargetCamp = Form.useWatch(TARGET_CAMP_FIELD_KEY, form) ?? 1;
@@ -687,6 +846,7 @@ export function PropertyPanel() {
   const watchedShapeType = Form.useWatch(SHAPE_TYPE_FIELD_KEY, form) ?? 0;
   const watchedAreaOverride = Form.useWatch(AREA_OVERRIDE_FIELD_KEY, form) ?? 0;
   const watchedSkillProjectileTag = Form.useWatch(SKILL_PROJECTILE_TAG_FIELD_KEY, form) ?? SKILL_PROJECTILE_TAG_NONE;
+  const watchedActionSequenceType = Form.useWatch(ACTION_SEQUENCE_TYPE_FIELD_KEY, form) ?? ACTION_SEQUENCE_TYPE_NORMAL;
   const watchedDamageFormulaMode = Form.useWatch([SKILL_EFFECT_SPEC_FIELD_KEY, 'damage', 'formula', 'mode'], form) ?? 'basic';
   const watchedDamageFormulaScriptKey = Form.useWatch([SKILL_EFFECT_SPEC_FIELD_KEY, 'damage', 'formula', 'scriptKey'], form) ?? '';
   const watchedEnemyClassId = Form.useWatch(ENEMY_CLASS_ID_FIELD_KEY, form) ?? 0;
@@ -765,13 +925,17 @@ export function PropertyPanel() {
     () => buildDataOptions(armorsData, '未选择防具'),
     [armorsData],
   );
-  const currentSkillScripts = useMemo(() => {
-    if (!isSkillFile || !currentItem || typeof currentItem !== 'object') {
+  const currentItemScripts = useMemo(() => {
+    if (!supportsProjectileConfig || !currentItem || typeof currentItem !== 'object') {
       return {};
     }
     const scripts = (currentItem as RPGItem).scripts;
     return scripts && typeof scripts === 'object' ? scripts : {};
-  }, [currentItem, isSkillFile]);
+  }, [currentItem, supportsProjectileConfig]);
+  const currentActionSequenceScriptOptions = useMemo(
+    () => Object.keys(currentItemScripts).map((key) => ({ value: key, label: key })),
+    [currentItemScripts],
+  );
   const elementOptions = useMemo(
     () => getElementOptions(systemData),
     [systemData],
@@ -791,6 +955,10 @@ export function PropertyPanel() {
   const baseAttributeDisplayFields = useMemo(
     () => getBaseAttributeDisplayFields(systemData),
     [systemData],
+  );
+  const ownerParamRateFields = useMemo<OwnerParamFieldDefinition[]>(
+    () => baseAttributeDisplayFields.map((field, index) => ({ index, key: OWNER_PARAM_RATE_KEYS[index], label: field.label })),
+    [baseAttributeDisplayFields],
   );
   const enemyWeaknessDuplicateMessages = useMemo(
     () => getEnemyWeaknessDuplicateMessages(
@@ -822,7 +990,7 @@ export function PropertyPanel() {
     };
 
     const refreshDamageFormulaScriptOptions = async () => {
-      if (!isSkillFile || watchedDamageFormulaMode !== 'script') {
+      if (!supportsProjectileConfig || watchedDamageFormulaMode !== 'script') {
         setIsDamageFormulaScriptOptionsLoading(false);
         setDamageFormulaScriptWarning('');
         setDamageFormulaScriptOptions([]);
@@ -831,15 +999,15 @@ export function PropertyPanel() {
 
       setIsDamageFormulaScriptOptionsLoading(true);
       setDamageFormulaScriptWarning('');
-      const scriptEntries = Object.entries(currentSkillScripts);
+      const scriptEntries = Object.entries(currentItemScripts);
       if (scriptEntries.length === 0) {
         applyDamageFormulaScriptState(
           watchedDamageFormulaScriptKey
             ? [{ value: watchedDamageFormulaScriptKey, label: `${watchedDamageFormulaScriptKey}（当前选择，未通过校验）` }]
             : [],
           watchedDamageFormulaScriptKey
-            ? `当前技能没有可导出 \`${DAMAGE_FORMULA_EXPORT_NAME}\` 的脚本，当前选择的脚本键「${watchedDamageFormulaScriptKey}」也未通过校验。请先补齐脚本导出，或改回“基础通用伤害公式”。`
-            : `当前技能没有可导出 \`${DAMAGE_FORMULA_EXPORT_NAME}\` 的脚本。请先补齐脚本导出，或改回“基础通用伤害公式”。`,
+            ? `当前${projectileConfigSourceName}没有可导出 \`${DAMAGE_FORMULA_EXPORT_NAME}\` 的脚本，当前选择的脚本键「${watchedDamageFormulaScriptKey}」也未通过校验。请先补齐脚本导出，或改回“基础通用伤害公式”。`
+            : `当前${projectileConfigSourceName}没有可导出 \`${DAMAGE_FORMULA_EXPORT_NAME}\` 的脚本。请先补齐脚本导出，或改回“基础通用伤害公式”。`,
         );
         return;
       }
@@ -867,7 +1035,7 @@ export function PropertyPanel() {
         });
         warning = `当前选中的公式脚本键「${watchedDamageFormulaScriptKey}」没有导出 \`${DAMAGE_FORMULA_EXPORT_NAME}\`。请重新选择有效脚本，或改回“基础通用伤害公式”。`;
       } else if (options.length === 0) {
-        warning = `当前技能没有可导出 \`${DAMAGE_FORMULA_EXPORT_NAME}\` 的脚本。请先补齐脚本导出，或改回“基础通用伤害公式”。`;
+        warning = `当前${projectileConfigSourceName}没有可导出 \`${DAMAGE_FORMULA_EXPORT_NAME}\` 的脚本。请先补齐脚本导出，或改回“基础通用伤害公式”。`;
       }
       applyDamageFormulaScriptState(options, warning);
     };
@@ -876,7 +1044,7 @@ export function PropertyPanel() {
     return () => {
       active = false;
     };
-  }, [currentSkillScripts, isSkillFile, watchedDamageFormulaMode, watchedDamageFormulaScriptKey]);
+  }, [currentItemScripts, projectileConfigSourceName, supportsProjectileConfig, watchedDamageFormulaMode, watchedDamageFormulaScriptKey]);
   const enemyClassOptions = useMemo(
     () => getEnemyReferenceValue(classesData, '未选择职业', watchedEnemyClassId, '职业'),
     [classesData, watchedEnemyClassId],
@@ -978,14 +1146,16 @@ export function PropertyPanel() {
         baseFormValues[ORDER_EFFECTS_FIELD_KEY] = normalizeBattleOrderEffects(item.orderEffects);
       }
       if (supportsProjectileConfig) {
-        const skillValues = normalizeSkillEditorValues(item);
+        const skillValues = normalizeSkillEditorValues(item, { isItem: isItemFile });
         baseFormValues[SKILL_PROJECTILE_ID_FIELD_KEY] = skillValues.projectileId;
         baseFormValues[SKILL_PROJECTILE_TAG_FIELD_KEY] = skillValues.skillProjectileTag;
         baseFormValues[SKILL_REACTION_SUCCESS_RATE_FIELD_KEY] = skillValues.reactionSuccessRate;
         baseFormValues[SKILL_REACTION_PRIORITY_FIELD_KEY] = skillValues.reactionPriority;
+        baseFormValues[ACTION_SEQUENCE_TYPE_FIELD_KEY] = skillValues.actionSequenceType;
+        baseFormValues[ACTION_SEQUENCE_SCRIPT_KEY_FIELD_KEY] = skillValues.actionSequenceScriptKey;
+        baseFormValues[SKILL_EFFECT_SPEC_FIELD_KEY] = skillValues.skillEffectSpec;
         if (isSkillFile) {
           baseFormValues[SKILL_COSTS_FIELD_KEY] = skillValues.skillCosts;
-          baseFormValues[SKILL_EFFECT_SPEC_FIELD_KEY] = skillValues.skillEffectSpec;
         }
       }
       if (isStateFile) {
@@ -1005,6 +1175,9 @@ export function PropertyPanel() {
         baseFormValues[ENEMY_BOUNTY_FIELD_KEY] = enemyValues.bounty;
         baseFormValues[ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY] = enemyValues.attackAnimationId;
         baseFormValues[ENEMY_REACTION_SKILL_ID_FIELD_KEY] = enemyValues.reactionSkillId;
+      }
+      if (supportsOwnerParams) {
+        baseFormValues.ownerParams = buildOwnerParamsFormValues(item.ownerParams, ownerParamRateFields, systemData);
       }
 
       const custom: CustomAttribute[] = [];
@@ -1031,7 +1204,7 @@ export function PropertyPanel() {
       });
 
       const pendingDraft = pendingDraftRef.current;
-      const nextBaseValues = pendingDraft?.baseValues
+      const nextBaseValues: Record<string, unknown> = pendingDraft?.baseValues
         ? { ...baseFormValues, ...pendingDraft.baseValues }
         : {
             ...baseFormValues,
@@ -1046,6 +1219,9 @@ export function PropertyPanel() {
         nextBaseValues.vehicleParams = buildGroupFormValues(item.vehicleParams, VEHICLE_PARAM_FIELDS);
         nextBaseValues.upgradeParams = buildGroupFormValues(item.upgradeParams, UPGRADE_PARAM_FIELDS);
       }
+      if (supportsOwnerParams && !pendingDraft?.baseValues) {
+        nextBaseValues.ownerParams = buildOwnerParamsFormValues(item.ownerParams, ownerParamRateFields, systemData);
+      }
       const nextCustomFields = pendingDraft?.customFields ?? custom;
       const savedEffectIds = normalizeEffectIdList(item.effects);
       const nextEffectIds = pendingDraft?.effectIds ?? savedEffectIds;
@@ -1058,7 +1234,7 @@ export function PropertyPanel() {
       setHasCustomChanges(pendingDraft?.hasCustomChanges ?? false);
       pendingDraftRef.current = null;
     }
-  }, [currentItem, currentItemIndex, equipExtensionsData, form, isArmorItem, isEnemyFile, isStateFile, isWeaponItem, supportsCommonRange, supportsHiddenAttackSkill, supportsPrice, supportsTemplateParams, systemData]);
+  }, [currentItem, currentItemIndex, equipExtensionsData, form, isArmorItem, isEnemyFile, isStateFile, isWeaponItem, ownerParamRateFields, supportsCommonRange, supportsHiddenAttackSkill, supportsOwnerParams, supportsPrice, supportsTemplateParams, systemData]);
 
   useEffect(() => {
     if (!supportsCommonRange) {
@@ -1278,12 +1454,14 @@ export function PropertyPanel() {
           skillProjectileTag: values[SKILL_PROJECTILE_TAG_FIELD_KEY],
           reactionSuccessRate: values[SKILL_REACTION_SUCCESS_RATE_FIELD_KEY],
           reactionPriority: values[SKILL_REACTION_PRIORITY_FIELD_KEY],
+          actionSequenceType: values[ACTION_SEQUENCE_TYPE_FIELD_KEY],
+          actionSequenceScriptKey: values[ACTION_SEQUENCE_SCRIPT_KEY_FIELD_KEY],
           targetCamp: values[TARGET_CAMP_FIELD_KEY],
           targetLifeState: values[TARGET_LIFE_STATE_FIELD_KEY],
           selectMode: values[SELECT_MODE_FIELD_KEY],
           areaMode: values[AREA_MODE_FIELD_KEY],
           skillCosts: isSkillFile ? values[SKILL_COSTS_FIELD_KEY] : undefined,
-          skillEffectSpec: isSkillFile ? values[SKILL_EFFECT_SPEC_FIELD_KEY] : undefined,
+          skillEffectSpec: values[SKILL_EFFECT_SPEC_FIELD_KEY],
         }
       : null;
     const nextEnemyValues = isEnemyFile
@@ -1304,6 +1482,7 @@ export function PropertyPanel() {
       ? buildBattleOrderEffectsSaveData(values[ORDER_EFFECTS_FIELD_KEY])
       : null;
     const nextWeaponRangeValues = isWeaponItem ? normalizeWeaponRangeValues(values) : null;
+    const ownerValues = (values.ownerParams as OwnerParamsFormValues | undefined) ?? {};
     const nextExtraParams = supportsTemplateParams
       ? normalizeGroupValues<EquipExtraParamMap>(values.extraParams, EXTRA_PARAM_FIELDS)
       : null;
@@ -1313,6 +1492,30 @@ export function PropertyPanel() {
     const nextUpgradeParams = supportsTemplateParams
       ? normalizeGroupValues<EquipUpgradeParamMap>(values.upgradeParams, UPGRADE_PARAM_FIELDS)
       : null;
+    const nextOwnerExtraParams = supportsOwnerParams
+      ? normalizeOwnerNumberGroupValues<OwnerExtraParamMap>(ownerValues.extraParams, OWNER_EXTRA_PARAM_FIELDS)
+      : null;
+    const nextOwnerSpecialParams = supportsOwnerParams
+      ? normalizeOwnerNumberGroupValues<OwnerSpecialParamMap>(ownerValues.specialParams, OWNER_SPECIAL_PARAM_FIELDS)
+      : null;
+    const nextOwnerScalar = supportsOwnerParams
+      ? normalizeOwnerNumberGroupValues<OwnerScalarMap>(ownerValues.scalar, OWNER_SCALAR_FIELDS)
+      : null;
+    const nextOwnerParamRate = supportsOwnerParams
+      ? normalizeOwnerNumberGroupValues<OwnerParamRateMap>(ownerValues.paramRate, ownerParamRateFields)
+      : null;
+    const nextOwnerElementRate = supportsOwnerParams
+      ? normalizeOwnerElementRates(ownerValues.elementRate, systemData)
+      : null;
+    const nextOwnerParams = supportsOwnerParams
+      ? buildOwnerParamsSaveData(
+        nextOwnerExtraParams,
+        nextOwnerSpecialParams,
+        nextOwnerScalar,
+        nextOwnerParamRate,
+        nextOwnerElementRate,
+      )
+      : undefined;
 
     const sourceItem = currentData[currentItemIndex] as RPGItem | null;
     if (!sourceItem) return;
@@ -1354,13 +1557,18 @@ export function PropertyPanel() {
       || (supportsTemplateParams && nextExtraParams !== null && !areParamGroupsEqual(sourceItem.extraParams, nextExtraParams, EXTRA_PARAM_FIELDS))
       || (supportsTemplateParams && nextVehicleParams !== null && !areParamGroupsEqual(sourceItem.vehicleParams, nextVehicleParams, VEHICLE_PARAM_FIELDS))
       || (supportsTemplateParams && nextUpgradeParams !== null && !areParamGroupsEqual(sourceItem.upgradeParams, nextUpgradeParams, UPGRADE_PARAM_FIELDS))
+      || (supportsOwnerParams && nextOwnerExtraParams !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.extraParams, nextOwnerExtraParams, OWNER_EXTRA_PARAM_FIELDS))
+      || (supportsOwnerParams && nextOwnerSpecialParams !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.specialParams, nextOwnerSpecialParams, OWNER_SPECIAL_PARAM_FIELDS))
+      || (supportsOwnerParams && nextOwnerScalar !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.scalar, nextOwnerScalar, OWNER_SCALAR_FIELDS))
+      || (supportsOwnerParams && nextOwnerParamRate !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.paramRate, nextOwnerParamRate, ownerParamRateFields))
+      || (supportsOwnerParams && nextOwnerElementRate !== null && !areFloatArraysEqual(normalizeOwnerElementRates(sourceItem.ownerParams?.elementRate, systemData), nextOwnerElementRate))
       || (isArmorItem && nextArmorElementRates !== null && !areFloatArraysEqual(sourceItem.elementRates, nextArmorElementRates))
       || (isArmorItem && nextElementRateFloats !== null && !areFloatArraysEqual(sourceItem.elementRateFloats, nextElementRateFloats))
       || (isEnemyFile && nextEnemyBaseWeaknessGroup !== null && !areEnemyWeaknessGroupsEqual((sourceItem as RPGEnemy).baseWeaknessGroup, nextEnemyBaseWeaknessGroup))
       || (isEnemyFile && nextEnemyDynamicWeaknessGroups !== null && !areEnemyWeaknessGroupListsEqual((sourceItem as RPGEnemy).dynamicWeaknessGroups, nextEnemyDynamicWeaknessGroups))
       || (isStateFile && !areStateWeaknessEffectsEqual(sourceItem.weaknessStateEffects, nextStateWeaknessEffects ?? undefined))
       || (isStateFile && !areStateChargeConfigsEqual(sourceItem.chargeConfig, nextStateChargeConfig ?? undefined))
-      || (supportsProjectileConfig && nextSkillValues !== null && hasSkillEditorChanges(sourceItem, nextSkillValues))
+      || (supportsProjectileConfig && nextSkillValues !== null && hasSkillEditorChanges(sourceItem, nextSkillValues, { isItem: isItemFile }))
       || ((isWeaponItem || isArmorItem) && (sourceItem.qualityLock === true) !== nextQualityLock)
       || (isEnemyFile && nextEnemyValues !== null && hasEnemyEditorChanges(sourceItem as RPGEnemy, nextEnemyValues));
     const nextEquipTypeId = isWeaponItem ? toIntOrZero(values[EQUIP_TYPE_FIELD_KEY]) : 0;
@@ -1387,6 +1595,7 @@ export function PropertyPanel() {
         ...(supportsTemplateParams && nextExtraParams ? { extraParams: nextExtraParams } : {}),
         ...(supportsTemplateParams && nextVehicleParams ? { vehicleParams: nextVehicleParams } : {}),
         ...(supportsTemplateParams && nextUpgradeParams ? { upgradeParams: nextUpgradeParams } : {}),
+        ...(supportsOwnerParams ? { ownerParams: nextOwnerParams } : {}),
         ...(isArmorItem && nextArmorElementRates ? { elementRates: nextArmorElementRates } : {}),
         ...(isArmorItem && nextElementRateFloats ? { elementRateFloats: nextElementRateFloats } : {}),
         ...(isStateFile ? { weaknessStateEffects: nextStateWeaknessEffects ?? undefined } : {}),
@@ -1404,10 +1613,9 @@ export function PropertyPanel() {
       };
 
       if (supportsProjectileConfig && nextSkillValues !== null) {
-        nextItem = buildSkillSaveData(nextItem as RPGItem, nextSkillValues);
+        nextItem = buildSkillSaveData(nextItem as RPGItem, nextSkillValues, { isItem: isItemFile });
         if (isItemFile) {
           delete (nextItem as RPGItem).skillCosts;
-          delete (nextItem as RPGItem).skillEffectSpec;
         }
         if (nextCommonRangeValues) {
           nextItem = {
@@ -1419,6 +1627,9 @@ export function PropertyPanel() {
 
       if (isStateFile && nextStateWeaknessEffects == null) {
         delete (nextItem as RPGItem).weaknessStateEffects;
+      }
+      if (supportsOwnerParams && nextOwnerParams == null) {
+        delete (nextItem as RPGItem).ownerParams;
       }
 
       if (isEnemyFile && nextEnemyValues !== null) {
@@ -1735,7 +1946,7 @@ export function PropertyPanel() {
           (
             <Form.Item
               key={`${groupKey}-${field.key}-value`}
-              name={[groupKey, field.key, 'value']}
+              name={[groupKey, field.index, 'value']}
               className="mb-0"
             >
               <InputNumber className="w-full" style={{ width: '100%' }} step={1} />
@@ -1744,7 +1955,7 @@ export function PropertyPanel() {
           (
             <Form.Item
               key={`${groupKey}-${field.key}-floatValue`}
-              name={[groupKey, field.key, 'floatValue']}
+              name={[groupKey, field.index, 'floatValue']}
               className="mb-0"
             >
               <InputNumber className="w-full" style={{ width: '100%' }} step={0.1} />
@@ -1753,7 +1964,7 @@ export function PropertyPanel() {
           (
             <Form.Item
               key={`${groupKey}-${field.key}-upgradeValue`}
-              name={[groupKey, field.key, 'upgradeValue']}
+              name={[groupKey, field.index, 'upgradeValue']}
               className="mb-0"
             >
               <InputNumber className="w-full" style={{ width: '100%' }} step={1} />
@@ -1762,7 +1973,7 @@ export function PropertyPanel() {
           (
             <Form.Item
               key={`${groupKey}-${field.key}-upgradeFloatValue`}
-              name={[groupKey, field.key, 'upgradeFloatValue']}
+              name={[groupKey, field.index, 'upgradeFloatValue']}
               className="mb-0"
             >
               <InputNumber className="w-full" style={{ width: '100%' }} step={0.1} />
@@ -1772,6 +1983,96 @@ export function PropertyPanel() {
       </div>
     </Card>
   );
+
+  const renderOwnerParamCard = (
+    title: string,
+    groupKey: OwnerParamGroupKey,
+    fields: OwnerParamFieldDefinition[],
+    description: string,
+    step = 0.01,
+  ) => (
+    <Card
+      title={title}
+      className="mb-4"
+      headStyle={{
+        backgroundColor: '#252b3d',
+        borderBottom: '1px solid var(--color-border)',
+        color: 'var(--color-accent)',
+      }}
+      bodyStyle={{ backgroundColor: '#1a1f2e' }}
+    >
+      <div className="text-xs text-gray-500 mb-4">{description}</div>
+      <div className="grid grid-cols-4 gap-x-4 gap-y-4">
+        {fields.map((field) => (
+            <Form.Item
+              key={`owner-${groupKey}-${field.key}`}
+              name={['ownerParams', groupKey, field.index]}
+              label={<span className="text-xs text-gray-400">{field.label}</span>}
+              className="mb-0"
+            >
+            <InputNumber step={step} className="w-full" style={{ width: '100%' }} />
+          </Form.Item>
+        ))}
+      </div>
+    </Card>
+  );
+
+  const renderOwnerElementRateCard = (description: string) => (
+    <Card
+      title="元素奖励"
+      className="mb-4"
+      headStyle={{
+        backgroundColor: '#252b3d',
+        borderBottom: '1px solid var(--color-border)',
+        color: 'var(--color-accent)',
+      }}
+      bodyStyle={{ backgroundColor: '#1a1f2e' }}
+    >
+      <div className="text-xs text-gray-500 mb-4">{description}</div>
+      {armorElementRateFields.length === 0 ? (
+        <div className="rounded border border-dashed border-gray-600 px-4 py-6 text-sm text-gray-500 text-center">
+          当前系统没有可编辑元素，请先在 System.json 配置元素列表。
+        </div>
+      ) : (
+        <div className="grid grid-cols-4 gap-x-4 gap-y-4">
+          {armorElementRateFields.map((field) => (
+            <Form.Item
+              key={`owner-element-rate-${field.id}`}
+              name={['ownerParams', 'elementRate', field.id]}
+              label={<span className="text-xs text-gray-400">{field.label}</span>}
+              className="mb-0"
+            >
+              <InputNumber step={0.01} className="w-full" style={{ width: '100%' }} />
+            </Form.Item>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+
+  const renderOwnerParamsSection = (sectionTitle?: string) => {
+    if (!supportsOwnerParams) {
+      return null;
+    }
+    const ownerIntro = isWeaponItem || isArmorItem
+      ? '这里维护装备穿上后加给宿主的固定奖励；装备自身属性仍然在本页其他区块维护。'
+      : '这里维护宿主固有的固定战斗奖励，运行时会直接累计到 owner 静态字段。';
+    const ownerElementIntro = isArmorItem
+      ? '这里维护宿主元素倍率增量；防具本体元素率请继续在上面的“元素属性”维护。'
+      : '这里维护宿主元素倍率增量，写 0.2 表示额外 +20%。';
+    return (
+      <>
+        {sectionTitle ? (
+          <div className="mb-3 text-sm font-medium text-gray-200">{sectionTitle}</div>
+        ) : null}
+        {renderOwnerParamCard('额外奖励', 'extraParams', OWNER_EXTRA_PARAM_FIELDS, ownerIntro)}
+        {renderOwnerParamCard('特殊奖励', 'specialParams', OWNER_SPECIAL_PARAM_FIELDS, '这些字段会直接作用到仇恨、防御效率、恢复效果、药效和物理伤害。')}
+        {renderOwnerParamCard('基础属性倍率', 'paramRate', ownerParamRateFields, '这里维护 owner 的基础属性倍率增量，写 0.1 表示对应基础属性额外 +10%。')}
+        {renderOwnerParamCard('标量奖励', 'scalar', OWNER_SCALAR_FIELDS, '当前只保留经验获取率这类全局标量字段。')}
+        {renderOwnerElementRateCard(ownerElementIntro)}
+      </>
+    );
+  };
 
   const renderWeaknessSlotList = (
     pathPrefix: Array<string | number>,
@@ -2246,6 +2547,30 @@ export function PropertyPanel() {
             </div>
             <div className="grid grid-cols-4 gap-x-4 gap-y-4">
               <Form.Item
+                name={ACTION_SEQUENCE_TYPE_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">动作序列</span>}
+                className="mb-0"
+              >
+                <Select
+                  options={ACTION_SEQUENCE_TYPE_OPTIONS}
+                  className="w-full"
+                  placeholder="选择动作序列"
+                />
+              </Form.Item>
+              <Form.Item
+                name={ACTION_SEQUENCE_SCRIPT_KEY_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">自身脚本键</span>}
+                className="mb-0"
+              >
+                <Select
+                  options={currentActionSequenceScriptOptions}
+                  className="w-full"
+                  placeholder="选择自身动作序列脚本"
+                  disabled={watchedActionSequenceType !== ACTION_SEQUENCE_TYPE_SELF}
+                  allowClear
+                />
+              </Form.Item>
+              <Form.Item
                 name={SKILL_PROJECTILE_ID_FIELD_KEY}
                 label={<span className="text-xs text-gray-400">挂接弹道</span>}
                 className="mb-0"
@@ -2301,9 +2626,9 @@ export function PropertyPanel() {
           </Card>
         ) : null}
 
-        {isSkillFile ? (
+        {supportsProjectileConfig ? (
           <Card
-            title="技能伤害 / 耐久协议"
+            title={isItemFile ? '物品伤害 / 耐久协议' : '技能伤害 / 耐久协议'}
             className="mb-4"
             headStyle={{
               backgroundColor: '#252b3d',
@@ -2313,7 +2638,7 @@ export function PropertyPanel() {
             bodyStyle={{ backgroundColor: '#1a1f2e' }}
           >
             <div className="text-xs text-gray-500 mb-4">
-              这里维护技能真实战斗语义的单一顶层协议 `skillEffectSpec`。伤害元素已纳入新协议，不再读取旧 `damage.elementId`。`formula` 支持基础通用公式与当前技能脚本两种来源，脚本模式仅列出当前技能脚本中导出 `damageFormula` 的键。
+              这里维护{isItemFile ? '物品' : '技能'}真实战斗语义的单一顶层协议 `skillEffectSpec`。伤害元素已纳入新协议，不再读取旧 `damage.elementId`。`formula` 支持基础通用公式与当前{isItemFile ? '物品' : '技能'}脚本两种来源，脚本模式仅列出当前{isItemFile ? '物品' : '技能'}脚本中导出 `damageFormula` 的键。
             </div>
             <div className="grid grid-cols-4 gap-x-4 gap-y-4">
               <Form.Item
@@ -2410,7 +2735,7 @@ export function PropertyPanel() {
                 className="mt-3"
                 type="warning"
                 showIcon
-                message="技能公式脚本配置异常"
+                message={`${projectileConfigSourceName}公式脚本配置异常`}
                 description={damageFormulaScriptWarning}
               />
             ) : null}
@@ -2595,6 +2920,7 @@ export function PropertyPanel() {
 
         {isStateFile ? (
           <>
+            {renderOwnerParamsSection('战斗属性')}
             {renderStateChargeEditor()}
             <Card
               title="状态即时弱点效果"
@@ -2955,6 +3281,8 @@ export function PropertyPanel() {
             )}
           </Card>
         ) : null}
+
+        {supportsOwnerParams && !isStateFile ? renderOwnerParamsSection() : null}
 
         {supportsTemplateParams ? renderFixedParamCard(
           '额外统一属性',

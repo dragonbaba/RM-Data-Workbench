@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ACTION_SEQUENCE_TYPE_ITEM,
+  ACTION_SEQUENCE_TYPE_NORMAL,
+  ACTION_SEQUENCE_TYPE_PROJECTILE,
+  ACTION_SEQUENCE_TYPE_SELF,
+  ACTION_SEQUENCE_TYPE_THROW_PROJECTILE,
   buildSkillSaveData,
   hasDamageFormulaExport,
   hasSkillEditorChanges,
@@ -69,6 +74,8 @@ describe('SkillPropertyService', () => {
       skillProjectileTag: SKILL_PROJECTILE_TAG_INTERCEPTOR,
       reactionSuccessRate: 45,
       reactionPriority: 30,
+      actionSequenceType: ACTION_SEQUENCE_TYPE_PROJECTILE,
+      actionSequenceScriptKey: '',
       targetCamp: 1,
       targetLifeState: 1,
       selectMode: 1,
@@ -118,6 +125,8 @@ describe('SkillPropertyService', () => {
       skillProjectileTag: SKILL_PROJECTILE_TAG_NONE,
       reactionSuccessRate: 0,
       reactionPriority: 0,
+      actionSequenceType: ACTION_SEQUENCE_TYPE_NORMAL,
+      actionSequenceScriptKey: '',
       targetCamp: 1,
       targetLifeState: 1,
       selectMode: 1,
@@ -207,6 +216,8 @@ describe('SkillPropertyService', () => {
       skillProjectileTag: SKILL_PROJECTILE_TAG_NONE,
       reactionSuccessRate: 0,
       reactionPriority: 21,
+      actionSequenceType: ACTION_SEQUENCE_TYPE_PROJECTILE,
+      actionSequenceScriptKey: '',
       skillCosts: [],
       skillEffectSpec: {
         damage: {
@@ -231,27 +242,48 @@ describe('SkillPropertyService', () => {
     expect(normalized).not.toHaveProperty('damage');
   });
 
-  it('修复模式会迁移旧 damage 到 skillEffectSpec 并删除旧字段', () => {
+  it('物品规范化会按弹道状态分配动作序列默认值', () => {
+    const projectileItem = normalizeSkillDataEntry({
+      id: 1,
+      name: '手雷',
+      projectileId: 5,
+    }, { isItem: true });
+    const normalItem = normalizeSkillDataEntry({
+      id: 2,
+      name: '药水',
+      projectileId: 0,
+    }, { isItem: true });
+
+    expect(projectileItem).toMatchObject({
+      actionSequenceType: ACTION_SEQUENCE_TYPE_THROW_PROJECTILE,
+      actionSequenceScriptKey: '',
+    });
+    expect(normalItem).toMatchObject({
+      actionSequenceType: ACTION_SEQUENCE_TYPE_ITEM,
+      actionSequenceScriptKey: '',
+    });
+  });
+
+  it('物品规范化不会从原生 damage 回填 skillEffectSpec', () => {
     const normalized = normalizeSkillDataEntry({
-      id: 10,
-      name: '修复用主炮',
+      id: 3,
+      name: '投掷炸弹',
+      projectileId: 9,
       damage: {
         type: 1,
-        elementId: 5,
+        elementId: 4,
         critical: true,
-        variance: 12,
+        variance: 16,
       },
-    }, { migrateLegacyDamage: true });
+    }, { isItem: true });
 
     expect(normalized).toMatchObject({
-      id: 10,
-      name: '修复用主炮',
       skillEffectSpec: {
         damage: {
-          damageType: 'hp',
-          damageElementId: 5,
-          allowCritical: true,
-          damageScatter: 12,
+          damageType: 'none',
+          damageElementId: 0,
+          allowCritical: false,
+          damageScatter: 0,
           formula: {
             mode: 'basic',
             scriptKey: '',
@@ -264,7 +296,40 @@ describe('SkillPropertyService', () => {
     expect(normalized).not.toHaveProperty('damage');
   });
 
-  it('修复模式会把旧 HP Recover 类型迁移为 heal', () => {
+  it('规范化不会从旧 damage 迁移到 skillEffectSpec', () => {
+    const normalized = normalizeSkillDataEntry({
+      id: 10,
+      name: '修复用主炮',
+      damage: {
+        type: 1,
+        elementId: 5,
+        critical: true,
+        variance: 12,
+      },
+    });
+
+    expect(normalized).toMatchObject({
+      id: 10,
+      name: '修复用主炮',
+      skillEffectSpec: {
+        damage: {
+          damageType: 'none',
+          damageElementId: 0,
+          allowCritical: false,
+          damageScatter: 0,
+          formula: {
+            mode: 'basic',
+            scriptKey: '',
+          },
+        },
+        durabilityChange: defaultSkillEffectSpec.durabilityChange,
+        skillDurability: defaultSkillEffectSpec.skillDurability,
+      },
+    });
+    expect(normalized).not.toHaveProperty('damage');
+  });
+
+  it('旧 HP Recover 类型不会被兼容迁移为 heal', () => {
     const normalized = normalizeSkillDataEntry({
       id: 11,
       name: '修复用回复',
@@ -274,18 +339,19 @@ describe('SkillPropertyService', () => {
         critical: false,
         variance: 10,
       },
-    }, { migrateLegacyDamage: true });
+    });
 
     expect(normalized).toMatchObject({
       skillEffectSpec: {
         damage: {
-          damageType: 'heal',
+          damageType: 'none',
           damageElementId: 0,
           allowCritical: false,
-          damageScatter: 10,
+          damageScatter: 0,
         },
       },
     });
+    expect(normalized).not.toHaveProperty('damage');
   });
 
   it('仅在结构化技能字段变化时才返回需要保存', () => {
@@ -349,6 +415,9 @@ describe('SkillPropertyService', () => {
       meta: {
         actionSequence: 'aa',
       },
+      scripts: {
+        actionSequence: '/scripts/4_actionSequence.js',
+      },
     } as unknown as Parameters<typeof buildSkillSaveData>[0];
 
     const saved = buildSkillSaveData(
@@ -358,6 +427,8 @@ describe('SkillPropertyService', () => {
         skillProjectileTag: SKILL_PROJECTILE_TAG_INTERCEPTOR,
         reactionSuccessRate: 55,
         reactionPriority: 18,
+        actionSequenceType: ACTION_SEQUENCE_TYPE_SELF,
+        actionSequenceScriptKey: 'actionSequence',
         targetCamp: 2,
         targetLifeState: 2,
         selectMode: 1,
@@ -402,6 +473,8 @@ describe('SkillPropertyService', () => {
       skillProjectileTag: SKILL_PROJECTILE_TAG_INTERCEPTOR,
       reactionSuccessRate: 55,
       reactionPriority: 18,
+      actionSequenceType: ACTION_SEQUENCE_TYPE_SELF,
+      actionSequenceScriptKey: 'actionSequence',
       targetCamp: 2,
       targetLifeState: 2,
       selectMode: 1,

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, memo } from 'react';
+import { useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import * as PIXI from 'pixi.js';
 import { useEditorStore } from '../../stores/editorStore';
 import { DataLoaderService } from '../../services/DataLoaderService';
@@ -10,11 +10,14 @@ import {
   normalizeBattlerType,
   resolveActorProjectileOffset,
   resolveEnemyProjectileOffset,
+  resolveThrowProjectileWtypeId,
   segmentDurationToMs,
   shouldUseStaticActorPreviewFrame,
+  THROW_PROJECTILE_WEAPON_OPTION_ID,
 } from '../../services/ProjectilePreviewUtils';
 
 interface ProjectileCanvasProps {
+  template?: ProjectileTemplate | null;
   isPlaying?: boolean;
   playbackSpeed?: number;
   offsetRevision?: number;
@@ -232,6 +235,7 @@ const createPlaceholderTexture = (app: PIXI.Application, label: string, color: n
 };
 
 export const ProjectileCanvas = memo(({
+  template: templateProp,
   isPlaying = false,
   playbackSpeed = 1,
   offsetRevision = 0,
@@ -258,7 +262,11 @@ export const ProjectileCanvas = memo(({
   
   const currentItem = useEditorStore((state) => state.currentItem);
   const config = useEditorStore((state) => state.config);
-  const template = currentItem as ProjectileTemplate | null;
+  const template = templateProp ?? (currentItem as ProjectileTemplate | null);
+  const throwProjectileWtypeId = useMemo(
+    () => resolveThrowProjectileWtypeId(DataLoaderService.getCachedDataByName('System.json')),
+    [referenceRevision]
+  );
   const dataPath = config.dataPath || '';
 
   // 计算站位：保持基线一致，并根据帧尺寸自动防止出界
@@ -320,9 +328,11 @@ export const ProjectileCanvas = memo(({
 
     if (sourceType === 'actor') {
       const weaponId = template.weaponId || 0;
-      if (weaponId <= 0) return { x: 0, y: 0 };
+      if (weaponId === 0) return { x: 0, y: 0 };
       const actor = findDataEntryById(DataLoaderService.getCachedDataByName('Actors.json'), sourceId);
-      const weapon = findDataEntryById(DataLoaderService.getCachedDataByName('Weapons.json'), weaponId);
+      const weapon = weaponId === THROW_PROJECTILE_WEAPON_OPTION_ID
+        ? { id: THROW_PROJECTILE_WEAPON_OPTION_ID, wtypeId: throwProjectileWtypeId }
+        : findDataEntryById(DataLoaderService.getCachedDataByName('Weapons.json'), weaponId);
       return resolveActorProjectileOffset(actor, weapon);
     }
 
@@ -330,7 +340,7 @@ export const ProjectileCanvas = memo(({
     if (skillId <= 0) return { x: 0, y: 0 };
     const enemy = findDataEntryById(DataLoaderService.getCachedDataByName('Enemies.json'), sourceId);
     return resolveEnemyProjectileOffset(enemy, skillId);
-  }, [template]);
+  }, [template, throwProjectileWtypeId]);
 
   const resolveAnchorPositions = useCallback(() => {
     if (!appRef.current) {

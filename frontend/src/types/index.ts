@@ -21,18 +21,12 @@ export type GameEffectOpGroup =
   | 'extraParams'
   | 'vehicleParams'
   | 'scalar'
+  | 'specialParams'
   | 'paramRate'
   | 'elementRate';
 
-export type GameEffectParamRateKey =
-  | 'mhp'
-  | 'mmp'
-  | 'atk'
-  | 'def'
-  | 'mat'
-  | 'mdf'
-  | 'agi'
-  | 'luk';
+export const OWNER_PARAM_RATE_KEYS = ['mhp', 'mmp', 'atk', 'def', 'mat', 'mdf', 'agi', 'luk'] as const;
+export type GameEffectParamRateKey = typeof OWNER_PARAM_RATE_KEYS[number];
 
 export type GameEffectElementRateKey = string;
 
@@ -63,6 +57,11 @@ export interface GameEffectScalarOp extends GameEffectBaseOp {
   key: 'expRate';
 }
 
+export interface GameEffectSpecialParamOp extends GameEffectBaseOp {
+  group: 'specialParams';
+  key: 'tgr' | 'grd' | 'rec' | 'pha' | 'pdr';
+}
+
 export interface GameEffectParamRateOp extends GameEffectBaseOp {
   group: 'paramRate';
   key: GameEffectParamRateKey;
@@ -77,6 +76,7 @@ export type GameEffectAttributeOp =
   | GameEffectExtraParamOp
   | GameEffectVehicleParamOp
   | GameEffectScalarOp
+  | GameEffectSpecialParamOp
   | GameEffectParamRateOp
   | GameEffectElementRateOp;
 
@@ -177,6 +177,18 @@ export type EquipExtraParamKey =
   | 'critDamage'
   | 'hitRate'
   | 'finalDamage';
+export const EQUIP_EXTRA_PARAM_KEYS = ['interceptRate', 'evadeRate', 'critRate', 'critDamage', 'hitRate', 'finalDamage'] as const;
+
+export const OWNER_EXTRA_PARAM_KEYS = ['hitRate', 'evadeRate', 'critRate', 'critDamage', 'interceptRate', 'finalDamage'] as const;
+export type OwnerExtraParamKey = typeof OWNER_EXTRA_PARAM_KEYS[number];
+
+export const OWNER_SPECIAL_PARAM_KEYS = ['tgr', 'grd', 'rec', 'pha', 'pdr'] as const;
+export type OwnerSpecialParamKey = typeof OWNER_SPECIAL_PARAM_KEYS[number];
+
+export const OWNER_SCALAR_KEYS = ['expRate'] as const;
+export type OwnerScalarKey = typeof OWNER_SCALAR_KEYS[number];
+
+export type OwnerParamRateKey = typeof OWNER_PARAM_RATE_KEYS[number];
 
 export type EquipVehicleParamKey =
   | 'weight'
@@ -187,6 +199,7 @@ export type EquipVehicleParamKey =
   | 'shellPrice'
   | 'repeat'
   | 'actionRepeat';
+export const EQUIP_VEHICLE_PARAM_KEYS = ['weight', 'carryValue', 'loadValue', 'durability', 'ammoCapacity', 'shellPrice', 'repeat', 'actionRepeat'] as const;
 
 export type GameEffectVehicleParamKey =
   | 'repeat'
@@ -198,10 +211,23 @@ export type EquipUpgradeParamKey =
   | 'times'
   | 'atk'
   | 'def';
+export const EQUIP_UPGRADE_PARAM_KEYS = ['times', 'atk', 'def'] as const;
 
-export type EquipExtraParamMap = Partial<Record<EquipExtraParamKey, ParamTemplate>>;
-export type EquipVehicleParamMap = Partial<Record<EquipVehicleParamKey, ParamTemplate>>;
-export type EquipUpgradeParamMap = Partial<Record<EquipUpgradeParamKey, ParamTemplate>>;
+export type EquipExtraParamMap = ParamTemplate[];
+export type EquipVehicleParamMap = ParamTemplate[];
+export type EquipUpgradeParamMap = ParamTemplate[];
+export type OwnerExtraParamMap = number[];
+export type OwnerSpecialParamMap = number[];
+export type OwnerScalarMap = number[];
+export type OwnerParamRateMap = number[];
+
+export interface OwnerParams {
+  extraParams?: OwnerExtraParamMap;
+  specialParams?: OwnerSpecialParamMap;
+  scalar?: OwnerScalarMap;
+  paramRate?: OwnerParamRateMap;
+  elementRate?: number[];
+}
 
 export interface RPGItem {
   id: number;
@@ -211,6 +237,7 @@ export interface RPGItem {
   meta?: Record<string, unknown>;
   price?: number;
   effects?: number[];
+  ownerParams?: OwnerParams;
   params?: number[];
   floatParams?: number[];
   extraParams?: EquipExtraParamMap;
@@ -232,6 +259,8 @@ export interface RPGItem {
   repeatTimeFloat?: number;
   areaOverride?: number;
   orderEffects?: BattleOrderEffects;
+  actionSequenceType?: number;
+  actionSequenceScriptKey?: string;
   projectileId?: number;
   skillProjectileTag?: number;
   reactionSuccessRate?: number;

@@ -33,10 +33,16 @@ describe('EquipmentPropertyService', () => {
       repeatTime: 1,
       repeatTimeFloat: 0,
       qualityLock: false,
-      vehicleParams: {
-        repeat: { value: 2, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-        actionRepeat: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-      },
+      vehicleParams: [
+        { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+        { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+        { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+        { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+        { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+        { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+        { value: 2, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+        { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+      ],
     });
   });
 
@@ -83,16 +89,13 @@ describe('EquipmentPropertyService', () => {
       floatParams: [0, 0, 0, 0, 0, 0, 0, 0],
       elementRates: [0, 0, 0],
       elementRateFloats: [0, 0, 0],
-      extraParams: {
-        interceptRate: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-      },
-      vehicleParams: {
-        actionRepeat: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-      },
-      upgradeParams: {
-        times: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-      },
     });
+    expect(normalized?.extraParams).toHaveLength(6);
+    expect(normalized?.vehicleParams).toHaveLength(8);
+    expect(normalized?.upgradeParams).toHaveLength(3);
+    expect(normalized?.extraParams?.[0]).toEqual({ value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 });
+    expect(normalized?.vehicleParams?.[7]).toEqual({ value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 });
+    expect(normalized?.upgradeParams?.[0]).toEqual({ value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 });
   });
 
   it('非底盘与C装置防具不会补 hiddenAttackSkillId', () => {

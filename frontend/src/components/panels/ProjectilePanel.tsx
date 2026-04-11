@@ -22,7 +22,10 @@ import {
   normalizeBattlerType,
   resolveActorProjectileOffset,
   resolveEnemyProjectileOffset,
+  resolveThrowProjectileWtypeId,
   normalizeDurationFrames,
+  THROW_PROJECTILE_WEAPON_LABEL,
+  THROW_PROJECTILE_WEAPON_OPTION_ID,
   toDurationFrameDisplay,
 } from '../../services/ProjectilePreviewUtils';
 
@@ -72,17 +75,30 @@ interface DataItem {
   name: string;
 }
 
+const resolveDataItemLabel = (items: DataItem[], id: number, emptyLabel = '未选择') => {
+  if (id === THROW_PROJECTILE_WEAPON_OPTION_ID) {
+    return THROW_PROJECTILE_WEAPON_LABEL;
+  }
+  if (id <= 0) {
+    return emptyLabel;
+  }
+  const match = items.find((item) => item.id === id);
+  return match ? `${match.id} : ${match.name}` : `${id}`;
+};
+
 const ANIMATIONS_FILE_NAME = 'Animations.json';
 const ACTORS_FILE_NAME = 'Actors.json';
 const ENEMIES_FILE_NAME = 'Enemies.json';
 const WEAPONS_FILE_NAME = 'Weapons.json';
 const SKILLS_FILE_NAME = 'Skills.json';
+const SYSTEM_FILE_NAME = 'System.json';
 const PROJECTILE_REFERENCE_FILES = new Set([
   ANIMATIONS_FILE_NAME.toLowerCase(),
   ACTORS_FILE_NAME.toLowerCase(),
   ENEMIES_FILE_NAME.toLowerCase(),
   WEAPONS_FILE_NAME.toLowerCase(),
   SKILLS_FILE_NAME.toLowerCase(),
+  SYSTEM_FILE_NAME.toLowerCase(),
 ]);
 
 export function ProjectilePanel() {
@@ -114,36 +130,39 @@ export function ProjectilePanel() {
   const [enemyOffsetSkillId, setEnemyOffsetSkillId] = useState(0);
   const [enemyOffsetX, setEnemyOffsetX] = useState(0);
   const [enemyOffsetY, setEnemyOffsetY] = useState(0);
+  const [previewSourceType, setPreviewSourceType] = useState<'actor' | 'enemy'>('actor');
+  const [previewSourceId, setPreviewSourceId] = useState(0);
+  const [previewTargetType, setPreviewTargetType] = useState<'actor' | 'enemy'>('enemy');
+  const [previewTargetId, setPreviewTargetId] = useState(0);
   const actorWeaponMemoryRef = useRef<Record<number, number>>({});
   const enemySkillMemoryRef = useRef<Record<number, number>>({});
 
   const template = currentItem as ProjectileTemplate | null;
-  const sourceType = normalizeBattlerType(template?.sourceType, 'actor');
-  const targetType = normalizeBattlerType(template?.targetType, 'enemy');
+  const sourceType = previewSourceType;
+  const targetType = previewTargetType;
+  const systemData = useMemo(() => DataLoaderService.getCachedDataByName(SYSTEM_FILE_NAME), [referenceRevision]);
+  const throwProjectileWtypeId = useMemo(() => resolveThrowProjectileWtypeId(systemData), [systemData]);
 
   const config = useEditorStore((state) => state.config);
 
-  const rememberSourceSelection = useCallback((snapshot?: ProjectileTemplate | null) => {
-    const current = snapshot ?? template;
-    if (!current) return;
-
-    const currentSourceType = normalizeBattlerType(current.sourceType, 'actor');
-    const sourceId = Number(current.sourceId || 0);
+  const rememberSourceSelection = useCallback(() => {
+    const currentSourceType = previewSourceType;
+    const sourceId = previewSourceId;
     if (sourceId <= 0) return;
 
     if (currentSourceType === 'actor') {
-      const weaponId = Number(current.weaponId || 0);
-      if (weaponId > 0) {
+      const weaponId = actorOffsetWeaponId;
+      if (weaponId !== 0) {
         actorWeaponMemoryRef.current[sourceId] = weaponId;
       }
       return;
     }
 
-    const skillId = Number(current.skillId || 0);
+    const skillId = enemyOffsetSkillId;
     if (skillId > 0) {
       enemySkillMemoryRef.current[sourceId] = skillId;
     }
-  }, [template]);
+  }, [actorOffsetWeaponId, enemyOffsetSkillId, previewSourceId, previewSourceType]);
 
   const getRememberedActorWeapon = useCallback((actorId: number) => {
     if (actorId <= 0) return 0;
@@ -246,6 +265,17 @@ export function ProjectilePanel() {
       label: `${item.id} : ${item.name}`,
     })),
   ], [weapons]);
+  const actorOffsetWeaponOptions = useMemo(() => {
+    const [emptyOption, ...weaponItems] = weaponSelectOptions;
+    return [
+      emptyOption,
+      {
+        value: THROW_PROJECTILE_WEAPON_OPTION_ID,
+        label: `${throwProjectileWtypeId} : ${THROW_PROJECTILE_WEAPON_LABEL}`,
+      },
+      ...weaponItems,
+    ];
+  }, [throwProjectileWtypeId, weaponSelectOptions]);
   const skillSelectOptions = useMemo(() => [
     { value: 0, label: '未选择' },
     ...skills.map((item) => ({
@@ -260,6 +290,22 @@ export function ProjectilePanel() {
   const targetOptions = useMemo(
     () => (targetType === 'actor' ? actorSelectOptions : enemySelectOptions),
     [actorSelectOptions, enemySelectOptions, targetType],
+  );
+  const currentActorOffsetName = useMemo(
+    () => resolveDataItemLabel(actors, actorOffsetActorId, '未选择角色'),
+    [actorOffsetActorId, actors],
+  );
+  const currentActorOffsetWeaponName = useMemo(
+    () => resolveDataItemLabel(weapons, actorOffsetWeaponId, '未选择武器'),
+    [actorOffsetWeaponId, weapons],
+  );
+  const currentEnemyOffsetName = useMemo(
+    () => resolveDataItemLabel(enemies, enemyOffsetEnemyId, '未选择敌人'),
+    [enemies, enemyOffsetEnemyId],
+  );
+  const currentEnemyOffsetSkillName = useMemo(
+    () => resolveDataItemLabel(skills, enemyOffsetSkillId, '未选择技能'),
+    [enemyOffsetSkillId, skills],
   );
 
   // 更新模板
@@ -331,58 +377,62 @@ export function ProjectilePanel() {
 
   const handleSourceTypeChange = useCallback((value: 'actor' | 'enemy') => {
     rememberSourceSelection();
-    updateTemplate({
-      sourceType: value,
-      sourceId: 0,
-      weaponId: undefined,
-      skillId: undefined,
-    });
-  }, [rememberSourceSelection, updateTemplate]);
+    setPreviewSourceType(value);
+    setPreviewSourceId(0);
+    if (value === 'actor') {
+      setActorOffsetActorId(0);
+      setActorOffsetWeaponId(0);
+    } else {
+      setEnemyOffsetEnemyId(0);
+      setEnemyOffsetSkillId(0);
+    }
+  }, [rememberSourceSelection]);
 
   const handleSourceIdChange = useCallback((value: number) => {
     rememberSourceSelection();
     if (sourceType === 'actor') {
       const rememberedWeaponId = getRememberedActorWeapon(value);
-      updateTemplate({
-        sourceId: value,
-        weaponId: rememberedWeaponId > 0 ? rememberedWeaponId : undefined,
-        skillId: undefined,
-      });
+      setPreviewSourceId(value);
+      setActorOffsetActorId(value);
+      setActorOffsetWeaponId(rememberedWeaponId);
       return;
     }
 
     const rememberedSkillId = getRememberedEnemySkill(value);
-    updateTemplate({
-      sourceId: value,
-      skillId: rememberedSkillId > 0 ? rememberedSkillId : undefined,
-      weaponId: undefined,
-    });
-  }, [getRememberedActorWeapon, getRememberedEnemySkill, rememberSourceSelection, sourceType, updateTemplate]);
+    setPreviewSourceId(value);
+    setEnemyOffsetEnemyId(value);
+    setEnemyOffsetSkillId(rememberedSkillId);
+  }, [getRememberedActorWeapon, getRememberedEnemySkill, rememberSourceSelection, sourceType]);
 
   const handleSourceWeaponChange = useCallback((value: number) => {
-    const sourceId = Number(template?.sourceId || 0);
-    if (sourceId > 0 && value > 0) {
+    const sourceId = previewSourceId;
+    if (sourceId > 0 && value !== 0) {
       actorWeaponMemoryRef.current[sourceId] = value;
     }
-    updateTemplate({ weaponId: value > 0 ? value : undefined });
-  }, [template, updateTemplate]);
+    setActorOffsetWeaponId(value);
+  }, [previewSourceId]);
 
   const handleSourceSkillChange = useCallback((value: number) => {
-    const sourceId = Number(template?.sourceId || 0);
+    const sourceId = previewSourceId;
     if (sourceId > 0 && value > 0) {
       enemySkillMemoryRef.current[sourceId] = value;
     }
-    updateTemplate({ skillId: value > 0 ? value : undefined });
-  }, [template, updateTemplate]);
+    setEnemyOffsetSkillId(value);
+  }, [previewSourceId]);
 
   const getActorOffsetFromCache = useCallback((actorId: number, weaponId: number) => {
-    if (actorId <= 0 || weaponId <= 0) return { x: 0, y: 0 };
+    if (actorId <= 0 || weaponId === 0) return { x: 0, y: 0 };
     const actorsData = DataLoaderService.getCachedDataByName('Actors.json');
-    const weaponsData = DataLoaderService.getCachedDataByName('Weapons.json');
     const actor = findDataEntryById(actorsData, actorId);
-    const weapon = findDataEntryById(weaponsData, weaponId);
+    let weapon: Record<string, unknown> | null = null;
+    if (weaponId === THROW_PROJECTILE_WEAPON_OPTION_ID) {
+      weapon = { id: THROW_PROJECTILE_WEAPON_OPTION_ID, wtypeId: throwProjectileWtypeId };
+    } else if (weaponId > 0) {
+      const weaponsData = DataLoaderService.getCachedDataByName('Weapons.json');
+      weapon = findDataEntryById(weaponsData, weaponId);
+    }
     return resolveActorProjectileOffset(actor, weapon);
-  }, []);
+  }, [throwProjectileWtypeId]);
 
   const getEnemyOffsetFromCache = useCallback((enemyId: number, skillId: number) => {
     if (enemyId <= 0 || skillId <= 0) return { x: 0, y: 0 };
@@ -393,15 +443,31 @@ export function ProjectilePanel() {
 
   useEffect(() => {
     if (!template) return;
-    rememberSourceSelection(template);
-    if (sourceType === 'actor') {
-      setActorOffsetActorId(template.sourceId || 0);
-      setActorOffsetWeaponId(template.weaponId || 0);
+    const nextSourceType = normalizeBattlerType(template.sourceType, 'actor');
+    const nextTargetType = normalizeBattlerType(template.targetType, 'enemy');
+    const sourceId = Number(template.sourceId || 0);
+    setPreviewSourceType(nextSourceType);
+    setPreviewSourceId(sourceId);
+    setPreviewTargetType(nextTargetType);
+    setPreviewTargetId(Number(template.targetId || 0));
+    if (nextSourceType === 'actor') {
+      setActorOffsetActorId(sourceId);
+      setActorOffsetWeaponId(getRememberedActorWeapon(sourceId) || template.weaponId || 0);
     } else {
-      setEnemyOffsetEnemyId(template.sourceId || 0);
-      setEnemyOffsetSkillId(template.skillId || 0);
+      setEnemyOffsetEnemyId(sourceId);
+      setEnemyOffsetSkillId(getRememberedEnemySkill(sourceId) || template.skillId || 0);
     }
-  }, [template, sourceType, rememberSourceSelection]);
+  }, [
+    currentItemIndex,
+    getRememberedActorWeapon,
+    getRememberedEnemySkill,
+    template?.sourceType,
+    template?.sourceId,
+    template?.targetType,
+    template?.targetId,
+    template?.skillId,
+    template?.weaponId,
+  ]);
 
   useEffect(() => {
     const offset = getActorOffsetFromCache(actorOffsetActorId, actorOffsetWeaponId);
@@ -416,7 +482,7 @@ export function ProjectilePanel() {
   }, [enemyOffsetEnemyId, enemyOffsetSkillId, getEnemyOffsetFromCache]);
 
   const handleSaveActorOffset = useCallback((silent = false) => {
-    if (actorOffsetActorId <= 0 || actorOffsetWeaponId <= 0) {
+    if (actorOffsetActorId <= 0 || actorOffsetWeaponId === 0) {
       if (!silent) {
         ToastManager.error('请选择角色与武器');
       }
@@ -435,8 +501,13 @@ export function ProjectilePanel() {
       return;
     }
 
-    const weapon = findDataEntryById(weaponsData, actorOffsetWeaponId);
-    const wtypeId = Number((weapon?.wtypeId as number) || 0);
+    let wtypeId = 0;
+    if (actorOffsetWeaponId === THROW_PROJECTILE_WEAPON_OPTION_ID) {
+      wtypeId = throwProjectileWtypeId;
+    } else {
+      const weapon = findDataEntryById(weaponsData, actorOffsetWeaponId);
+      wtypeId = Number((weapon?.wtypeId as number) || 0);
+    }
     if (wtypeId <= 0) {
       if (!silent) {
         ToastManager.error('武器类型无效，无法保存偏移');
@@ -496,6 +567,7 @@ export function ProjectilePanel() {
     currentFilePath,
     markFileDirty,
     markItemDirty,
+    throwProjectileWtypeId,
   ]);
 
   const handleSaveEnemyOffset = useCallback((silent = false) => {
@@ -572,7 +644,7 @@ export function ProjectilePanel() {
   ]);
 
   useEffect(() => {
-    if (actorOffsetActorId <= 0 || actorOffsetWeaponId <= 0) {
+    if (actorOffsetActorId <= 0 || actorOffsetWeaponId === 0) {
       return;
     }
     const currentOffset = getActorOffsetFromCache(actorOffsetActorId, actorOffsetWeaponId);
@@ -675,39 +747,78 @@ export function ProjectilePanel() {
   const handleSwapSourceAndTarget = useCallback(() => {
     if (!template) return;
 
-    rememberSourceSelection(template);
+    rememberSourceSelection();
 
     const nextSourceType = targetType;
-    const nextSourceId = Number(template.targetId || 0);
+    const nextSourceId = previewTargetId;
     const nextTargetType = sourceType;
-    const nextTargetId = Number(template.sourceId || 0);
+    const nextTargetId = previewSourceId;
 
     let nextWeaponId: number | undefined;
     let nextSkillId: number | undefined;
 
     if (nextSourceType === 'actor') {
       const rememberedWeaponId = getRememberedActorWeapon(nextSourceId);
-      nextWeaponId = rememberedWeaponId > 0 ? rememberedWeaponId : undefined;
+      nextWeaponId = rememberedWeaponId !== 0 ? rememberedWeaponId : undefined;
       nextSkillId = undefined;
+      setActorOffsetActorId(nextSourceId);
+      setActorOffsetWeaponId(nextWeaponId || 0);
     } else {
       const rememberedSkillId = getRememberedEnemySkill(nextSourceId);
       nextSkillId = rememberedSkillId > 0 ? rememberedSkillId : undefined;
       nextWeaponId = undefined;
+      setEnemyOffsetEnemyId(nextSourceId);
+      setEnemyOffsetSkillId(nextSkillId || 0);
     }
 
-    updateTemplate({
-      sourceType: nextSourceType,
-      sourceId: nextSourceId,
-      targetType: nextTargetType,
-      targetId: nextTargetId,
-      weaponId: nextWeaponId,
-      skillId: nextSkillId,
-    });
+    setPreviewSourceType(nextSourceType);
+    setPreviewSourceId(nextSourceId);
+    setPreviewTargetType(nextTargetType);
+    setPreviewTargetId(nextTargetId);
 
     ToastManager.success('已交换发射方与目标方数据');
-  }, [getRememberedActorWeapon, getRememberedEnemySkill, rememberSourceSelection, sourceType, targetType, template, updateTemplate]);
+  }, [
+    getRememberedActorWeapon,
+    getRememberedEnemySkill,
+    previewSourceId,
+    previewTargetId,
+    rememberSourceSelection,
+    sourceType,
+    targetType,
+    template,
+  ]);
 
   const totalFrames = getSegments().reduce((sum, seg) => sum + normalizeDurationFrames(seg.duration), 0) || 0;
+  const previewTemplate = useMemo(() => {
+    if (!template) return null;
+    return sourceType === 'actor'
+      ? {
+          ...template,
+          sourceType,
+          sourceId: previewSourceId,
+          targetType,
+          targetId: previewTargetId,
+          weaponId: actorOffsetWeaponId || undefined,
+          skillId: undefined,
+        }
+      : {
+          ...template,
+          sourceType,
+          sourceId: previewSourceId,
+          targetType,
+          targetId: previewTargetId,
+          weaponId: undefined,
+          skillId: enemyOffsetSkillId || undefined,
+        };
+  }, [
+    actorOffsetWeaponId,
+    enemyOffsetSkillId,
+    previewSourceId,
+    previewTargetId,
+    sourceType,
+    targetType,
+    template,
+  ]);
 
   if (!template) {
     return (
@@ -753,93 +864,68 @@ export function ProjectilePanel() {
         <Panel header="发射偏移配置" key="offset">
           <div className="space-y-4">
             <p className="text-xs text-gray-500">
-              该配置会直接写入 `Actors.json / Enemies.json` 的 `projectileOffset` 字段，并实时影响下方预览起始位置。
+              该配置会直接写入 `Actors.json / Enemies.json` 的 `projectileOffset` 字段，并跟随下方当前发射方配置实时影响预览起始位置。
             </p>
-            <div className="grid grid-cols-2 gap-4">
-              <Card size="small" title="我方角色（按武器类型）" bodyStyle={{ backgroundColor: '#131825' }}>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">角色</label>
-                    <Select
-                      value={actorOffsetActorId}
-                      onChange={setActorOffsetActorId}
-                      options={actorSelectOptions}
-                      className="w-full"
-                    />
+            <Card
+              size="small"
+              title={sourceType === 'actor' ? '当前我方发射偏移' : '当前敌方发射偏移'}
+              bodyStyle={{ backgroundColor: '#131825' }}
+            >
+              {sourceType === 'actor' ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3 text-xs text-gray-400">
+                    <div>角色：{currentActorOffsetName}</div>
+                    <div>武器：{currentActorOffsetWeaponName}</div>
                   </div>
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">武器</label>
-                    <Select
-                      value={actorOffsetWeaponId}
-                      onChange={setActorOffsetWeaponId}
-                      options={weaponSelectOptions}
-                      className="w-full"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">偏移 X</label>
-                    <InputNumber
-                      value={actorOffsetX}
-                      onChange={(value) => setActorOffsetX(Number(value || 0))}
-                      className="w-full"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">偏移 Y</label>
-                    <InputNumber
-                      value={actorOffsetY}
-                      onChange={(value) => setActorOffsetY(Number(value || 0))}
-                      className="w-full"
-                    />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">偏移 X</label>
+                      <InputNumber
+                        value={actorOffsetX}
+                        onChange={(value) => setActorOffsetX(Number(value || 0))}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">偏移 Y</label>
+                      <InputNumber
+                        value={actorOffsetY}
+                        onChange={(value) => setActorOffsetY(Number(value || 0))}
+                        className="w-full"
+                      />
+                    </div>
                   </div>
                 </div>
-                <div className="mt-3">
-                  <span className="text-xs text-gray-500">自动记录偏移并标记脏文件</span>
-                </div>
-              </Card>
-
-              <Card size="small" title="敌方单位（按技能）" bodyStyle={{ backgroundColor: '#131825' }}>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">敌人</label>
-                    <Select
-                      value={enemyOffsetEnemyId}
-                      onChange={setEnemyOffsetEnemyId}
-                      options={enemySelectOptions}
-                      className="w-full"
-                    />
+              ) : (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3 text-xs text-gray-400">
+                    <div>敌人：{currentEnemyOffsetName}</div>
+                    <div>技能：{currentEnemyOffsetSkillName}</div>
                   </div>
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">技能</label>
-                    <Select
-                      value={enemyOffsetSkillId}
-                      onChange={setEnemyOffsetSkillId}
-                      options={skillSelectOptions}
-                      className="w-full"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">偏移 X</label>
-                    <InputNumber
-                      value={enemyOffsetX}
-                      onChange={(value) => setEnemyOffsetX(Number(value || 0))}
-                      className="w-full"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">偏移 Y</label>
-                    <InputNumber
-                      value={enemyOffsetY}
-                      onChange={(value) => setEnemyOffsetY(Number(value || 0))}
-                      className="w-full"
-                    />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">偏移 X</label>
+                      <InputNumber
+                        value={enemyOffsetX}
+                        onChange={(value) => setEnemyOffsetX(Number(value || 0))}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">偏移 Y</label>
+                      <InputNumber
+                        value={enemyOffsetY}
+                        onChange={(value) => setEnemyOffsetY(Number(value || 0))}
+                        className="w-full"
+                      />
+                    </div>
                   </div>
                 </div>
-                <div className="mt-3">
-                  <span className="text-xs text-gray-500">自动记录偏移并标记脏文件</span>
-                </div>
-              </Card>
-            </div>
+              )}
+              <div className="mt-3">
+                <span className="text-xs text-gray-500">自动记录偏移并标记脏文件</span>
+              </div>
+            </Card>
           </div>
         </Panel>
 
@@ -893,7 +979,7 @@ export function ProjectilePanel() {
                   <div>
                     <label className="block text-sm text-gray-400 mb-1">发射方 ID</label>
                     <Select
-                      value={template?.sourceId || 0}
+                      value={previewSourceId}
                       onChange={(value) => handleSourceIdChange(value)}
                       options={sourceOptions}
                       className="w-full"
@@ -904,9 +990,9 @@ export function ProjectilePanel() {
                     <div>
                       <label className="block text-sm text-gray-400 mb-1">武器</label>
                       <Select
-                        value={template?.weaponId || 0}
+                        value={actorOffsetWeaponId}
                         onChange={(value) => handleSourceWeaponChange(value)}
-                        options={weaponSelectOptions}
+                        options={actorOffsetWeaponOptions}
                         className="w-full"
                         placeholder="选择武器"
                       />
@@ -915,7 +1001,7 @@ export function ProjectilePanel() {
                     <div>
                       <label className="block text-sm text-gray-400 mb-1">技能</label>
                       <Select
-                        value={template?.skillId || 0}
+                        value={enemyOffsetSkillId}
                         onChange={(value) => handleSourceSkillChange(value)}
                         options={skillSelectOptions}
                         className="w-full"
@@ -933,10 +1019,8 @@ export function ProjectilePanel() {
                     <Select
                       value={targetType}
                       onChange={(value) => {
-                        updateTemplate({
-                          targetType: value as 'actor' | 'enemy',
-                          targetId: 0,
-                        });
+                        setPreviewTargetType(value as 'actor' | 'enemy');
+                        setPreviewTargetId(0);
                       }}
                       options={[
                         { value: 'actor', label: '角色' },
@@ -948,8 +1032,8 @@ export function ProjectilePanel() {
                   <div>
                     <label className="block text-sm text-gray-400 mb-1">目标方 ID</label>
                     <Select
-                      value={template?.targetId || 0}
-                      onChange={(value) => updateTemplate({ targetId: value })}
+                      value={previewTargetId}
+                      onChange={(value) => setPreviewTargetId(value)}
                       options={targetOptions}
                       className="w-full"
                       placeholder="选择目标"
@@ -961,6 +1045,7 @@ export function ProjectilePanel() {
 
             <div className="w-full rounded overflow-hidden" style={{ height: '400px', minHeight: '400px' }}>
               <ProjectileCanvas
+                template={previewTemplate}
                 isPlaying={isPlaying}
                 playbackSpeed={playbackSpeed}
                 offsetRevision={offsetRevision}

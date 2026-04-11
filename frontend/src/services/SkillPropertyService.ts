@@ -8,6 +8,11 @@ import { normalizeCommonRangeValues } from './RangePropertyService';
 export const SKILL_PROJECTILE_TAG_NONE = -1;
 export const SKILL_PROJECTILE_TAG_INTERCEPTOR = 0;
 export const SKILL_PROJECTILE_TAG_INTERCEPTABLE = 1;
+export const ACTION_SEQUENCE_TYPE_NORMAL = 0;
+export const ACTION_SEQUENCE_TYPE_PROJECTILE = 1;
+export const ACTION_SEQUENCE_TYPE_THROW_PROJECTILE = 2;
+export const ACTION_SEQUENCE_TYPE_ITEM = 3;
+export const ACTION_SEQUENCE_TYPE_SELF = 4;
 export const DAMAGE_FORMULA_EXPORT_NAME = 'damageFormula';
 const TARGET_CAMP_ENEMY = 1;
 const TARGET_LIFE_STATE_ALIVE = 1;
@@ -59,6 +64,8 @@ export const KNOWN_SKILL_PROPERTY_KEYS = [
   'targetLifeState',
   'selectMode',
   'areaMode',
+  'actionSequenceType',
+  'actionSequenceScriptKey',
   'skillCosts',
   'skillEffectSpec',
 ] as const;
@@ -84,6 +91,8 @@ export interface SkillEditorValues {
   targetLifeState: number;
   selectMode: number;
   areaMode: number;
+  actionSequenceType: number;
+  actionSequenceScriptKey: string;
   skillCosts: SkillCostEntry[];
   skillEffectSpec: SkillEffectSpec;
 }
@@ -97,12 +106,14 @@ export interface SkillEditorInput {
   targetLifeState?: unknown;
   selectMode?: unknown;
   areaMode?: unknown;
+  actionSequenceType?: unknown;
+  actionSequenceScriptKey?: unknown;
   skillCosts?: unknown;
   skillEffectSpec?: unknown;
 }
 
 interface SkillNormalizationOptions {
-  migrateLegacyDamage?: boolean;
+  isItem?: boolean;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
@@ -137,6 +148,66 @@ const normalizeProjectileTag = (value: unknown): number => {
     return numeric;
   }
   return SKILL_PROJECTILE_TAG_NONE;
+};
+
+const normalizeActionSequenceType = (value: unknown, fallback: number): number => {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+  const numeric = toIntOrZero(value);
+  if (
+    numeric === ACTION_SEQUENCE_TYPE_NORMAL
+    || numeric === ACTION_SEQUENCE_TYPE_PROJECTILE
+    || numeric === ACTION_SEQUENCE_TYPE_THROW_PROJECTILE
+    || numeric === ACTION_SEQUENCE_TYPE_ITEM
+    || numeric === ACTION_SEQUENCE_TYPE_SELF
+  ) {
+    return numeric;
+  }
+  return fallback;
+};
+
+const normalizeActionSequenceScriptKey = (value: unknown): string => {
+  return typeof value === 'string' ? value.trim() : '';
+};
+
+const getDefaultActionSequenceType = (projectileId: number, options: SkillNormalizationOptions): number => {
+  if (projectileId > 0) {
+    return options.isItem === true ? ACTION_SEQUENCE_TYPE_THROW_PROJECTILE : ACTION_SEQUENCE_TYPE_PROJECTILE;
+  }
+  return options.isItem === true ? ACTION_SEQUENCE_TYPE_ITEM : ACTION_SEQUENCE_TYPE_NORMAL;
+};
+
+const getLegacyActionSequenceType = (skill: Record<string, unknown>): number | null => {
+  const meta = isRecord(skill.meta) ? skill.meta : null;
+  const actionSequence = typeof meta?.actionSequence === 'string' ? meta.actionSequence : '';
+  switch (actionSequence) {
+    case 'actionSequence':
+      return ACTION_SEQUENCE_TYPE_NORMAL;
+    case 'projectileActionSequence':
+      return ACTION_SEQUENCE_TYPE_PROJECTILE;
+    case 'throwProjectileActionSequence':
+      return ACTION_SEQUENCE_TYPE_THROW_PROJECTILE;
+    case 'itemActionSequence':
+      return ACTION_SEQUENCE_TYPE_ITEM;
+    default:
+      break;
+  }
+  const scripts = isRecord(skill.scripts) ? skill.scripts : null;
+  return typeof scripts?.actionSequence === 'string'
+    ? ACTION_SEQUENCE_TYPE_SELF
+    : null;
+};
+
+const getDefaultActionSequenceScriptKey = (skill: Record<string, unknown>, actionSequenceType: number): string => {
+  if (actionSequenceType !== ACTION_SEQUENCE_TYPE_SELF) {
+    return '';
+  }
+  const currentKey = normalizeActionSequenceScriptKey(skill.actionSequenceScriptKey);
+  if (currentKey) {
+    return currentKey;
+  }
+  return 'actionSequence';
 };
 
 const normalizeCostValue = (value: unknown): number => {
@@ -302,18 +373,6 @@ const normalizeDamageSpecValue = (value: unknown): SkillDamageSpec => {
   };
 };
 
-const normalizeLegacyDamageSpec = (skill: Record<string, unknown>): SkillDamageSpec => {
-  const damageSource = isRecord(skill.damage) ? skill.damage : {};
-  const formula = normalizeDamageFormula(isRecord(damageSource) ? damageSource.formula : undefined);
-  return {
-    damageType: normalizeDamageType(isRecord(damageSource) ? damageSource.damageType ?? damageSource.type : undefined),
-    damageElementId: Math.max(0, toIntOrZero(isRecord(damageSource) ? damageSource.damageElementId ?? damageSource.elementId : 0)),
-    allowCritical: isRecord(damageSource) ? damageSource.allowCritical === true || damageSource.critical === true : false,
-    damageScatter: clampPercent(isRecord(damageSource) ? damageSource.damageScatter ?? damageSource.variance : 0),
-    formula,
-  };
-};
-
 const normalizeDurabilityChangeValue = (value: unknown): SkillDurabilityChangeSpec => {
   const source = isRecord(value) ? value : {};
   return {
@@ -340,7 +399,7 @@ const normalizeSkillEffectSpecFromSource = (
   return {
     damage: spec
       ? normalizeDamageSpecValue(spec.damage)
-      : (options.migrateLegacyDamage ? normalizeLegacyDamageSpec(skill) : normalizeDamageSpecValue(undefined)),
+      : normalizeDamageSpecValue(undefined),
     durabilityChange: normalizeDurabilityChangeValue(spec?.durabilityChange),
     skillDurability: normalizeSkillDurabilityValue(spec?.skillDurability),
   };
@@ -434,6 +493,8 @@ export function normalizeSkillEditorValues(
       targetLifeState: TARGET_LIFE_STATE_ALIVE,
       selectMode: SELECT_MODE_SINGLE,
       areaMode: AREA_MODE_SINGLE,
+      actionSequenceType: getDefaultActionSequenceType(0, options),
+      actionSequenceScriptKey: '',
       skillCosts: [],
       skillEffectSpec: {
         damage: {
@@ -460,6 +521,9 @@ export function normalizeSkillEditorValues(
 
   const projectileId = normalizeProjectileId(skill.projectileId);
   const targeting = normalizeSkillTargetingValues(skill);
+  const legacyActionSequenceType = getLegacyActionSequenceType(skill);
+  const defaultActionSequenceType = legacyActionSequenceType ?? getDefaultActionSequenceType(projectileId, options);
+  const actionSequenceType = normalizeActionSequenceType(skill.actionSequenceType, defaultActionSequenceType);
 
   return {
     projectileId,
@@ -470,6 +534,8 @@ export function normalizeSkillEditorValues(
     targetLifeState: targeting.targetLifeState,
     selectMode: targeting.selectMode,
     areaMode: targeting.areaMode,
+    actionSequenceType,
+    actionSequenceScriptKey: getDefaultActionSequenceScriptKey(skill, actionSequenceType),
     skillCosts: normalizeSkillCosts(skill.skillCosts),
     skillEffectSpec: normalizeSkillEffectSpecFromSource(skill, options),
   };
@@ -499,11 +565,17 @@ export function normalizeSkillDataEntry(
     targetLifeState: normalized.targetLifeState,
     selectMode: normalized.selectMode,
     areaMode: normalized.areaMode,
+    actionSequenceType: normalized.actionSequenceType,
+    actionSequenceScriptKey: normalized.actionSequenceScriptKey,
   };
 }
 
-export function hasSkillEditorChanges(sourceItem: RPGItem, nextValues: SkillEditorInput): boolean {
-  const currentValues = normalizeSkillEditorValues(sourceItem);
+export function hasSkillEditorChanges(
+  sourceItem: RPGItem,
+  nextValues: SkillEditorInput,
+  options: SkillNormalizationOptions = {},
+): boolean {
+  const currentValues = normalizeSkillEditorValues(sourceItem, options);
   const nextTargeting = normalizeSkillTargetingValues(nextValues as Record<string, unknown>);
   const nextSkillEffectSpec = normalizeSkillEffectSpecValue(nextValues.skillEffectSpec);
 
@@ -515,22 +587,31 @@ export function hasSkillEditorChanges(sourceItem: RPGItem, nextValues: SkillEdit
     || currentValues.targetLifeState !== nextTargeting.targetLifeState
     || currentValues.selectMode !== nextTargeting.selectMode
     || currentValues.areaMode !== nextTargeting.areaMode
+    || currentValues.actionSequenceType !== normalizeActionSequenceType(nextValues.actionSequenceType, currentValues.actionSequenceType)
+    || currentValues.actionSequenceScriptKey !== normalizeActionSequenceScriptKey(nextValues.actionSequenceScriptKey)
     || !areSkillCostsEqual(currentValues.skillCosts, normalizeSkillCosts(nextValues.skillCosts))
     || !areSkillEffectSpecEqual(currentValues.skillEffectSpec, nextSkillEffectSpec);
 }
 
-export function buildSkillSaveData(sourceItem: RPGItem, nextValues: SkillEditorInput): RPGItem {
+export function buildSkillSaveData(
+  sourceItem: RPGItem,
+  nextValues: SkillEditorInput,
+  options: SkillNormalizationOptions = {},
+): RPGItem {
   const currentMeta = extractSkillMeta(sourceItem);
   const restItem = { ...(sourceItem as unknown as Record<string, unknown>) };
   delete restItem.isUsedForProjectile;
   delete restItem.damage;
   const targeting = normalizeSkillTargetingValues(nextValues as Record<string, unknown>);
   const nextSkillEffectSpec = normalizeSkillEffectSpecValue(nextValues.skillEffectSpec);
+  const nextProjectileId = normalizeProjectileId(nextValues.projectileId);
+  const defaultActionSequenceType = getDefaultActionSequenceType(nextProjectileId, options);
+  const actionSequenceType = normalizeActionSequenceType(nextValues.actionSequenceType, defaultActionSequenceType);
 
   return {
     ...(restItem as unknown as RPGItem),
     ...buildMetaPatch(sourceItem as unknown as Record<string, unknown>, currentMeta),
-    projectileId: normalizeProjectileId(nextValues.projectileId),
+    projectileId: nextProjectileId,
     skillProjectileTag: normalizeProjectileTag(nextValues.skillProjectileTag),
     reactionSuccessRate: clampPercent(nextValues.reactionSuccessRate),
     reactionPriority: clampPercent(nextValues.reactionPriority),
@@ -538,6 +619,10 @@ export function buildSkillSaveData(sourceItem: RPGItem, nextValues: SkillEditorI
     targetLifeState: targeting.targetLifeState,
     selectMode: targeting.selectMode,
     areaMode: targeting.areaMode,
+    actionSequenceType,
+    actionSequenceScriptKey: actionSequenceType === ACTION_SEQUENCE_TYPE_SELF
+      ? normalizeActionSequenceScriptKey(nextValues.actionSequenceScriptKey) || 'actionSequence'
+      : '',
     skillCosts: normalizeSkillCosts(nextValues.skillCosts),
     skillEffectSpec: nextSkillEffectSpec,
   };

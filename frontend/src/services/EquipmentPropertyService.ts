@@ -6,8 +6,14 @@ import type {
   RPGItem,
 } from '../types';
 import { extractSystemRecord } from './DataFileFormatService';
+import {
+  EQUIP_EXTRA_PARAM_KEYS,
+  EQUIP_UPGRADE_PARAM_KEYS,
+  EQUIP_VEHICLE_PARAM_KEYS,
+} from '../types';
 
 interface FixedParamFieldDefinition {
+  index: number;
   key: string;
   label: string;
 }
@@ -37,33 +43,33 @@ const DEFAULT_SHAPE_PARAMS: ShapeParams = Object.freeze({
 });
 
 export const EXTRA_PARAM_FIELDS: FixedParamFieldDefinition[] = [
-  { key: 'interceptRate', label: '迎击率' },
-  { key: 'evadeRate', label: '回避率' },
-  { key: 'critRate', label: '暴击率' },
-  { key: 'critDamage', label: '暴伤' },
-  { key: 'hitRate', label: '命中率' },
-  { key: 'finalDamage', label: '最终伤害' },
+  { index: 0, key: EQUIP_EXTRA_PARAM_KEYS[0], label: '迎击率' },
+  { index: 1, key: EQUIP_EXTRA_PARAM_KEYS[1], label: '回避率' },
+  { index: 2, key: EQUIP_EXTRA_PARAM_KEYS[2], label: '暴击率' },
+  { index: 3, key: EQUIP_EXTRA_PARAM_KEYS[3], label: '暴伤' },
+  { index: 4, key: EQUIP_EXTRA_PARAM_KEYS[4], label: '命中率' },
+  { index: 5, key: EQUIP_EXTRA_PARAM_KEYS[5], label: '最终伤害' },
 ];
 
 export const VEHICLE_PARAM_FIELDS: FixedParamFieldDefinition[] = [
-  { key: 'weight', label: '重量' },
-  { key: 'carryValue', label: '承重' },
-  { key: 'loadValue', label: '载重' },
-  { key: 'durability', label: '耐久度' },
-  { key: 'ammoCapacity', label: '弹舱' },
-  { key: 'shellPrice', label: '弹药价格' },
-  { key: 'repeat', label: '连发' },
+  { index: 0, key: EQUIP_VEHICLE_PARAM_KEYS[0], label: '重量' },
+  { index: 1, key: EQUIP_VEHICLE_PARAM_KEYS[1], label: '承重' },
+  { index: 2, key: EQUIP_VEHICLE_PARAM_KEYS[2], label: '载重' },
+  { index: 3, key: EQUIP_VEHICLE_PARAM_KEYS[3], label: '耐久度' },
+  { index: 4, key: EQUIP_VEHICLE_PARAM_KEYS[4], label: '弹舱' },
+  { index: 5, key: EQUIP_VEHICLE_PARAM_KEYS[5], label: '弹药价格' },
+  { index: 6, key: EQUIP_VEHICLE_PARAM_KEYS[6], label: '连发' },
 ];
 
 export const COMPLETE_VEHICLE_PARAM_FIELDS: FixedParamFieldDefinition[] = [
   ...VEHICLE_PARAM_FIELDS,
-  { key: 'actionRepeat', label: '发射期连发' },
+  { index: 7, key: EQUIP_VEHICLE_PARAM_KEYS[7], label: '发射期连发' },
 ];
 
 export const UPGRADE_PARAM_FIELDS: FixedParamFieldDefinition[] = [
-  { key: 'times', label: '强化次数' },
-  { key: 'atk', label: '强化攻击力' },
-  { key: 'def', label: '强化防御力' },
+  { index: 0, key: EQUIP_UPGRADE_PARAM_KEYS[0], label: '强化次数' },
+  { index: 1, key: EQUIP_UPGRADE_PARAM_KEYS[1], label: '强化攻击力' },
+  { index: 2, key: EQUIP_UPGRADE_PARAM_KEYS[2], label: '强化防御力' },
 ];
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
@@ -97,17 +103,21 @@ const normalizeParamTemplate = (value: unknown): ParamTemplate => {
   };
 };
 
-const normalizeParamGroup = <T extends Record<string, ParamTemplate>>(
+const normalizeParamGroup = <T extends ParamTemplate[]>(
   value: unknown,
   fields: FixedParamFieldDefinition[],
 ): T => {
-  const source = isRecord(value) ? value : {};
-  const normalized: Record<string, ParamTemplate> = {};
+  const sourceArray = Array.isArray(value) ? value : null;
+  const sourceRecord = sourceArray ? null : (isRecord(value) ? value : null);
+  const normalized: ParamTemplate[] = new Array(fields.length);
 
-  for (const field of fields) {
-    normalized[field.key] = hasOwn(source, field.key)
-      ? normalizeParamTemplate(source[field.key])
-      : { ...EMPTY_PARAM_TEMPLATE };
+  for (let index = 0; index < fields.length; index++) {
+    const field = fields[index];
+    normalized[index] = sourceArray
+      ? normalizeParamTemplate(sourceArray[index])
+      : (sourceRecord && hasOwn(sourceRecord, field.key)
+        ? normalizeParamTemplate(sourceRecord[field.key])
+        : { ...EMPTY_PARAM_TEMPLATE });
   }
 
   return normalized as T;

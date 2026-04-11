@@ -6,7 +6,9 @@ import {
   normalizeDurationFrames,
   resolveActorProjectileOffset,
   resolveEnemyProjectileOffset,
+  resolveThrowProjectileWtypeId,
   segmentDurationToMs,
+  THROW_PROJECTILE_WEAPON_OPTION_ID,
   shouldUseStaticActorPreviewFrame,
   toDurationFrameDisplay,
 } from './ProjectilePreviewUtils';
@@ -57,6 +59,13 @@ describe('ProjectilePreviewUtils', () => {
     };
 
     expect(resolveEnemyProjectileOffset(enemy, 6)).toEqual({ x: 0, y: 0 });
+  });
+
+  it('resolves throw projectile weapon type id from wrapped system data', () => {
+    expect(resolveThrowProjectileWtypeId([null, {
+      weaponTypes: ['', '主炮', '副炮', 'SE'],
+    }])).toBe(4);
+    expect(THROW_PROJECTILE_WEAPON_OPTION_ID).toBe(-1);
   });
 
   it('finds data entry by id from cache array', () => {

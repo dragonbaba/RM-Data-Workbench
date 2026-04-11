@@ -1,11 +1,28 @@
 import { describe, expect, it, vi } from 'vitest';
 import { auditAndRepairDataFiles, toAuditSummaryText } from './DataAuditService';
 
+const createDefaultOwnerParams = (elementCount = 2) => ({
+  extraParams: [0, 0, 0, 0, 0, 0],
+  specialParams: [0, 0, 0, 0, 0],
+  scalar: [0],
+  paramRate: [0, 0, 0, 0, 0, 0, 0, 0],
+  elementRate: new Array(elementCount).fill(0),
+});
+
+const createDefaultThrowProjectileOffset = () => ({
+  13: { x: -36, y: -23 },
+});
+
 describe('DataAuditService', () => {
   it('会批量修复目标数据并返回摘要', async () => {
     const writes: Array<{ filePath: string; data: unknown }> = [];
     const files = new Map<string, unknown>([
-      ['D:/Project/data/System.json', { elements: ['', '通常', '火炎'] }],
+      ['D:/Project/data/System.json', {
+        elements: ['', '通常', '火炎'],
+        weaponTypes: ['', '主炮', '副炮', 'SE', '人类通用武器', '猎人武器', '机械师武器', '战士武器', '摔跤手武器', '护士武器', '实验体改造人武器', '艺术家武器', '波奇武器'],
+      }],
+      ['D:/Project/data/Actors.json', [null, { id: 1, name: '主角', effects: [] }]],
+      ['D:/Project/data/Classes.json', [null, { id: 1, name: '猎人', effects: [] }]],
       ['D:/Project/data/Skills.json', [
         null,
         {
@@ -13,12 +30,6 @@ describe('DataAuditService', () => {
           name: '火球',
           projectileId: 7,
           skillProjectileTag: 1,
-          damage: {
-            type: 3,
-            elementId: 2,
-            critical: false,
-            variance: 17,
-          },
           skillCosts: [
             { type: 'item', itemId: 2 },
           ],
@@ -29,6 +40,7 @@ describe('DataAuditService', () => {
         {
           id: 1,
           name: '蓄力',
+          effects: [],
           chargeConfig: {
             blockActions: true,
             releaseSkillId: 6,
@@ -67,7 +79,7 @@ describe('DataAuditService', () => {
       ]],
       ['D:/Project/data/Armors.json', [
         null,
-        { id: 1, name: '测试C装', etypeId: 8, hiddenAttackSkillId: 17 },
+        { id: 1, name: '测试C装', etypeId: 8, hiddenAttackSkillId: 17, effects: [1] },
         { id: 2, name: '测试底盘', etypeId: 9, hiddenAttackSkillId: 23 },
       ]],
       ['D:/Project/data/Projectiles.json', [
@@ -110,10 +122,23 @@ describe('DataAuditService', () => {
       }),
     });
 
-    expect(summary.checkedFiles).toBe(8);
-    expect(summary.repairedFiles).toBe(8);
-    expect(summary.repairedEntries).toBe(10);
-    expect(writes).toHaveLength(8);
+    expect(summary.checkedFiles).toBe(10);
+    expect(summary.repairedFiles).toBe(10);
+    expect(summary.repairedEntries).toBe(12);
+    expect(writes).toHaveLength(10);
+
+    const actorPayload = writes.find((item) => item.filePath.endsWith('Actors.json'))?.data as unknown[];
+    expect(actorPayload[1]).toMatchObject({
+      id: 1,
+      projectileOffset: createDefaultThrowProjectileOffset(),
+      ownerParams: createDefaultOwnerParams(3),
+    });
+
+    const classPayload = writes.find((item) => item.filePath.endsWith('Classes.json'))?.data as unknown[];
+    expect(classPayload[1]).toMatchObject({
+      id: 1,
+      ownerParams: createDefaultOwnerParams(3),
+    });
 
     const skillPayload = writes.find((item) => item.filePath.endsWith('Skills.json'))?.data as unknown[];
     expect(skillPayload[1]).toMatchObject({
@@ -121,6 +146,8 @@ describe('DataAuditService', () => {
       skillProjectileTag: 1,
       reactionSuccessRate: 0,
       reactionPriority: 0,
+      actionSequenceType: 1,
+      actionSequenceScriptKey: '',
       targetCamp: 1,
       targetLifeState: 1,
       selectMode: 1,
@@ -129,10 +156,10 @@ describe('DataAuditService', () => {
       repeatTimeFloat: 0,
       skillEffectSpec: {
         damage: {
-          damageType: 'heal',
-          damageElementId: 2,
+          damageType: 'none',
+          damageElementId: 0,
           allowCritical: false,
-          damageScatter: 17,
+          damageScatter: 0,
           formula: {
             mode: 'basic',
             scriptKey: '',
@@ -182,6 +209,7 @@ describe('DataAuditService', () => {
         queueScope: 0,
         queueShift: 0,
       },
+      ownerParams: createDefaultOwnerParams(3),
     });
 
     const itemPayload = writes.find((item) => item.filePath.endsWith('Items.json'))?.data as unknown[];
@@ -190,6 +218,8 @@ describe('DataAuditService', () => {
       skillProjectileTag: 1,
       reactionSuccessRate: 0,
       reactionPriority: 0,
+      actionSequenceType: 2,
+      actionSequenceScriptKey: '',
       targetCamp: 2,
       targetLifeState: 1,
       selectMode: 1,
@@ -198,13 +228,28 @@ describe('DataAuditService', () => {
       areaTargetCount: 3,
       repeatTime: 2,
       repeatTimeFloat: 0,
-      damage: {
-        type: 1,
-        elementId: 2,
-        variance: 8,
+      skillEffectSpec: {
+        damage: {
+          damageType: 'none',
+          damageElementId: 0,
+          allowCritical: false,
+          damageScatter: 0,
+          formula: {
+            mode: 'basic',
+            scriptKey: '',
+          },
+        },
+        durabilityChange: {
+          mode: 'none',
+          value: 0,
+        },
+        skillDurability: {
+          baseLoss: 1,
+          halfBrokenRate: 50,
+        },
       },
     });
-    expect(itemPayload[1]).not.toHaveProperty('skillEffectSpec');
+    expect(itemPayload[1]).not.toHaveProperty('damage');
 
     const enemyPayload = writes.find((item) => item.filePath.endsWith('Enemies.json'))?.data as unknown[];
     expect(enemyPayload[1]).toMatchObject({
@@ -212,16 +257,28 @@ describe('DataAuditService', () => {
       level: 1,
       canReaction: true,
       reactionSkillId: 9,
+      ownerParams: createDefaultOwnerParams(3),
+    });
+
+    const weaponPayload = writes.find((item) => item.filePath.endsWith('Weapons.json'))?.data as unknown[];
+    expect(weaponPayload[1]).toMatchObject({
+      id: 1,
+      ownerParams: createDefaultOwnerParams(3),
     });
 
     const armorPayload = writes.find((item) => item.filePath.endsWith('Armors.json'))?.data as unknown[];
     expect(armorPayload[1]).toMatchObject({
       etypeId: 8,
       hiddenAttackSkillId: 17,
+      effects: [],
+      ownerParams: {
+        scalar: [0.1],
+      },
     });
     expect(armorPayload[2]).toMatchObject({
       etypeId: 9,
       hiddenAttackSkillId: 23,
+      ownerParams: createDefaultOwnerParams(3),
     });
 
     const projectilePayload = writes.find((item) => item.filePath.endsWith('Projectiles.json'))?.data as unknown[];
@@ -240,24 +297,7 @@ describe('DataAuditService', () => {
     expect((projectilePayload[1] as any).launchAnimation.segments[0]).not.toHaveProperty('easing');
 
     const effectPayload = writes.find((item) => item.filePath.endsWith('Effects.json'))?.data as unknown[];
-    expect(effectPayload[1]).toMatchObject({
-      id: 1,
-      effectType: 'owner_scalar_bonus',
-      config: {
-        selector: {
-          slotIndexes: [],
-          etypeIds: [],
-          wtypeIds: [],
-          atypeIds: [],
-        },
-        args: {
-          requiredCount: 0,
-          weaponIds: [],
-          armorIds: [],
-          ops: [{ group: 'scalar', key: 'expRate', op: 'add', value: 0.1 }],
-        },
-      },
-    });
+    expect(effectPayload[1]).toBeNull();
 
     expect(toAuditSummaryText(summary)).toContain('Skills.json 1 条');
     expect(toAuditSummaryText(summary)).toContain('Items.json 1 条');
@@ -271,7 +311,22 @@ describe('DataAuditService', () => {
     const summary = await auditAndRepairDataFiles('D:/Project/data', {
       readJson: vi.fn(async (filePath: string) => {
         if (filePath.endsWith('System.json')) {
-          return { elements: ['', '通常'] };
+          return {
+            elements: ['', '通常'],
+            weaponTypes: ['', '主炮', '副炮', 'SE', '人类通用武器', '猎人武器', '机械师武器', '战士武器', '摔跤手武器', '护士武器', '实验体改造人武器', '艺术家武器', '波奇武器'],
+          };
+        }
+        if (filePath.endsWith('Actors.json')) {
+          return [null, {
+            id: 1,
+            name: '主角',
+            effects: [],
+            projectileOffset: createDefaultThrowProjectileOffset(),
+            ownerParams: createDefaultOwnerParams(),
+          }];
+        }
+        if (filePath.endsWith('Classes.json')) {
+          return [null, { id: 1, name: '猎人', effects: [], ownerParams: createDefaultOwnerParams() }];
         }
         if (filePath.endsWith('Projectiles.json')) {
           return [null, {
@@ -302,9 +357,9 @@ describe('DataAuditService', () => {
         if (filePath.endsWith('Effects.json')) {
           return [null, {
             id: 1,
-            name: '经验增益',
-            description: ['经验 +10%'],
-            effectType: 'owner_scalar_bonus',
+            name: '单引擎奖励',
+            description: ['载重 +3000'],
+            effectType: 'single_engine_bonus',
             isStatic: true,
             config: {
               selector: {
@@ -314,7 +369,7 @@ describe('DataAuditService', () => {
                 atypeIds: [],
               },
               args: {
-                ops: [{ group: 'scalar', key: 'expRate', op: 'add', value: 0.1 }],
+                ops: [{ group: 'vehicleParams', key: 'loadValue', op: 'add', value: 3000 }],
                 requiredCount: 0,
                 weaponIds: [],
                 armorIds: [],
@@ -330,6 +385,8 @@ describe('DataAuditService', () => {
             skillProjectileTag: -1,
             reactionSuccessRate: 0,
             reactionPriority: 0,
+            actionSequenceType: 3,
+            actionSequenceScriptKey: '',
             targetCamp: 2,
             targetLifeState: 1,
             selectMode: 1,
@@ -343,6 +400,26 @@ describe('DataAuditService', () => {
             },
             repeatTime: 1,
             repeatTimeFloat: 0,
+            skillEffectSpec: {
+              damage: {
+                damageType: 'none',
+                damageElementId: 0,
+                allowCritical: false,
+                damageScatter: 0,
+                formula: {
+                  mode: 'basic',
+                  scriptKey: '',
+                },
+              },
+              durabilityChange: {
+                mode: 'none',
+                value: 0,
+              },
+              skillDurability: {
+                baseLoss: 1,
+                halfBrokenRate: 50,
+              },
+            },
           }];
         }
         if (filePath.endsWith('Skills.json')) {
@@ -354,6 +431,8 @@ describe('DataAuditService', () => {
             skillProjectileTag: -1,
             reactionSuccessRate: 0,
             reactionPriority: 0,
+            actionSequenceType: 0,
+            actionSequenceScriptKey: '',
             skillCosts: [],
             skillEffectSpec: {
               damage: {
@@ -388,29 +467,29 @@ describe('DataAuditService', () => {
             canReaction: false,
             reactionSkillId: 0,
             floatParams: [0, 0, 0, 0, 0, 0, 0, 0],
-            extraParams: {
-              interceptRate: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              evadeRate: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              critRate: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              critDamage: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              hitRate: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              finalDamage: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            },
-            vehicleParams: {
-              weight: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              carryValue: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              loadValue: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              durability: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              ammoCapacity: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              shellPrice: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              repeat: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              actionRepeat: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            },
-            upgradeParams: {
-              times: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              atk: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              def: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            },
+            extraParams: [
+              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            ],
+            vehicleParams: [
+              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            ],
+            upgradeParams: [
+              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            ],
             qualityLock: false,
             attackSkillId: 0,
             attackElementId: 0,
@@ -427,6 +506,7 @@ describe('DataAuditService', () => {
             repeatTimeFloat: 0,
             elementRates: [0, 0],
             elementRateFloats: [0, 0],
+            ownerParams: createDefaultOwnerParams(),
           }];
         }
         return [null, {
@@ -458,29 +538,29 @@ describe('DataAuditService', () => {
           canReaction: false,
           reactionSkillId: 0,
           floatParams: [0, 0, 0, 0, 0, 0, 0, 0],
-          extraParams: {
-            interceptRate: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            evadeRate: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            critRate: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            critDamage: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            hitRate: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            finalDamage: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-          },
-          vehicleParams: {
-            weight: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            carryValue: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            loadValue: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            durability: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            ammoCapacity: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            shellPrice: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            repeat: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            actionRepeat: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-          },
-          upgradeParams: {
-            times: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            atk: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            def: { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-          },
+          extraParams: [
+            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+          ],
+          vehicleParams: [
+            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+          ],
+          upgradeParams: [
+            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+          ],
           qualityLock: false,
           attackSkillId: 0,
           attackElementId: 0,
@@ -497,6 +577,7 @@ describe('DataAuditService', () => {
           repeatTimeFloat: 0,
           elementRates: [0, 0],
           elementRateFloats: [0, 0],
+          ownerParams: createDefaultOwnerParams(),
         }];
       }),
       writeJson,
