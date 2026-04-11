@@ -27,6 +27,7 @@ export function LeftPanel() {
   const currentItemIndex = useEditorStore((state) => state.currentItemIndex);
   const selectItem = useEditorStore((state) => state.selectItem);
   const uiMode = useEditorStore((state) => state.uiMode);
+  const currentFileType = useEditorStore((state) => state.currentFileType);
   const dirtyFiles = useEditorStore((state) => state.dirtyFiles);
   const currentFilePath = useEditorStore((state) => state.currentFilePath);
   const config = useEditorStore((state) => state.config);
@@ -36,6 +37,7 @@ export function LeftPanel() {
 
   const items = useMemo(() => currentData?.slice(1) || [], [currentData]);
   const mapItems = currentMapInfos || [];
+  const isMapListActive = currentFileType === 'map';
   
   // 检查当前文件是否有未保存的更改
   const activeDirtyFilePaths = useMemo(() => {
@@ -78,7 +80,7 @@ export function LeftPanel() {
 
   // 过滤项目
   const filteredItems = useMemo(() => {
-    if (uiMode === 'map') {
+    if (isMapListActive) {
       if (!searchTerm) return mapItems;
       const term = searchTerm.toLowerCase();
       return mapItems.filter((item) => (item.name || '').toLowerCase().includes(term));
@@ -91,7 +93,7 @@ export function LeftPanel() {
       const name = ((item as any)?.name || (item as any)?.title || '').toLowerCase();
       return name.includes(term);
     });
-  }, [indexedItems, mapItems, searchTerm, uiMode]);
+  }, [indexedItems, isMapListActive, mapItems, searchTerm]);
 
   useLayoutEffect(() => {
     const updateHeight = () => {
@@ -174,7 +176,7 @@ export function LeftPanel() {
       <div className="px-4 py-3 border-b border-[#30384d]">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold" style={{ color: 'var(--color-accent)' }}>
-            {uiMode === 'map' ? '地图列表' : uiMode === 'drop' ? '敌人列表' : uiMode === 'effect' ? '效果列表' : '项目列表'}
+            {isMapListActive ? '地图列表' : uiMode === 'drop' ? '敌人列表' : uiMode === 'effect' ? '效果列表' : '项目列表'}
           </h2>
           {isCurrentFileDirty && (
             <Badge 
@@ -211,7 +213,7 @@ export function LeftPanel() {
               description={searchTerm ? '未找到匹配的项目' : '打开菜单选择文件'} 
             />
           </div>
-        ) : uiMode === 'map' ? (
+        ) : isMapListActive ? (
           <VirtualList
             items={filteredItems as { id: number; name: string }[]}
             itemHeight={40}
@@ -230,7 +232,7 @@ export function LeftPanel() {
 
       {/* 底部统计 */}
       <div className="px-3 py-2 border-t border-[#30384d] text-xs text-gray-500">
-        共 {uiMode === 'map' ? mapItems.length : items.length} 个项目
+        共 {isMapListActive ? mapItems.length : items.length} 个项目
         {searchTerm && ` (显示 ${filteredItems.length} 个)`}
       </div>
     </div>

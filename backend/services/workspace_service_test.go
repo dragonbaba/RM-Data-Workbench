@@ -1,6 +1,8 @@
 package services
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -36,6 +38,41 @@ func TestSetActiveMapFile(t *testing.T) {
 	service.SetActiveMapFile("D:/Project/data/Actors.json")
 	if service.activeMapFile != "" {
 		t.Fatalf("expected non-map file to clear active map file")
+	}
+}
+
+func TestSetActiveMapFileUpdatesWatchSnapshotBaseline(t *testing.T) {
+	dataPath := t.TempDir()
+	map001 := filepath.Join(dataPath, "Map001.json")
+	map002 := filepath.Join(dataPath, "Map002.json")
+
+	if err := os.WriteFile(map001, []byte(`{"displayName":"A"}`), 0644); err != nil {
+		t.Fatalf("write map001: %v", err)
+	}
+	if err := os.WriteFile(map002, []byte(`{"displayName":"B"}`), 0644); err != nil {
+		t.Fatalf("write map002: %v", err)
+	}
+
+	service := &WorkspaceService{
+		watchSnapshots: map[string]dataFileSnapshot{},
+	}
+
+	service.SetActiveMapFile(map001)
+	if _, exists := service.watchSnapshots[normalizeDataPathKey(map001)]; !exists {
+		t.Fatalf("expected first active map snapshot to be registered")
+	}
+
+	service.SetActiveMapFile(map002)
+	if _, exists := service.watchSnapshots[normalizeDataPathKey(map001)]; exists {
+		t.Fatalf("expected previous active map snapshot to be removed")
+	}
+	if _, exists := service.watchSnapshots[normalizeDataPathKey(map002)]; !exists {
+		t.Fatalf("expected next active map snapshot to be registered")
+	}
+
+	service.SetActiveMapFile(filepath.Join(dataPath, "Actors.json"))
+	if _, exists := service.watchSnapshots[normalizeDataPathKey(map002)]; exists {
+		t.Fatalf("expected active map snapshot to be removed after switching to non-map file")
 	}
 }
 

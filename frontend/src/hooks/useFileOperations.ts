@@ -70,6 +70,7 @@ const normalizePathKey = (value: string) => {
 };
 
 const getFileName = (filePath: string) => normalizePath(filePath).split('/').pop() || '';
+const buildMapFileName = (mapId: number) => `Map${String(mapId).padStart(3, '0')}.json`;
 
 const getDirectoryPath = (filePath: string) => {
   const normalized = normalizePath(filePath);
@@ -245,9 +246,13 @@ export function useFileOperations() {
   };
 
   const openMapById = async (mapId: number, dataPath?: string) => {
-    const resolvedDataPath = dataPath || useEditorStore.getState().config.dataPath;
+    const state = useEditorStore.getState();
+    const resolvedDataPath = dataPath || state.config.dataPath;
     if (!resolvedDataPath) {
       ToastManager.error('请先打开项目');
+      return;
+    }
+    if (state.currentFileType === 'map' && state.currentMapId === mapId && state.currentMapData) {
       return;
     }
 
@@ -256,6 +261,9 @@ export function useFileOperations() {
       ensureMapInfosInStore(mapInfos);
     }
 
+    const fileName = buildMapFileName(mapId);
+    const filePath = joinPath(resolvedDataPath, fileName);
+    const wasCached = DataLoaderService.getCachedData(filePath) !== null;
     const result = await DataLoaderService.loadMapById(mapId, resolvedDataPath);
     if (!result) {
       ToastManager.error(`加载地图失败: #${mapId}`);
@@ -264,7 +272,9 @@ export function useFileOperations() {
 
     useEditorStore.getState().loadMapData(result.mapData, result.filePath, mapId);
     await SetCurrentFile(result.filePath);
-    ToastManager.success(`已加载地图 ${result.fileName}`);
+    if (!wasCached) {
+      ToastManager.success(`已加载地图 ${result.fileName}`);
+    }
   };
 
   const openFile = async () => {

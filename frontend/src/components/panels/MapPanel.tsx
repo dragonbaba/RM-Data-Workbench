@@ -36,6 +36,7 @@ export default function MapPanel() {
       scrollType: currentMapData.scrollType ?? 0,
       encounterStep: currentMapData.encounterStep ?? 30,
       disableDashing: !!currentMapData.disableDashing,
+      inRoom: currentMapData.inRoom === true,
       autoplayBgm: !!currentMapData.autoplayBgm,
       autoplayBgs: !!currentMapData.autoplayBgs,
     });
@@ -53,6 +54,7 @@ export default function MapPanel() {
       scrollType: Number(values.scrollType || 0),
       encounterStep: Number(values.encounterStep || 0),
       disableDashing: !!values.disableDashing,
+      inRoom: values.inRoom ? true : undefined,
       autoplayBgm: !!values.autoplayBgm,
       autoplayBgs: !!values.autoplayBgs,
     };
@@ -128,10 +130,16 @@ export default function MapPanel() {
                 <Switch />
               </Form.Item>
 
-              <Form.Item label="自动播放 BGM" name="autoplayBgm" valuePropName="checked">
+              <Form.Item label="室内地图" name="inRoom" valuePropName="checked">
                 <Switch />
               </Form.Item>
 
+              <Form.Item label="自动播放 BGM" name="autoplayBgm" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Form.Item label="自动播放 BGS" name="autoplayBgs" valuePropName="checked">
                 <Switch />
               </Form.Item>

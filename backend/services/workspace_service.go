@@ -284,7 +284,32 @@ func (w *WorkspaceService) SetActiveMapFile(filePath string) {
 	w.watchMu.Lock()
 	defer w.watchMu.Unlock()
 
+	previous := w.activeMapFile
+	if previous == normalized {
+		return
+	}
+
 	w.activeMapFile = normalized
+	if w.watchSnapshots == nil {
+		return
+	}
+
+	if previous != "" {
+		delete(w.watchSnapshots, previous)
+	}
+	if normalized == "" {
+		return
+	}
+
+	info, err := os.Stat(normalized)
+	if err != nil {
+		return
+	}
+	w.watchSnapshots[normalized] = dataFileSnapshot{
+		Exists:  true,
+		Size:    info.Size(),
+		ModTime: info.ModTime(),
+	}
 }
 
 func (w *WorkspaceService) StopDataFileWatch() {

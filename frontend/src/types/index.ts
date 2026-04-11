@@ -450,6 +450,7 @@ export interface RPGMap {
   height?: number;
   scrollType?: number;
   disableDashing?: boolean;
+  inRoom?: boolean;
   encounterStep?: number;
   note?: string;
   autoplayBgm?: boolean;
