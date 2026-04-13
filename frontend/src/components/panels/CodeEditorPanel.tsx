@@ -218,8 +218,8 @@ export const CodeEditorPanel = memo(() => {
   const handleSave = useCallback(async () => {
     if (!editorRef.current || !currentScriptKey) return;
     const content = editorRef.current.getValue();
-    const success = await saveScriptContent(currentScriptKey, content);
-    if (success) {
+    const result = await saveScriptContent(currentScriptKey, content);
+    if (result.status === 'saved') {
       const activePath = scriptPathRef.current;
       if (activePath) {
         const cached = ScriptCacheManager.get(activePath);

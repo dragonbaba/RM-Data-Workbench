@@ -20,6 +20,7 @@ import { auditAndRepairDataFiles, isAuditTargetFile, toAuditSummaryText } from '
 import { applyWorkspaceSettings } from '../services/MonacoLoader';
 import { DataLoaderService } from '../services/DataLoaderService';
 import { normalizeItemScriptPaths, resolveScriptFilePath } from '../services/ScriptPathCompat';
+import { appendEditorFailureLog, buildSaveFailureLog, formatSaveFailureError } from '../services/SaveFailureLogger';
 import { ScriptCacheManager } from '../services/ScriptCacheManager';
 import { copyScript, createScript, deleteAllScripts, deleteScript, renameScript, saveAllScripts, saveCurrentScript, saveScript } from '../services/ScriptOperations';
 import { ScriptPathManager } from '../services/ScriptPathManager';
@@ -71,6 +72,26 @@ const normalizePathKey = (value: string) => {
 
 const getFileName = (filePath: string) => normalizePath(filePath).split('/').pop() || '';
 const buildMapFileName = (mapId: number) => `Map${String(mapId).padStart(3, '0')}.json`;
+
+const logDataSaveFailure = async (
+  action: string,
+  filePath: string,
+  reason: string,
+  error?: unknown,
+) => {
+  const log = buildSaveFailureLog('[MyNewEditor] 数据保存失败日志', [
+    `时间: ${new Date().toISOString()}`,
+    `操作: ${action}`,
+    `文件路径: ${filePath || '未知'}`,
+    `失败原因: ${reason}`,
+    `错误详情: ${error ? formatSaveFailureError(error) : '无'}`,
+  ]);
+  try {
+    await appendEditorFailureLog(log);
+  } catch (logError) {
+    console.error('[MyNewEditor] 写入 log.txt 失败', logError);
+  }
+};
 
 const getDirectoryPath = (filePath: string) => {
   const normalized = normalizePath(filePath);
@@ -337,6 +358,7 @@ export function useFileOperations() {
         const payload = getCachedPayloadForSave(targetPath, currentFilePath, currentPayload);
         if (!payload) {
           console.warn(`[SaveFile] Missing payload for ${targetPath}`);
+          await logDataSaveFailure('保存当前文件', targetPath, '未找到可写入的数据载荷');
           return false;
         }
 
@@ -348,6 +370,7 @@ export function useFileOperations() {
       return true;
     } catch (error) {
       console.error('Failed to save file:', error);
+      await logDataSaveFailure('保存当前文件', currentFilePath, '写入数据文件失败', error);
       return false;
     }
   };
@@ -379,6 +402,7 @@ export function useFileOperations() {
 
         if (!payload) {
           console.warn(`[SaveAll] Missing payload for ${filePath}`);
+          await logDataSaveFailure('保存全部文件', filePath, '未找到可写入的数据载荷');
           failedCount++;
           continue;
         }
@@ -389,20 +413,22 @@ export function useFileOperations() {
         savedCount++;
       } catch (error) {
         console.error(`Failed to save data file: ${filePath}`, error);
+        await logDataSaveFailure('保存全部文件', filePath, '写入数据文件失败', error);
         failedCount++;
       }
     }
 
     for (const scriptPath of dirtyScriptFiles) {
       try {
-        const success = await saveScript(scriptPath);
-        if (success) {
+        const result = await saveScript(scriptPath);
+        if (result.status === 'saved') {
           savedCount++;
-        } else {
+        } else if (result.status === 'failed') {
           failedCount++;
         }
       } catch (error) {
         console.error(`Failed to save script: ${scriptPath}`, error);
+        await logDataSaveFailure('保存全部文件', scriptPath, '脚本保存流程抛出未捕获异常', error);
         failedCount++;
       }
     }
@@ -911,8 +937,8 @@ export function useFileOperations() {
     });
 
     const disposeScriptSaveCurrent = EventsOn('script:save-current', async () => {
-      const success = await saveCurrentScript();
-      if (success) {
+      const result = await saveCurrentScript();
+      if (result.status === 'saved') {
         ToastManager.success('脚本已保存');
       }
     });

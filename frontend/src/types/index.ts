@@ -238,6 +238,7 @@ export interface RPGItem {
   price?: number;
   effects?: number[];
   ownerParams?: OwnerParams;
+  passiveStates?: number[];
   params?: number[];
   floatParams?: number[];
   extraParams?: EquipExtraParamMap;

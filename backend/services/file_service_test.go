@@ -92,3 +92,25 @@ func TestWriteJSONKeepsLongScalarArraysInline(t *testing.T) {
 		t.Fatalf("expected scalar array to stay inline, got:\n%s", text)
 	}
 }
+
+func TestAppendFileAppendsContent(t *testing.T) {
+	service := NewFileService()
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "logs", "log.txt")
+
+	if err := service.AppendFile(filePath, []byte("first line\n")); err != nil {
+		t.Fatalf("AppendFile first write failed: %v", err)
+	}
+	if err := service.AppendFile(filePath, []byte("second line\n")); err != nil {
+		t.Fatalf("AppendFile second write failed: %v", err)
+	}
+
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("ReadFile failed: %v", err)
+	}
+
+	if string(content) != "first line\nsecond line\n" {
+		t.Fatalf("unexpected appended content: %q", string(content))
+	}
+}

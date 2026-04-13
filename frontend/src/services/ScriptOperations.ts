@@ -4,6 +4,7 @@ import { ToastManager } from '../components/common/ToastManager';
 import { ScriptCacheManager } from './ScriptCacheManager';
 import { extractScriptCode } from './ScriptContentUtils';
 import { formatStoredScriptPath, hasLegacyTimestampScriptPath, normalizeItemScriptPaths, resolveScriptFilePath } from './ScriptPathCompat';
+import { appendEditorFailureLog, buildSaveFailureLog, formatSaveFailureError } from './SaveFailureLogger';
 import { setEditorStore, useEditorStore } from '../stores/editorStore';
 
 const HTTP_PROTOCOL_REGEXP = /^(https?:)?\/\//i;
@@ -23,19 +24,19 @@ const isHttpProtocol = (value: string): boolean => HTTP_PROTOCOL_REGEXP.test(val
 const buildLegacyScriptPathMessage = (pathValue: string): string =>
   `检测到旧版时间戳脚本路径，已不再兼容: ${pathValue}。请改为无时间戳文件名，例如 2_actionSequence.js`;
 
-const formatError = (error: unknown): string => {
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'string') return error;
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return '未知错误';
-  }
-};
+const formatError = (error: unknown): string => formatSaveFailureError(error);
 
 interface ScriptSaveFailure {
   summary: string;
   log: string;
+}
+
+export interface ScriptSaveResult {
+  status: 'saved' | 'skipped' | 'failed';
+  content?: string;
+  filePath?: string;
+  failure?: ScriptSaveFailure;
+  reason?: string;
 }
 
 interface PersistScriptOptions {
@@ -54,8 +55,7 @@ const buildScriptSaveFailure = (
   const timestamp = new Date().toISOString();
   const errorText = error ? formatError(error) : '无';
   const summary = `${options.action}失败，文件未写入，编辑器内容已保留。`;
-  const log = [
-    '[MyNewEditor] 脚本保存失败日志',
+  const log = buildSaveFailureLog('[MyNewEditor] 脚本保存失败日志', [
     `时间: ${timestamp}`,
     `操作: ${options.action}`,
     `脚本键: ${options.scriptKey || '未知'}`,
@@ -65,13 +65,18 @@ const buildScriptSaveFailure = (
     `归一化后长度: ${normalizedContent.length}`,
     `错误详情: ${errorText}`,
     '结果: 未执行成功写入，磁盘文件内容未被本次保存覆盖。',
-  ].join('\n');
+  ]);
 
   return { summary, log };
 };
 
 const showScriptSaveFailure = async (failure: ScriptSaveFailure): Promise<void> => {
   console.error(failure.log);
+  try {
+    await appendEditorFailureLog(failure.log);
+  } catch (logError) {
+    console.error('[MyNewEditor] 写入 log.txt 失败', logError);
+  }
   await InputDialog.showLog({
     title: '脚本保存失败',
     summary: failure.summary,
@@ -398,13 +403,19 @@ export const copyScript = async (): Promise<void> => {
   ToastManager.success(`脚本已复制: ${newKey}`);
 };
 
-export const saveScriptContent = async (scriptKey: string, content: string): Promise<boolean> => {
-  if (!scriptKey) return false;
+export const saveScriptContent = async (scriptKey: string, content: string): Promise<ScriptSaveResult> => {
+  if (!scriptKey) {
+    return { status: 'failed', reason: '脚本键为空' };
+  }
   const { currentItem, currentFilePath, currentItemIndex } = getCurrentItemSnapshot();
-  if (!currentItem) return false;
+  if (!currentItem) {
+    return { status: 'failed', reason: '当前项目不存在' };
+  }
 
   const scripts = currentItem.scripts as Record<string, string> | undefined;
-  if (!scripts || !scripts[scriptKey]) return false;
+  if (!scripts || !scripts[scriptKey]) {
+    return { status: 'failed', reason: `脚本不存在: ${scriptKey}` };
+  }
 
   const storedPath = scripts[scriptKey];
   let resolvedPath = '';
@@ -412,7 +423,7 @@ export const saveScriptContent = async (scriptKey: string, content: string): Pro
     resolvedPath = ensureSupportedStoredScriptPath(storedPath).resolvedPath;
   } catch (error) {
     ToastManager.error(formatError(error));
-    return false;
+    return { status: 'failed', reason: formatError(error) };
   }
 
   const isNewScriptFile = !await FileExists(resolvedPath);
@@ -426,7 +437,7 @@ export const saveScriptContent = async (scriptKey: string, content: string): Pro
 
   if (!result.success) {
     await showScriptSaveFailure(result.failure);
-    return false;
+    return { status: 'failed', failure: result.failure, filePath: resolvedPath };
   }
 
   ScriptCacheManager.set(resolvedPath, result.content, result.content);
@@ -441,20 +452,20 @@ export const saveScriptContent = async (scriptKey: string, content: string): Pro
     markCurrentDataDirty(currentFilePath, currentItemIndex);
   }
 
-  return true;
+  return { status: 'saved', content: result.content, filePath: resolvedPath };
 };
 
-export const saveCurrentScript = async (): Promise<boolean> => {
+export const saveCurrentScript = async (): Promise<ScriptSaveResult> => {
   const { currentItem, currentScriptKey } = getCurrentItemSnapshot();
   if (!currentItem || !currentScriptKey) {
     ToastManager.error('请先选择脚本');
-    return false;
+    return { status: 'failed', reason: '请先选择脚本' };
   }
 
   const scripts = currentItem.scripts as Record<string, string> | undefined;
   if (!scripts || !scripts[currentScriptKey]) {
     ToastManager.error('脚本不存在');
-    return false;
+    return { status: 'failed', reason: '脚本不存在' };
   }
 
   const storedPath = scripts[currentScriptKey];
@@ -463,14 +474,14 @@ export const saveCurrentScript = async (): Promise<boolean> => {
     resolvedPath = ensureSupportedStoredScriptPath(storedPath).resolvedPath;
   } catch (error) {
     ToastManager.error(formatError(error));
-    return false;
+    return { status: 'failed', reason: formatError(error) };
   }
 
   const cached = ScriptCacheManager.get(resolvedPath);
   const content = cached?.content;
   if (typeof content !== 'string') {
     ToastManager.error('没有可保存的脚本内容');
-    return false;
+    return { status: 'failed', reason: '没有可保存的脚本内容' };
   }
 
   return saveScriptContent(currentScriptKey, content);
@@ -478,15 +489,19 @@ export const saveCurrentScript = async (): Promise<boolean> => {
 
 export const getScriptFilePath = (storedPath: string): string => resolveScriptFilePath(storedPath);
 
-export const saveScript = async (filePath: string): Promise<boolean> => {
-  if (!filePath) return false;
+export const saveScript = async (filePath: string): Promise<ScriptSaveResult> => {
+  if (!filePath) {
+    return { status: 'skipped', reason: '脚本路径为空' };
+  }
   if (hasLegacyTimestampScriptPath(filePath)) {
     ScriptCacheManager.delete(filePath);
-    return false;
+    return { status: 'skipped', reason: '旧版时间戳脚本路径已清理' };
   }
   
   const cached = ScriptCacheManager.get(filePath);
-  if (!cached || !cached.dirty) return false;
+  if (!cached || cached.content === cached.originalContent) {
+    return { status: 'skipped', reason: '脚本没有未保存修改' };
+  }
   
   const result = await persistScriptFile({
     action: '保存全部脚本',
@@ -496,20 +511,26 @@ export const saveScript = async (filePath: string): Promise<boolean> => {
 
   if (!result.success) {
     await showScriptSaveFailure(result.failure);
-    return false;
+    return { status: 'failed', failure: result.failure, filePath };
   }
 
   try {
     ScriptCacheManager.set(filePath, result.content, result.content);
     ScriptCacheManager.markClean(filePath);
-    return true;
+    return { status: 'saved', content: result.content, filePath };
   } catch (error) {
     console.error(`Failed to save script: ${filePath}`, error);
-    return false;
+    const failure = buildScriptSaveFailure({
+      action: '保存全部脚本',
+      filePath,
+      content: cached.content,
+    }, '写入成功后更新脚本缓存失败', error);
+    await showScriptSaveFailure(failure);
+    return { status: 'failed', failure, filePath };
   }
 };
 
-export const saveAllScripts = async (): Promise<{ savedCount: number; failedCount: number }> => {
+export const saveAllScripts = async (): Promise<{ savedCount: number; failedCount: number; skippedCount: number }> => {
   const dirtyScriptFiles = ScriptCacheManager.getDirtyFiles();
   const legacyScriptFiles = dirtyScriptFiles.filter((scriptPath) => hasLegacyTimestampScriptPath(scriptPath));
   if (legacyScriptFiles.length > 0) {
@@ -522,18 +543,21 @@ export const saveAllScripts = async (): Promise<{ savedCount: number; failedCoun
   const saveTargets = dirtyScriptFiles.filter((scriptPath) => !hasLegacyTimestampScriptPath(scriptPath));
   if (saveTargets.length === 0) {
     ToastManager.info('没有需要保存的脚本');
-    return { savedCount: 0, failedCount: 0 };
+    return { savedCount: 0, failedCount: 0, skippedCount: 0 };
   }
 
   let savedCount = 0;
   let failedCount = 0;
+  let skippedCount = 0;
   for (const scriptPath of saveTargets) {
     try {
-      const success = await saveScript(scriptPath);
-      if (success) {
+      const result = await saveScript(scriptPath);
+      if (result.status === 'saved') {
         savedCount++;
-      } else {
+      } else if (result.status === 'failed') {
         failedCount++;
+      } else {
+        skippedCount++;
       }
     } catch (error) {
       console.error(`Failed to save script: ${scriptPath}`, error);
@@ -549,7 +573,7 @@ export const saveAllScripts = async (): Promise<{ savedCount: number; failedCoun
     ToastManager.warning(`已保存 ${savedCount} 个脚本，${failedCount} 个脚本保存失败`);
   }
 
-  return { savedCount, failedCount };
+  return { savedCount, failedCount, skippedCount };
 };
 
 export const deleteAllScripts = async (): Promise<void> => {

@@ -48,6 +48,7 @@ afterEach(() => {
 
 // 全局 mock
 vi.mock('../../wailsjs/go/main/App', () => ({
+  AppendEditorLog: vi.fn(),
   OpenFileDialog: vi.fn(),
   SaveFileDialog: vi.fn(),
   ReadJSON: vi.fn(),

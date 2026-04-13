@@ -1,6 +1,7 @@
 import { normalizeEnemyDataEntry } from './EnemyPropertyService';
 import { normalizeEquipmentDataEntry } from './EquipmentPropertyService';
 import { EFFECTS_FILE_NAME, normalizeEffectIdList, normalizeGameEffectEntry } from './GameEffectService';
+import { normalizePassiveStateHostEntry } from './PassiveStatePropertyService';
 import { arePlainDataEqual } from './PlainDataCompare';
 import { normalizeProjectileDataEntry } from './ProjectileTemplateService';
 import { normalizeCommonRangeDataEntry } from './RangePropertyService';
@@ -34,6 +35,13 @@ const OWNER_PARAM_HOST_FILE_NAMES = new Set([
   ACTORS_FILE_NAME,
   CLASSES_FILE_NAME,
   'States.json',
+  'Enemies.json',
+  'Weapons.json',
+  'Armors.json',
+]);
+const PASSIVE_STATE_HOST_FILE_NAMES = new Set([
+  ACTORS_FILE_NAME,
+  CLASSES_FILE_NAME,
   'Enemies.json',
   'Weapons.json',
   'Armors.json',
@@ -94,7 +102,7 @@ const normalizeEntryByFileName = (
   }
 
   if (fileName === 'Enemies.json') {
-    return normalizeEnemyDataEntry(entry) ?? entry;
+    return normalizePassiveStateHostEntry(normalizeEnemyDataEntry(entry) ?? entry) ?? entry;
   }
 
   if (fileName === 'States.json') {
@@ -102,7 +110,12 @@ const normalizeEntryByFileName = (
   }
 
   if (fileName === ACTORS_FILE_NAME) {
-    return ensureActorThrowProjectileOffset(entry as Record<string, unknown>, systemData);
+    const normalized = normalizePassiveStateHostEntry(entry) ?? entry;
+    return ensureActorThrowProjectileOffset(normalized as Record<string, unknown>, systemData);
+  }
+
+  if (fileName === CLASSES_FILE_NAME) {
+    return normalizePassiveStateHostEntry(entry) ?? entry;
   }
 
   if (fileName === 'Items.json') {
@@ -117,11 +130,11 @@ const normalizeEntryByFileName = (
   }
 
   if (fileName === 'Weapons.json') {
-    return normalizeEquipmentDataEntry(entry, { isWeapon: true, systemData }) ?? entry;
+    return normalizePassiveStateHostEntry(normalizeEquipmentDataEntry(entry, { isWeapon: true, systemData }) ?? entry) ?? entry;
   }
 
   if (fileName === 'Armors.json') {
-    return normalizeEquipmentDataEntry(entry, { isArmor: true, systemData }) ?? entry;
+    return normalizePassiveStateHostEntry(normalizeEquipmentDataEntry(entry, { isArmor: true, systemData }) ?? entry) ?? entry;
   }
 
   if (fileName === 'Projectiles.json') {
@@ -535,6 +548,9 @@ export async function auditAndRepairDataFiles(
       let normalizedEntry = normalizeEntryByFileName(fileName, currentEntry, systemData);
       if (OWNER_PARAM_HOST_FILE_NAMES.has(fileName)) {
         normalizedEntry = migrateLegacyOwnerEffectsOnEntry(normalizedEntry, legacyOwnerEffects, systemData);
+      }
+      if (PASSIVE_STATE_HOST_FILE_NAMES.has(fileName)) {
+        normalizedEntry = normalizePassiveStateHostEntry(normalizedEntry) ?? normalizedEntry;
       }
       if (fileName === EFFECTS_FILE_NAME) {
         const effectType: string = typeof (currentEntry as Record<string, unknown>).effectType === 'string'

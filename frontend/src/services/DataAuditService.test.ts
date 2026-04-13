@@ -132,12 +132,14 @@ describe('DataAuditService', () => {
       id: 1,
       projectileOffset: createDefaultThrowProjectileOffset(),
       ownerParams: createDefaultOwnerParams(3),
+      passiveStates: [],
     });
 
     const classPayload = writes.find((item) => item.filePath.endsWith('Classes.json'))?.data as unknown[];
     expect(classPayload[1]).toMatchObject({
       id: 1,
       ownerParams: createDefaultOwnerParams(3),
+      passiveStates: [],
     });
 
     const skillPayload = writes.find((item) => item.filePath.endsWith('Skills.json'))?.data as unknown[];
@@ -258,12 +260,14 @@ describe('DataAuditService', () => {
       canReaction: true,
       reactionSkillId: 9,
       ownerParams: createDefaultOwnerParams(3),
+      passiveStates: [],
     });
 
     const weaponPayload = writes.find((item) => item.filePath.endsWith('Weapons.json'))?.data as unknown[];
     expect(weaponPayload[1]).toMatchObject({
       id: 1,
       ownerParams: createDefaultOwnerParams(3),
+      passiveStates: [],
     });
 
     const armorPayload = writes.find((item) => item.filePath.endsWith('Armors.json'))?.data as unknown[];
@@ -271,6 +275,7 @@ describe('DataAuditService', () => {
       etypeId: 8,
       hiddenAttackSkillId: 17,
       effects: [],
+      passiveStates: [],
       ownerParams: {
         scalar: [0.1],
       },
@@ -279,6 +284,7 @@ describe('DataAuditService', () => {
       etypeId: 9,
       hiddenAttackSkillId: 23,
       ownerParams: createDefaultOwnerParams(3),
+      passiveStates: [],
     });
 
     const projectilePayload = writes.find((item) => item.filePath.endsWith('Projectiles.json'))?.data as unknown[];
@@ -323,10 +329,11 @@ describe('DataAuditService', () => {
             effects: [],
             projectileOffset: createDefaultThrowProjectileOffset(),
             ownerParams: createDefaultOwnerParams(),
+            passiveStates: [],
           }];
         }
         if (filePath.endsWith('Classes.json')) {
-          return [null, { id: 1, name: '猎人', effects: [], ownerParams: createDefaultOwnerParams() }];
+          return [null, { id: 1, name: '猎人', effects: [], ownerParams: createDefaultOwnerParams(), passiveStates: [] }];
         }
         if (filePath.endsWith('Projectiles.json')) {
           return [null, {
@@ -513,6 +520,7 @@ describe('DataAuditService', () => {
           id: 1,
           name: '已规范',
           meta: {},
+          passiveStates: [],
           projectileId: 0,
           skillProjectileTag: -1,
           reactionSuccessRate: 0,

@@ -423,6 +423,14 @@ func (a *App) WriteJSON(filePath string, data interface{}) error {
 	return a.fileService.WriteJSON(filePath, data)
 }
 
+// AppendEditorLog appends a log entry to the editor-local log.txt file.
+func (a *App) AppendEditorLog(content string) error {
+	if strings.TrimSpace(content) == "" {
+		return nil
+	}
+	return a.fileService.AppendFile(a.resolveEditorLogPath(), []byte(content))
+}
+
 // DeleteFile deletes a file
 func (a *App) DeleteFile(filePath string) error {
 	return a.fileService.DeleteFile(filePath)
@@ -467,6 +475,20 @@ func (a *App) GetAppDataDir() string {
 		return ""
 	}
 	return filepath.Join(homeDir, ".rpg-editor")
+}
+
+func (a *App) resolveEditorLogPath() string {
+	executablePath, err := os.Executable()
+	if err == nil && executablePath != "" {
+		return filepath.Join(filepath.Dir(executablePath), "log.txt")
+	}
+
+	workingDir, err := os.Getwd()
+	if err == nil && workingDir != "" {
+		return filepath.Join(workingDir, "log.txt")
+	}
+
+	return "log.txt"
 }
 
 func (a *App) startWorkspaceDataWatch() {

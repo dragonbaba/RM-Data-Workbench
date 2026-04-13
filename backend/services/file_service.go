@@ -106,6 +106,26 @@ func (f *FileService) WriteFile(filePath string, data []byte) error {
 	return nil
 }
 
+// AppendFile appends data to a file, creating the file and directory when needed.
+func (f *FileService) AppendFile(filePath string, data []byte) error {
+	dir := filepath.Dir(filePath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open file for append: %w", err)
+	}
+	defer file.Close()
+
+	if _, err := file.Write(data); err != nil {
+		return fmt.Errorf("failed to append file: %w", err)
+	}
+
+	return nil
+}
+
 // WriteJSON writes data as JSON to a file
 func (f *FileService) WriteJSON(filePath string, data interface{}) error {
 	normalizedData, err := normalizeJSONValue(data)

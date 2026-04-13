@@ -44,6 +44,12 @@ import {
   STATE_CHARGE_QUEUE_SCOPE_NEXT,
 } from '../../services/StateChargePropertyService';
 import {
+  arePassiveStatesEqual,
+  buildPassiveStatesSaveData,
+  normalizePassiveStates,
+} from '../../services/PassiveStatePropertyService';
+import { buildRequiredOwnerParamsSaveData } from '../../services/OwnerParamsPropertyService';
+import {
   EXTRA_PARAM_FIELDS,
   normalizeArmorElementRateFloats,
   normalizeArmorElementRates,
@@ -224,11 +230,6 @@ const areOwnerNumberGroupsEqual = (
   fields: OwnerParamFieldDefinition[],
 ) => arePlainDataEqual(normalizeOwnerNumberGroupValues(left, fields), right);
 
-const isOwnerNumberGroupEmpty = (
-  value: number[],
-  fields: OwnerParamFieldDefinition[],
-) => fields.every((field) => Math.abs(toFloatOrZero(value[field.index])) < 1e-8);
-
 const normalizeOwnerElementRates = (value: unknown, systemData: unknown): number[] => {
   return normalizeArmorElementRates(value, systemData);
 };
@@ -251,25 +252,7 @@ const buildOwnerParamsSaveData = (
   scalar: OwnerScalarMap | null,
   paramRate: OwnerParamRateMap | null,
   elementRate: number[] | null,
-): OwnerParams | undefined => {
-  const nextOwnerParams: OwnerParams = {};
-  if (extraParams && !isOwnerNumberGroupEmpty(extraParams, OWNER_EXTRA_PARAM_FIELDS)) {
-    nextOwnerParams.extraParams = extraParams;
-  }
-  if (specialParams && !isOwnerNumberGroupEmpty(specialParams, OWNER_SPECIAL_PARAM_FIELDS)) {
-    nextOwnerParams.specialParams = specialParams;
-  }
-  if (scalar && !isOwnerNumberGroupEmpty(scalar, OWNER_SCALAR_FIELDS)) {
-    nextOwnerParams.scalar = scalar;
-  }
-  if (paramRate && !isOwnerNumberGroupEmpty(paramRate, OWNER_PARAM_RATE_FIELDS)) {
-    nextOwnerParams.paramRate = paramRate;
-  }
-  if (elementRate && elementRate.some((value) => Math.abs(value) >= 1e-8)) {
-    nextOwnerParams.elementRate = elementRate;
-  }
-  return Object.keys(nextOwnerParams).length > 0 ? nextOwnerParams : undefined;
-};
+): OwnerParams => buildRequiredOwnerParamsSaveData(extraParams, specialParams, scalar, paramRate, elementRate);
 
 const toIntOrZero = (value: unknown): number => {
   const n = typeof value === 'number' ? value : Number(value);
@@ -391,7 +374,15 @@ const ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY = 'enemyAttackAnimationId';
 const ENEMY_REACTION_SKILL_ID_FIELD_KEY = 'enemyReactionSkillId';
 const STATE_WEAKNESS_EFFECTS_FIELD_KEY = 'stateWeaknessEffects';
 const STATE_CHARGE_CONFIG_FIELD_KEY = 'stateChargeConfig';
+const PASSIVE_STATES_FIELD_KEY = 'passiveStates';
 const ORDER_EFFECTS_FIELD_KEY = 'orderEffects';
+const PASSIVE_STATE_HOST_FILE_NAMES = new Set([
+  ACTORS_FILE_NAME.toLowerCase(),
+  CLASSES_FILE_NAME.toLowerCase(),
+  ENEMIES_FILE_NAME.toLowerCase(),
+  WEAPONS_FILE_NAME.toLowerCase(),
+  ARMORS_FILE_NAME.toLowerCase(),
+]);
 
 const TARGET_CAMP_OPTIONS = [
   { value: 1, label: '1 : 敌方' },
@@ -484,6 +475,7 @@ const areArraysEqual = (left: number[], right: number[]) => {
 };
 
 const supportsOwnerParamsFile = (fileName: string) => OWNER_PARAMS_HOST_FILE_NAMES.has(fileName);
+const supportsPassiveStatesFile = (fileName: string) => PASSIVE_STATE_HOST_FILE_NAMES.has(fileName);
 
 const getNextEffectReferenceId = (
   currentIds: number[],
@@ -838,6 +830,7 @@ export function PropertyPanel() {
   const projectileConfigSourceName = isItemFile ? '物品' : '技能';
   const supportsTemplateParams = isWeaponItem || isArmorItem;
   const supportsOwnerParams = supportsOwnerParamsFile(currentFileName);
+  const supportsPassiveStates = supportsPassiveStatesFile(currentFileName);
   const supportsPrice = isItemFile || isWeaponItem || isArmorItem;
   const supportsCommonRange = isItemFile || isSkillFile;
   const watchedTargetCamp = Form.useWatch(TARGET_CAMP_FIELD_KEY, form) ?? 1;
@@ -891,6 +884,10 @@ export function PropertyPanel() {
   );
   const effectsData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown[]>(EFFECTS_FILE_NAME),
+    [referenceRevision],
+  );
+  const statesData = useMemo(
+    () => DataLoaderService.getCachedDataByName<unknown[]>(STATES_FILE_NAME),
     [referenceRevision],
   );
   const classesData = useMemo(
@@ -975,6 +972,10 @@ export function PropertyPanel() {
   const effectOptions = useMemo(
     () => buildEffectReferenceOptions(effectsData),
     [effectsData],
+  );
+  const passiveStateOptions = useMemo(
+    () => buildDataOptions(statesData, '未选择状态').filter((option) => option.value > 0),
+    [statesData],
   );
   useEffect(() => {
     let active = true;
@@ -1179,6 +1180,9 @@ export function PropertyPanel() {
       if (supportsOwnerParams) {
         baseFormValues.ownerParams = buildOwnerParamsFormValues(item.ownerParams, ownerParamRateFields, systemData);
       }
+      if (supportsPassiveStates) {
+        baseFormValues[PASSIVE_STATES_FIELD_KEY] = normalizePassiveStates(item.passiveStates);
+      }
 
       const custom: CustomAttribute[] = [];
       const customParams = item.customParams || {};
@@ -1221,6 +1225,9 @@ export function PropertyPanel() {
       }
       if (supportsOwnerParams && !pendingDraft?.baseValues) {
         nextBaseValues.ownerParams = buildOwnerParamsFormValues(item.ownerParams, ownerParamRateFields, systemData);
+      }
+      if (supportsPassiveStates && !pendingDraft?.baseValues) {
+        nextBaseValues[PASSIVE_STATES_FIELD_KEY] = normalizePassiveStates(item.passiveStates);
       }
       const nextCustomFields = pendingDraft?.customFields ?? custom;
       const savedEffectIds = normalizeEffectIdList(item.effects);
@@ -1483,6 +1490,9 @@ export function PropertyPanel() {
       : null;
     const nextWeaponRangeValues = isWeaponItem ? normalizeWeaponRangeValues(values) : null;
     const ownerValues = (values.ownerParams as OwnerParamsFormValues | undefined) ?? {};
+    const nextPassiveStates = supportsPassiveStates
+      ? buildPassiveStatesSaveData(values[PASSIVE_STATES_FIELD_KEY])
+      : [];
     const nextExtraParams = supportsTemplateParams
       ? normalizeGroupValues<EquipExtraParamMap>(values.extraParams, EXTRA_PARAM_FIELDS)
       : null;
@@ -1562,6 +1572,8 @@ export function PropertyPanel() {
       || (supportsOwnerParams && nextOwnerScalar !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.scalar, nextOwnerScalar, OWNER_SCALAR_FIELDS))
       || (supportsOwnerParams && nextOwnerParamRate !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.paramRate, nextOwnerParamRate, ownerParamRateFields))
       || (supportsOwnerParams && nextOwnerElementRate !== null && !areFloatArraysEqual(normalizeOwnerElementRates(sourceItem.ownerParams?.elementRate, systemData), nextOwnerElementRate))
+      || (supportsOwnerParams && sourceItem.ownerParams == null)
+      || (supportsPassiveStates && !arePassiveStatesEqual(sourceItem.passiveStates, nextPassiveStates))
       || (isArmorItem && nextArmorElementRates !== null && !areFloatArraysEqual(sourceItem.elementRates, nextArmorElementRates))
       || (isArmorItem && nextElementRateFloats !== null && !areFloatArraysEqual(sourceItem.elementRateFloats, nextElementRateFloats))
       || (isEnemyFile && nextEnemyBaseWeaknessGroup !== null && !areEnemyWeaknessGroupsEqual((sourceItem as RPGEnemy).baseWeaknessGroup, nextEnemyBaseWeaknessGroup))
@@ -1596,6 +1608,7 @@ export function PropertyPanel() {
         ...(supportsTemplateParams && nextVehicleParams ? { vehicleParams: nextVehicleParams } : {}),
         ...(supportsTemplateParams && nextUpgradeParams ? { upgradeParams: nextUpgradeParams } : {}),
         ...(supportsOwnerParams ? { ownerParams: nextOwnerParams } : {}),
+        ...(supportsPassiveStates ? { passiveStates: nextPassiveStates } : {}),
         ...(isArmorItem && nextArmorElementRates ? { elementRates: nextArmorElementRates } : {}),
         ...(isArmorItem && nextElementRateFloats ? { elementRateFloats: nextElementRateFloats } : {}),
         ...(isStateFile ? { weaknessStateEffects: nextStateWeaknessEffects ?? undefined } : {}),
@@ -1627,9 +1640,6 @@ export function PropertyPanel() {
 
       if (isStateFile && nextStateWeaknessEffects == null) {
         delete (nextItem as RPGItem).weaknessStateEffects;
-      }
-      if (supportsOwnerParams && nextOwnerParams == null) {
-        delete (nextItem as RPGItem).ownerParams;
       }
 
       if (isEnemyFile && nextEnemyValues !== null) {
@@ -2071,6 +2081,82 @@ export function PropertyPanel() {
         {renderOwnerParamCard('标量奖励', 'scalar', OWNER_SCALAR_FIELDS, '当前只保留经验获取率这类全局标量字段。')}
         {renderOwnerElementRateCard(ownerElementIntro)}
       </>
+    );
+  };
+
+  const renderPassiveStatesCard = () => {
+    if (!supportsPassiveStates) {
+      return null;
+    }
+    return (
+      <Card
+        title="被动状态"
+        className="mb-4"
+        headStyle={{
+          backgroundColor: '#252b3d',
+          borderBottom: '1px solid var(--color-border)',
+          color: 'var(--color-accent)',
+        }}
+        bodyStyle={{ backgroundColor: '#1a1f2e' }}
+      >
+        <div className="text-xs text-gray-500 mb-4">
+          这里维护宿主固定携带的被动状态 id 列表。修复模式会强制补齐空数组，运行时按严格字段直接读取，不再对缺字段做兜底。
+        </div>
+        <Form.List name={PASSIVE_STATES_FIELD_KEY}>
+          {(fields, { add, remove }) => (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-400">被动状态列表</span>
+                <Space>
+                  <Button
+                    type="dashed"
+                    size="small"
+                    icon={<PlusOutlined />}
+                    onClick={() => add(undefined)}
+                  >
+                    添加被动状态
+                  </Button>
+                  <Button
+                    type="dashed"
+                    danger
+                    size="small"
+                    icon={<DeleteOutlined />}
+                    onClick={() => remove(fields.length - 1)}
+                    disabled={fields.length === 0}
+                  >
+                    删除最后一项
+                  </Button>
+                </Space>
+              </div>
+              {fields.length === 0 ? (
+                <div className="rounded border border-dashed border-gray-600 px-4 py-6 text-sm text-gray-500 text-center">
+                  当前没有被动状态，点击右上角“添加被动状态”开始编辑。
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  {fields.map((field, index) => (
+                    <Form.Item
+                      key={field.key}
+                      name={field.name}
+                      label={<span className="text-xs text-gray-400">被动状态 {index + 1}</span>}
+                      className="mb-0"
+                    >
+                      <Select
+                        options={passiveStateOptions}
+                        className="w-full"
+                        placeholder="选择被动状态"
+                        showSearch
+                        allowClear
+                        optionFilterProp="label"
+                      />
+                    </Form.Item>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </Form.List>
+      </Card>
     );
   };
 
@@ -3281,6 +3367,8 @@ export function PropertyPanel() {
             )}
           </Card>
         ) : null}
+
+        {renderPassiveStatesCard()}
 
         {supportsOwnerParams && !isStateFile ? renderOwnerParamsSection() : null}
 
