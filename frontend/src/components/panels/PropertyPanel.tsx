@@ -65,6 +65,9 @@ import {
 } from '../../types';
 import type {
   BattleOrderEffects,
+  EnemyBookChallengeExtraReward,
+  EnemyBookChallengeRewardType,
+  EnemyBookChallengeStar,
   EnemyWeaknessGroup,
   EquipExtraParamMap,
   EquipUpgradeParamMap,
@@ -345,6 +348,7 @@ const ENEMIES_FILE_NAME = 'Enemies.json';
 const STATES_FILE_NAME = 'States.json';
 const CLASSES_FILE_NAME = 'Classes.json';
 const ANIMATIONS_FILE_NAME = 'Animations.json';
+const TROOPS_FILE_NAME = 'Troops.json';
 const OWNER_PARAMS_HOST_FILE_NAMES = new Set([
   ACTORS_FILE_NAME.toLowerCase(),
   CLASSES_FILE_NAME.toLowerCase(),
@@ -372,6 +376,7 @@ const ENEMY_DYNAMIC_WEAKNESS_GROUPS_FIELD_KEY = 'enemyDynamicWeaknessGroups';
 const ENEMY_BOUNTY_FIELD_KEY = 'enemyBounty';
 const ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY = 'enemyAttackAnimationId';
 const ENEMY_REACTION_SKILL_ID_FIELD_KEY = 'enemyReactionSkillId';
+const ENEMY_BOOK_CHALLENGE_FIELD_KEY = 'enemyBookChallenge';
 const STATE_WEAKNESS_EFFECTS_FIELD_KEY = 'stateWeaknessEffects';
 const STATE_CHARGE_CONFIG_FIELD_KEY = 'stateChargeConfig';
 const PASSIVE_STATES_FIELD_KEY = 'passiveStates';
@@ -460,6 +465,13 @@ const SKILL_DURABILITY_CHANGE_MODE_OPTIONS = [
   { value: 'none', label: '0 : 无变化' },
   { value: 'reduce', label: '1 : 降低耐久' },
   { value: 'recover', label: '2 : 恢复耐久' },
+];
+
+const ENEMY_CHALLENGE_REWARD_TYPE_OPTIONS: Array<{ value: EnemyBookChallengeRewardType; label: string }> = [
+  { value: 'gold', label: '金币' },
+  { value: 'item', label: '物品' },
+  { value: 'weapon', label: '武器' },
+  { value: 'armor', label: '防具' },
 ];
 
 const areArraysEqual = (left: number[], right: number[]) => {
@@ -621,6 +633,24 @@ const getElementRateFieldDefinitions = (systemData: unknown) => {
 const normalizeEnemyElementRates = (value: unknown, systemData: unknown): number[] => {
   return normalizeArmorElementRates(value, systemData);
 };
+
+const createEmptyEnemyChallengeExtraReward = (): EnemyBookChallengeExtraReward => ({
+  rewardType: 'item',
+  dataId: 0,
+  amount: 1,
+});
+
+const createEmptyEnemyChallengeStar = (index = 0): EnemyBookChallengeStar => ({
+  star: Math.max(1, index + 1),
+  goldCost: 0,
+  levelRequirement: 0,
+  baseParamRate: 1,
+  passiveStates: [],
+  dropRateMultiplier: 1,
+  goldMultiplier: 1,
+  expMultiplier: 1,
+  extraRewards: [],
+});
 
 const createEmptyEnemyWeaknessGroup = (): EnemyWeaknessGroup => ({
   shieldMax: 0,
@@ -846,6 +876,8 @@ export function PropertyPanel() {
   const watchedEnemyAttackAnimationId = Form.useWatch(ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY, form) ?? 0;
   const watchedEnemyCanReaction = Form.useWatch(ENEMY_CAN_REACTION_FIELD_KEY, form) === true;
   const watchedEnemyReactionSkillId = Form.useWatch(ENEMY_REACTION_SKILL_ID_FIELD_KEY, form) ?? 0;
+  const watchedEnemyIsBoss = Form.useWatch(ENEMY_IS_BOSS_FIELD_KEY, form) === true;
+  const watchedEnemyChallengeTroopId = Form.useWatch([ENEMY_BOOK_CHALLENGE_FIELD_KEY, 'challengeTroopId'], form) ?? 0;
   const watchedEnemyBaseWeaknessGroup = Form.useWatch(ENEMY_BASE_WEAKNESS_GROUP_FIELD_KEY, form);
   const watchedEnemyDynamicWeaknessGroups = Form.useWatch(ENEMY_DYNAMIC_WEAKNESS_GROUPS_FIELD_KEY, form);
   // Reference datasets come from the global cache and should only refresh when the cache revision changes.
@@ -896,6 +928,10 @@ export function PropertyPanel() {
   );
   const animationsData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown[]>(ANIMATIONS_FILE_NAME),
+    [referenceRevision],
+  );
+  const troopsData = useMemo(
+    () => DataLoaderService.getCachedDataByName<unknown[]>(TROOPS_FILE_NAME),
     [referenceRevision],
   );
   const equipTypeOptions = useMemo(
@@ -1058,6 +1094,10 @@ export function PropertyPanel() {
     () => getEnemyReferenceValue(skillsData, '未选择迎击技能', watchedEnemyReactionSkillId, '技能'),
     [skillsData, watchedEnemyReactionSkillId],
   );
+  const enemyChallengeTroopOptions = useMemo(
+    () => getEnemyReferenceValue(troopsData, '未选择挑战敌群', watchedEnemyChallengeTroopId, '敌群'),
+    [troopsData, watchedEnemyChallengeTroopId],
+  );
   const equipExtensionsFilePath = useMemo(() => {
     return DataLoaderService.getFilePathByName(EQUIP_EXTENSIONS_FILE_NAME)
       || joinPath(getDirectoryPath(currentFilePath), EQUIP_EXTENSIONS_FILE_NAME);
@@ -1176,6 +1216,7 @@ export function PropertyPanel() {
         baseFormValues[ENEMY_BOUNTY_FIELD_KEY] = enemyValues.bounty;
         baseFormValues[ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY] = enemyValues.attackAnimationId;
         baseFormValues[ENEMY_REACTION_SKILL_ID_FIELD_KEY] = enemyValues.reactionSkillId;
+        baseFormValues[ENEMY_BOOK_CHALLENGE_FIELD_KEY] = enemyValues.bookChallenge;
       }
       if (supportsOwnerParams) {
         baseFormValues.ownerParams = buildOwnerParamsFormValues(item.ownerParams, ownerParamRateFields, systemData);
@@ -1482,6 +1523,7 @@ export function PropertyPanel() {
           bounty: values[ENEMY_BOUNTY_FIELD_KEY],
           attackAnimationId: values[ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY],
           reactionSkillId: values[ENEMY_REACTION_SKILL_ID_FIELD_KEY],
+          bookChallenge: values[ENEMY_BOOK_CHALLENGE_FIELD_KEY],
         }
       : null;
     const nextCommonRangeValues = supportsCommonRange ? normalizeCommonRangeValues(values) : null;
@@ -2150,6 +2192,296 @@ export function PropertyPanel() {
                         optionFilterProp="label"
                       />
                     </Form.Item>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </Form.List>
+      </Card>
+    );
+  };
+
+  const getEnemyChallengeRewardReferenceOptions = (rewardType: EnemyBookChallengeRewardType) => {
+    switch (rewardType) {
+      case 'weapon':
+        return weaponReferenceOptions;
+      case 'armor':
+        return armorReferenceOptions;
+      case 'gold':
+        return [{ value: 0, label: '0 : 金币奖励不需要数据 id' }];
+      case 'item':
+      default:
+        return itemReferenceOptions;
+    }
+  };
+
+  const renderEnemyChallengeExtraRewards = (starField: FormListFieldData) => (
+    <Form.List name={[starField.name, 'extraRewards']}>
+      {(rewardFields, { add, remove }) => (
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <div className="text-xs text-gray-500">
+              额外奖励在通用掉落之外发放。金币会直接累加，物品/武器/防具会进入战斗结算掉落列表。
+            </div>
+            <Button
+              type="dashed"
+              size="small"
+              icon={<PlusOutlined />}
+              onClick={() => add(createEmptyEnemyChallengeExtraReward())}
+            >
+              添加额外奖励
+            </Button>
+          </div>
+          {rewardFields.length === 0 ? (
+            <div className="rounded border border-dashed border-gray-600 px-4 py-4 text-sm text-gray-500 text-center">
+              当前星级没有额外奖励。
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {rewardFields.map((rewardField, rewardIndex) => (
+                <div
+                  key={rewardField.key}
+                  className="grid grid-cols-[0.8fr,1.2fr,0.6fr,40px] gap-3 items-center"
+                >
+                  <Form.Item
+                    name={[rewardField.name, 'rewardType']}
+                    label={<span className="text-xs text-gray-400">奖励类型 #{rewardIndex + 1}</span>}
+                    className="mb-0"
+                  >
+                    <Select options={ENEMY_CHALLENGE_REWARD_TYPE_OPTIONS} className="w-full" />
+                  </Form.Item>
+                  <Form.Item shouldUpdate noStyle>
+                    {() => {
+                      const rewardType = (form.getFieldValue([
+                        ENEMY_BOOK_CHALLENGE_FIELD_KEY,
+                        'stars',
+                        starField.name,
+                        'extraRewards',
+                        rewardField.name,
+                        'rewardType',
+                      ]) ?? 'item') as EnemyBookChallengeRewardType;
+                      return (
+                        <Form.Item
+                          name={[rewardField.name, 'dataId']}
+                          label={<span className="text-xs text-gray-400">奖励对象</span>}
+                          className="mb-0"
+                        >
+                          <Select
+                            options={getEnemyChallengeRewardReferenceOptions(rewardType)}
+                            className="w-full"
+                            disabled={rewardType === 'gold'}
+                            showSearch
+                            optionFilterProp="label"
+                          />
+                        </Form.Item>
+                      );
+                    }}
+                  </Form.Item>
+                  <Form.Item
+                    name={[rewardField.name, 'amount']}
+                    label={<span className="text-xs text-gray-400">数量</span>}
+                    className="mb-0"
+                  >
+                    <InputNumber min={1} step={1} className="w-full" style={{ width: '100%' }} />
+                  </Form.Item>
+                  <Button
+                    type="text"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => remove(rewardField.name)}
+                    title="删除奖励"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </Form.List>
+  );
+
+  const renderEnemyChallengeCard = () => {
+    if (!isEnemyFile) {
+      return null;
+    }
+    return (
+      <Card
+        title="Boss 图鉴挑战"
+        className="mb-4"
+        headStyle={{
+          backgroundColor: '#252b3d',
+          borderBottom: '1px solid var(--color-border)',
+          color: 'var(--color-accent)',
+        }}
+        bodyStyle={{ backgroundColor: '#1a1f2e' }}
+      >
+        <div className="text-xs text-gray-500 mb-4">
+          这里只维护 `enemy.bookChallenge` 结构。运行时只有已击败的 Boss 才能在图鉴里发起挑战，
+          Boss 只要配置了挑战敌群和星级，就会自动开放挑战；修复模式会补齐完整字段。
+        </div>
+        {!watchedEnemyIsBoss ? (
+          <Alert
+            type="warning"
+            showIcon
+            className="mb-4"
+            message="当前敌人未勾选 Boss，图鉴挑战数据即使配置也不会在运行时开放。"
+          />
+        ) : null}
+        <div className="grid grid-cols-1 gap-4 mb-4">
+          <Form.Item
+            name={[ENEMY_BOOK_CHALLENGE_FIELD_KEY, 'challengeTroopId']}
+            label={<span className="text-xs text-gray-400">挑战敌群</span>}
+            className="mb-0"
+          >
+            <Select
+              options={enemyChallengeTroopOptions}
+              className="w-full"
+              placeholder="选择该 Boss 的图鉴挑战敌群"
+              showSearch
+              optionFilterProp="label"
+            />
+          </Form.Item>
+        </div>
+        <Form.List name={[ENEMY_BOOK_CHALLENGE_FIELD_KEY, 'stars']}>
+          {(fields, { add, remove }) => (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <div className="text-xs text-gray-400">星级配置列表</div>
+                <Button
+                  type="dashed"
+                  size="small"
+                  icon={<PlusOutlined />}
+                  onClick={() => add(createEmptyEnemyChallengeStar(fields.length))}
+                >
+                  添加星级
+                </Button>
+              </div>
+              {fields.length === 0 ? (
+                <div className="rounded border border-dashed border-gray-600 px-4 py-6 text-sm text-gray-500 text-center">
+                  当前没有挑战星级，Boss 图鉴里不会开放挑战入口。
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {fields.map((field, index) => (
+                    <div key={field.key} className="rounded border border-gray-700 p-4">
+                      <div className="flex justify-between items-center mb-3">
+                        <div className="text-sm text-gray-200">挑战星级 #{index + 1}</div>
+                        <Button
+                          type="text"
+                          danger
+                          icon={<DeleteOutlined />}
+                          onClick={() => remove(field.name)}
+                        >
+                          删除星级
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 mb-4">
+                        <Form.Item
+                          name={[field.name, 'star']}
+                          label={<span className="text-xs text-gray-400">星级数</span>}
+                          className="mb-0"
+                        >
+                          <InputNumber min={1} step={1} className="w-full" style={{ width: '100%' }} />
+                        </Form.Item>
+                        <Form.Item
+                          name={[field.name, 'goldCost']}
+                          label={<span className="text-xs text-gray-400">挑战金币</span>}
+                          className="mb-0"
+                        >
+                          <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+                        </Form.Item>
+                        <Form.Item
+                          name={[field.name, 'levelRequirement']}
+                          label={<span className="text-xs text-gray-400">等级要求</span>}
+                          className="mb-0"
+                        >
+                          <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+                        </Form.Item>
+                        <Form.Item
+                          name={[field.name, 'baseParamRate']}
+                          label={<span className="text-xs text-gray-400">基础属性倍率</span>}
+                          className="mb-0"
+                        >
+                          <InputNumber min={0} step={0.1} className="w-full" style={{ width: '100%' }} />
+                        </Form.Item>
+                        <Form.Item
+                          name={[field.name, 'dropRateMultiplier']}
+                          label={<span className="text-xs text-gray-400">掉率倍率</span>}
+                          className="mb-0"
+                        >
+                          <InputNumber min={0} step={0.1} className="w-full" style={{ width: '100%' }} />
+                        </Form.Item>
+                        <Form.Item
+                          name={[field.name, 'goldMultiplier']}
+                          label={<span className="text-xs text-gray-400">金币倍率</span>}
+                          className="mb-0"
+                        >
+                          <InputNumber min={0} step={0.1} className="w-full" style={{ width: '100%' }} />
+                        </Form.Item>
+                        <Form.Item
+                          name={[field.name, 'expMultiplier']}
+                          label={<span className="text-xs text-gray-400">经验倍率</span>}
+                          className="mb-0"
+                        >
+                          <InputNumber min={0} step={0.1} className="w-full" style={{ width: '100%' }} />
+                        </Form.Item>
+                      </div>
+                      <Form.List name={[field.name, 'passiveStates']}>
+                        {(passiveFields, { add: addPassiveState, remove: removePassiveState }) => (
+                          <div className="space-y-3 mb-4">
+                            <div className="flex justify-between items-center">
+                              <div className="text-xs text-gray-400">额外初始被动状态</div>
+                              <div className="flex gap-2">
+                                <Button
+                                  type="dashed"
+                                  size="small"
+                                  icon={<PlusOutlined />}
+                                  onClick={() => addPassiveState(0)}
+                                >
+                                  添加被动
+                                </Button>
+                                <Button
+                                  danger
+                                  size="small"
+                                  icon={<DeleteOutlined />}
+                                  onClick={() => removePassiveState(passiveFields.length - 1)}
+                                  disabled={passiveFields.length === 0}
+                                >
+                                  删除最后一项
+                                </Button>
+                              </div>
+                            </div>
+                            {passiveFields.length === 0 ? (
+                              <div className="rounded border border-dashed border-gray-600 px-4 py-4 text-sm text-gray-500 text-center">
+                                当前星级没有额外初始被动状态。
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-2 gap-4">
+                                {passiveFields.map((passiveField, passiveIndex) => (
+                                  <Form.Item
+                                    key={passiveField.key}
+                                    name={passiveField.name}
+                                    label={<span className="text-xs text-gray-400">被动状态 {passiveIndex + 1}</span>}
+                                    className="mb-0"
+                                  >
+                                    <Select
+                                      options={passiveStateOptions}
+                                      className="w-full"
+                                      placeholder="选择被动状态"
+                                      showSearch
+                                      allowClear
+                                      optionFilterProp="label"
+                                    />
+                                  </Form.Item>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </Form.List>
+                      {renderEnemyChallengeExtraRewards(field)}
+                    </div>
                   ))}
                 </div>
               )}
@@ -3003,6 +3335,8 @@ export function PropertyPanel() {
             </div>
           </Card>
         ) : null}
+
+        {renderEnemyChallengeCard()}
 
         {isStateFile ? (
           <>

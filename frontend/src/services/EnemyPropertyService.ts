@@ -1,4 +1,11 @@
-import type { RPGEnemy } from '../types';
+import type {
+  EnemyBookChallenge,
+  EnemyBookChallengeExtraReward,
+  EnemyBookChallengeRewardType,
+  EnemyBookChallengeStar,
+  RPGEnemy,
+} from '../types';
+import { normalizePassiveStates } from './PassiveStatePropertyService';
 
 export const KNOWN_ENEMY_PROPERTY_KEYS = [
   'classId',
@@ -10,6 +17,7 @@ export const KNOWN_ENEMY_PROPERTY_KEYS = [
   'bounty',
   'attackAnimationId',
   'reactionSkillId',
+  'bookChallenge',
 ] as const;
 
 export interface EnemyEditorValues {
@@ -22,6 +30,7 @@ export interface EnemyEditorValues {
   bounty: number;
   attackAnimationId: number;
   reactionSkillId: number;
+  bookChallenge: EnemyBookChallenge;
 }
 
 export interface EnemyEditorInput {
@@ -34,6 +43,7 @@ export interface EnemyEditorInput {
   bounty?: unknown;
   attackAnimationId?: unknown;
   reactionSkillId?: unknown;
+  bookChallenge?: unknown;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
@@ -59,6 +69,86 @@ const normalizeEnemyClassId = (value: unknown): number => {
 
 const normalizeEnemyLevel = (value: unknown): number => {
   return Math.max(1, toIntOrZero(value) || 1);
+};
+
+const createDefaultEnemyBookChallengeReward = (): EnemyBookChallengeExtraReward => ({
+  rewardType: 'item',
+  dataId: 0,
+  amount: 1,
+});
+
+const createDefaultEnemyBookChallengeStar = (index = 0): EnemyBookChallengeStar => ({
+  star: Math.max(1, index + 1),
+  goldCost: 0,
+  levelRequirement: 0,
+  baseParamRate: 1,
+  passiveStates: [],
+  dropRateMultiplier: 1,
+  goldMultiplier: 1,
+  expMultiplier: 1,
+  extraRewards: [],
+});
+
+const createDefaultEnemyBookChallenge = (): EnemyBookChallenge => ({
+  challengeTroopId: 0,
+  stars: [],
+});
+
+const normalizeEnemyBookChallengeRewardType = (value: unknown): EnemyBookChallengeRewardType => {
+  switch (value) {
+    case 'gold':
+    case 'item':
+    case 'weapon':
+    case 'armor':
+      return value;
+    default:
+      return 'item';
+  }
+};
+
+const normalizeEnemyBookChallengeReward = (value: unknown): EnemyBookChallengeExtraReward => {
+  if (!isRecord(value)) {
+    return createDefaultEnemyBookChallengeReward();
+  }
+  const rewardType = normalizeEnemyBookChallengeRewardType(value.rewardType);
+  return {
+    rewardType,
+    dataId: rewardType === 'gold' ? 0 : Math.max(0, toIntOrZero(value.dataId)),
+    amount: Math.max(1, toIntOrZero(value.amount) || 1),
+  };
+};
+
+const normalizeEnemyBookChallengeStar = (value: unknown, index: number): EnemyBookChallengeStar => {
+  if (!isRecord(value)) {
+    return createDefaultEnemyBookChallengeStar(index);
+  }
+  const extraRewards = Array.isArray(value.extraRewards)
+    ? value.extraRewards.map((reward) => normalizeEnemyBookChallengeReward(reward))
+    : [];
+  return {
+    star: Math.max(1, toIntOrZero(value.star) || (index + 1)),
+    goldCost: Math.max(0, toIntOrZero(value.goldCost)),
+    levelRequirement: Math.max(0, toIntOrZero(value.levelRequirement)),
+    baseParamRate: Math.max(0, Number(value.baseParamRate) || 1),
+    passiveStates: normalizePassiveStates(value.passiveStates),
+    dropRateMultiplier: Math.max(0, Number(value.dropRateMultiplier) || 1),
+    goldMultiplier: Math.max(0, Number(value.goldMultiplier) || 1),
+    expMultiplier: Math.max(0, Number(value.expMultiplier) || 1),
+    extraRewards,
+  };
+};
+
+export const normalizeEnemyBookChallenge = (value: unknown): EnemyBookChallenge => {
+  if (!isRecord(value)) {
+    return createDefaultEnemyBookChallenge();
+  }
+  const stars = Array.isArray(value.stars)
+    ? value.stars.map((star, index) => normalizeEnemyBookChallengeStar(star, index))
+    : [];
+  return {
+    challengeTroopId: Math.max(0, toIntOrZero(value.challengeTroopId)),
+    stars,
+  };
 };
 
 export const getEnemyReferenceValue = (
@@ -110,6 +200,7 @@ export function normalizeEnemyEditorValues(enemy: unknown): EnemyEditorValues {
       bounty: 0,
       attackAnimationId: 0,
       reactionSkillId: 0,
+      bookChallenge: createDefaultEnemyBookChallenge(),
     };
   }
 
@@ -125,6 +216,7 @@ export function normalizeEnemyEditorValues(enemy: unknown): EnemyEditorValues {
     bounty: toIntOrZero(enemy.bounty),
     attackAnimationId: toIntOrZero(enemy.attackAnimationId),
     reactionSkillId: toIntOrZero(enemy.reactionSkillId),
+    bookChallenge: normalizeEnemyBookChallenge(enemy.bookChallenge),
   };
 }
 
@@ -145,6 +237,7 @@ export function normalizeEnemyDataEntry(enemy: unknown): RPGEnemy | null {
     bounty: normalized.bounty,
     attackAnimationId: normalized.attackAnimationId,
     reactionSkillId: normalized.reactionSkillId,
+    bookChallenge: normalized.bookChallenge,
   };
 }
 
@@ -159,7 +252,8 @@ export function hasEnemyEditorChanges(sourceItem: RPGEnemy, nextValues: EnemyEdi
     || currentValues.canReaction !== toBooleanFlag(nextValues.canReaction)
     || currentValues.bounty !== toIntOrZero(nextValues.bounty)
     || currentValues.attackAnimationId !== toIntOrZero(nextValues.attackAnimationId)
-    || currentValues.reactionSkillId !== toIntOrZero(nextValues.reactionSkillId);
+    || currentValues.reactionSkillId !== toIntOrZero(nextValues.reactionSkillId)
+    || JSON.stringify(currentValues.bookChallenge) !== JSON.stringify(normalizeEnemyBookChallenge(nextValues.bookChallenge));
 }
 
 export function buildEnemySaveData(sourceItem: RPGEnemy, nextValues: EnemyEditorInput): RPGEnemy {
@@ -175,6 +269,7 @@ export function buildEnemySaveData(sourceItem: RPGEnemy, nextValues: EnemyEditor
     bounty: toIntOrZero(nextValues.bounty),
     attackAnimationId: toIntOrZero(nextValues.attackAnimationId),
     reactionSkillId: toIntOrZero(nextValues.reactionSkillId),
+    bookChallenge: normalizeEnemyBookChallenge(nextValues.bookChallenge),
     meta: currentMeta,
   };
 }

@@ -297,6 +297,31 @@ export interface EnemyWeaknessGroup {
   slots: EnemyWeaknessSlot[];
 }
 
+export type EnemyBookChallengeRewardType = 'gold' | 'item' | 'weapon' | 'armor';
+
+export interface EnemyBookChallengeExtraReward {
+  rewardType: EnemyBookChallengeRewardType;
+  dataId: number;
+  amount: number;
+}
+
+export interface EnemyBookChallengeStar {
+  star: number;
+  goldCost: number;
+  levelRequirement: number;
+  baseParamRate: number;
+  passiveStates: number[];
+  dropRateMultiplier: number;
+  goldMultiplier: number;
+  expMultiplier: number;
+  extraRewards: EnemyBookChallengeExtraReward[];
+}
+
+export interface EnemyBookChallenge {
+  challengeTroopId: number;
+  stars: EnemyBookChallengeStar[];
+}
+
 export interface StateWeaknessPhaseEffect {
   switchGroupIndex?: number;
   protectElements?: number[];
@@ -329,6 +354,7 @@ export interface RPGEnemy extends RPGItem {
   attackAnimationId?: number;
   reactionSkillId?: number;
   enemyDrops?: EnemyDropEntry[];
+  bookChallenge?: EnemyBookChallenge;
 }
 
 export interface QuestRequirement {
