@@ -113,8 +113,10 @@ export const findDataEntryById = (data: unknown[] | null, id: number): RecordLik
 };
 
 export const resolveThrowProjectileWtypeId = (systemData: unknown): number => {
-  const record = unwrapSystemRecord(systemData) as RecordLike;
-  return (record.weaponTypes as unknown[]).length;
+  const record = unwrapSystemRecord(systemData);
+  if (!record) return 0;
+  const weaponTypes = record.weaponTypes;
+  return Array.isArray(weaponTypes) ? weaponTypes.length : 0;
 };
 
 export const shouldUseStaticActorPreviewFrame = (entry: unknown): boolean => {
