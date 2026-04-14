@@ -27,6 +27,30 @@ func TestIsBaseWatchedDataFile(t *testing.T) {
 	}
 }
 
+func TestIsMapDataFile(t *testing.T) {
+	tests := []struct {
+		name     string
+		expected bool
+	}{
+		{name: "Map001.json", expected: true},
+		{name: "Map999.json", expected: true},
+		{name: "Map1000.json", expected: true},
+		{name: "Map1.json", expected: true},
+		{name: "map042.json", expected: true},
+		{name: "MapInfos.json", expected: false},
+		{name: "Map.json", expected: false},
+		{name: "MapABC.json", expected: false},
+		{name: "Actors.json", expected: false},
+		{name: "map001.txt", expected: false},
+	}
+
+	for _, tc := range tests {
+		if actual := isMapDataFile(tc.name); actual != tc.expected {
+			t.Fatalf("isMapDataFile(%q) = %v, want %v", tc.name, actual, tc.expected)
+		}
+	}
+}
+
 func TestSetActiveMapFile(t *testing.T) {
 	service := &WorkspaceService{}
 

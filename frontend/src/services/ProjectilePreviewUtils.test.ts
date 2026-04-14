@@ -68,6 +68,14 @@ describe('ProjectilePreviewUtils', () => {
     expect(THROW_PROJECTILE_WEAPON_OPTION_ID).toBe(-1);
   });
 
+  it('returns 0 for null/undefined/invalid system data without crashing', () => {
+    expect(resolveThrowProjectileWtypeId(null)).toBe(0);
+    expect(resolveThrowProjectileWtypeId(undefined)).toBe(0);
+    expect(resolveThrowProjectileWtypeId(42)).toBe(0);
+    expect(resolveThrowProjectileWtypeId([null, null])).toBe(0);
+    expect(resolveThrowProjectileWtypeId([null, {}])).toBe(0);
+  });
+
   it('finds data entry by id from cache array', () => {
     const data = [null, { id: 1, name: 'A' }, { id: 2, name: 'B' }];
     expect(findDataEntryById(data as unknown[], 2)).toEqual({ id: 2, name: 'B' });

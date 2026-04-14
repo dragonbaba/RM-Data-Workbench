@@ -185,7 +185,19 @@ func isBaseWatchedDataFile(fileName string) bool {
 
 func isMapDataFile(fileName string) bool {
 	lower := strings.ToLower(strings.TrimSpace(fileName))
-	return strings.HasPrefix(lower, "map") && len(lower) == len("map000.json")
+	if !strings.HasPrefix(lower, "map") || !strings.HasSuffix(lower, ".json") {
+		return false
+	}
+	middle := lower[3 : len(lower)-5] // digits between "map" and ".json"
+	if len(middle) == 0 {
+		return false
+	}
+	for _, c := range middle {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func (w *WorkspaceService) scanDataFileSnapshots(dataPath string) map[string]dataFileSnapshot {
