@@ -17,10 +17,11 @@ import {
 
 export const ACTORS_FILE_NAME = 'Actors.json';
 export const CLASSES_FILE_NAME = 'Classes.json';
+export const SKILLS_FILE_NAME = 'Skills.json';
 export const AUDIT_TARGET_FILE_NAMES = [
   ACTORS_FILE_NAME,
   CLASSES_FILE_NAME,
-  'Skills.json',
+  SKILLS_FILE_NAME,
   'States.json',
   'Enemies.json',
   'Items.json',
@@ -113,18 +114,19 @@ const normalizeEntryByFileName = (
   fileName: string,
   entry: unknown,
   systemData: unknown,
+  skillsData?: unknown[] | null,
 ) => {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
     return entry;
   }
 
-  if (fileName === 'Skills.json') {
+  if (fileName === SKILLS_FILE_NAME) {
     const normalized = normalizeSkillDataEntry(entry) ?? entry;
     return normalizeCommonRangeDataEntry(normalized) ?? normalized;
   }
 
   if (fileName === 'Enemies.json') {
-    return normalizePassiveStateHostEntry(normalizeEnemyDataEntry(entry) ?? entry) ?? entry;
+    return normalizePassiveStateHostEntry(normalizeEnemyDataEntry(entry, skillsData) ?? entry) ?? entry;
   }
 
   if (fileName === 'States.json') {
@@ -641,6 +643,15 @@ export async function auditAndRepairDataFiles(
 ): Promise<DataAuditSummary> {
   const systemPath = joinPath(dataPath, SYSTEM_FILE_NAME);
   const systemData = await deps.readJson(systemPath);
+  const skillsPath = joinPath(dataPath, SKILLS_FILE_NAME);
+  const rawSkillsData = await deps.readJson(skillsPath);
+  const normalizedSkillsData = normalizeFilePayload(SKILLS_FILE_NAME, rawSkillsData).map((entry) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      return entry;
+    }
+    const normalized = normalizeSkillDataEntry(entry) ?? entry;
+    return normalizeCommonRangeDataEntry(normalized) ?? normalized;
+  });
   const effectsPath = joinPath(dataPath, EFFECTS_FILE_NAME);
   const rawEffectsData = await deps.readJson(effectsPath);
   const legacyOwnerEffects = collectLegacyOwnerEffects(rawEffectsData);
@@ -648,7 +659,11 @@ export async function auditAndRepairDataFiles(
 
   for (const fileName of AUDIT_TARGET_FILE_NAMES) {
     const filePath = joinPath(dataPath, fileName);
-    const rawData = fileName === EFFECTS_FILE_NAME ? rawEffectsData : await deps.readJson(filePath);
+    const rawData = fileName === EFFECTS_FILE_NAME
+      ? rawEffectsData
+      : fileName === SKILLS_FILE_NAME
+        ? rawSkillsData
+        : await deps.readJson(filePath);
     const currentData = normalizeFilePayload(fileName, rawData);
     const nextData = [...currentData];
     let repairedEntries = 0;
@@ -661,7 +676,7 @@ export async function auditAndRepairDataFiles(
       }
 
       checkedEntries++;
-      let normalizedEntry = normalizeEntryByFileName(fileName, currentEntry, systemData);
+      let normalizedEntry = normalizeEntryByFileName(fileName, currentEntry, systemData, normalizedSkillsData);
       if (OWNER_PARAM_HOST_FILE_NAMES.has(fileName)) {
         normalizedEntry = migrateLegacyOwnerEffectsOnEntry(normalizedEntry, legacyOwnerEffects, systemData);
       }

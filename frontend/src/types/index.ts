@@ -317,6 +317,29 @@ export interface EnemyBookChallenge {
   stars: EnemyBookChallengeStar[];
 }
 
+export interface EnemyAction {
+  skillId: number;
+  rating: number;
+  conditionType: number;
+  conditionParam1: number;
+  conditionParam2: number;
+}
+
+export interface EnemyActionOverride {
+  targetCamp: number;
+  targetLifeState: number;
+  selectMode: number;
+  areaMode: number;
+  shapeType: number;
+  areaTargetCount: number;
+  shapeParams: Record<string, Record<string, number>>;
+  repeatTime: number;
+  repeatTimeFloat: number;
+  actionRepeat: number;
+}
+
+export type EnemyActionOverrides = Record<string, EnemyActionOverride>;
+
 export interface StateWeaknessPhaseEffect {
   switchGroupIndex?: number;
   protectElements?: number[];
@@ -348,6 +371,8 @@ export interface RPGEnemy extends RPGItem {
   bounty?: number;
   attackAnimationId?: number;
   reactionSkillId?: number;
+  actions?: EnemyAction[];
+  actionOverrides?: EnemyActionOverrides;
   enemyDrops?: EnemyDropEntry[];
   bookChallenge?: EnemyBookChallenge;
 }

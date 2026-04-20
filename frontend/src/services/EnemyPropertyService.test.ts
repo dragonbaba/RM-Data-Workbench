@@ -106,7 +106,28 @@ describe('EnemyPropertyService', () => {
       meta: {
         keep: true,
       },
-    });
+      actions: [
+        { skillId: 5, rating: 4, conditionType: 0, conditionParam1: 0, conditionParam2: 0 },
+      ],
+    }, [
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        id: 5,
+        name: '炮击',
+        targetCamp: 1,
+        targetLifeState: 1,
+        selectMode: 1,
+        areaMode: 2,
+        shapeType: 1,
+        areaTargetCount: 3,
+        repeatTime: 2,
+        repeatTimeFloat: 0,
+      },
+    ]);
 
     expect(normalized).toMatchObject({
       id: 3,
@@ -118,6 +139,83 @@ describe('EnemyPropertyService', () => {
       meta: {
         keep: true,
       },
+      actionOverrides: {
+        5: {
+          targetCamp: 1,
+          targetLifeState: 1,
+          selectMode: 1,
+          areaMode: 2,
+          shapeType: 1,
+          areaTargetCount: 3,
+          repeatTime: 2,
+          repeatTimeFloat: 0,
+          actionRepeat: 1,
+        },
+      },
     });
+  });
+
+  it('会按 actions 中的 skillId 生成共享的默认 actionOverrides', () => {
+    const saved = buildEnemySaveData(
+      {
+        id: 8,
+        name: '火炮犬',
+        actions: [
+          { skillId: 2, rating: 5, conditionType: 0, conditionParam1: 0, conditionParam2: 0 },
+          { skillId: 2, rating: 3, conditionType: 1, conditionParam1: 0, conditionParam2: 50 },
+        ],
+      },
+      {
+        classId: 1,
+        level: 1,
+        levelScope: 0,
+        isBoss: false,
+        allowBreak: false,
+        canReaction: false,
+        bounty: 0,
+        attackAnimationId: 0,
+        reactionSkillId: 0,
+        actionOverrides: {
+          2: {
+            targetCamp: 2,
+            areaMode: 2,
+            areaTargetCount: 4,
+            repeatTime: 3,
+            actionRepeat: 2,
+          },
+        },
+      },
+      [
+        null,
+        null,
+        {
+          id: 2,
+          name: '基础炮击',
+          targetCamp: 1,
+          targetLifeState: 1,
+          selectMode: 1,
+          areaMode: 1,
+          shapeType: 0,
+          areaTargetCount: 0,
+          repeatTime: 1,
+          repeatTimeFloat: 0,
+        },
+      ],
+    );
+
+    expect(saved.actionOverrides).toMatchObject({
+      2: {
+        targetCamp: 2,
+        targetLifeState: 1,
+        selectMode: 1,
+        areaMode: 2,
+        shapeType: 1,
+        areaTargetCount: 4,
+        repeatTime: 3,
+        repeatTimeFloat: 0,
+        actionRepeat: 2,
+      },
+    });
+    expect(Object.keys(saved.actionOverrides ?? {})).toEqual(['2']);
   });
 });

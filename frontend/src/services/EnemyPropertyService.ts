@@ -1,4 +1,6 @@
 import type {
+  EnemyActionOverride,
+  EnemyActionOverrides,
   EnemyBookChallenge,
   EnemyBookChallengeExtraReward,
   EnemyBookChallengeRewardType,
@@ -6,6 +8,8 @@ import type {
   RPGEnemy,
 } from '../types';
 import { normalizePassiveStates } from './PassiveStatePropertyService';
+import { arePlainDataEqual } from './PlainDataCompare';
+import { normalizeCommonRangeValues } from './RangePropertyService';
 
 export const KNOWN_ENEMY_PROPERTY_KEYS = [
   'classId',
@@ -18,6 +22,7 @@ export const KNOWN_ENEMY_PROPERTY_KEYS = [
   'attackAnimationId',
   'reactionSkillId',
   'bookChallenge',
+  'actionOverrides',
 ] as const;
 
 export interface EnemyEditorValues {
@@ -31,6 +36,7 @@ export interface EnemyEditorValues {
   attackAnimationId: number;
   reactionSkillId: number;
   bookChallenge: EnemyBookChallenge;
+  actionOverrides: EnemyActionOverrides;
 }
 
 export interface EnemyEditorInput {
@@ -44,6 +50,7 @@ export interface EnemyEditorInput {
   attackAnimationId?: unknown;
   reactionSkillId?: unknown;
   bookChallenge?: unknown;
+  actionOverrides?: unknown;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
@@ -69,6 +76,78 @@ const normalizeEnemyClassId = (value: unknown): number => {
 
 const normalizeEnemyLevel = (value: unknown): number => {
   return Math.max(1, toIntOrZero(value) || 1);
+};
+
+const normalizeActionRepeat = (value: unknown): number => {
+  const numeric = toIntOrZero(value);
+  return Math.max(1, numeric || 1);
+};
+
+const getSkillDataById = (skillsData: unknown[] | null | undefined, skillId: number): Record<string, unknown> => {
+  if (!Array.isArray(skillsData) || skillId <= 0) {
+    return {};
+  }
+  const skill = skillsData[skillId];
+  return isRecord(skill) ? skill : {};
+};
+
+const collectActionSkillIds = (enemy: Record<string, unknown>): number[] => {
+  const actions = Array.isArray(enemy.actions) ? enemy.actions : [];
+  const skillIds: number[] = [];
+  const seen = new Set<number>();
+  for (let index = 0; index < actions.length; index++) {
+    const action = actions[index];
+    if (!isRecord(action)) {
+      continue;
+    }
+    const skillId = Math.max(0, toIntOrZero(action.skillId));
+    if (skillId <= 0 || seen.has(skillId)) {
+      continue;
+    }
+    seen.add(skillId);
+    skillIds.push(skillId);
+  }
+  return skillIds;
+};
+
+export const normalizeEnemyActionOverride = (
+  value: unknown,
+  fallbackSkill: unknown,
+): EnemyActionOverride => {
+  const fallback = isRecord(fallbackSkill) ? fallbackSkill : {};
+  const source = isRecord(value)
+    ? { ...fallback, ...value }
+    : fallback;
+  const rangeValues = normalizeCommonRangeValues(source);
+  return {
+    ...rangeValues,
+    actionRepeat: normalizeActionRepeat(source.actionRepeat),
+  };
+};
+
+export const createDefaultEnemyActionOverride = (
+  skillId: number,
+  skillsData?: unknown[] | null,
+): EnemyActionOverride => {
+  return normalizeEnemyActionOverride(null, getSkillDataById(skillsData, skillId));
+};
+
+export const normalizeEnemyActionOverrides = (
+  enemy: unknown,
+  skillsData?: unknown[] | null,
+): EnemyActionOverrides => {
+  if (!isRecord(enemy)) {
+    return {};
+  }
+  const rawOverrides = isRecord(enemy.actionOverrides) ? enemy.actionOverrides : {};
+  const skillIds = collectActionSkillIds(enemy);
+  const result: EnemyActionOverrides = {};
+  for (let index = 0; index < skillIds.length; index++) {
+    const skillId = skillIds[index];
+    const key = String(skillId);
+    result[key] = normalizeEnemyActionOverride(rawOverrides[key], getSkillDataById(skillsData, skillId));
+  }
+  return result;
 };
 
 const createDefaultEnemyBookChallengeReward = (): EnemyBookChallengeExtraReward => ({
@@ -188,7 +267,10 @@ export const getEnemyReferenceValue = (
   return options;
 };
 
-export function normalizeEnemyEditorValues(enemy: unknown): EnemyEditorValues {
+export function normalizeEnemyEditorValues(
+  enemy: unknown,
+  skillsData?: unknown[] | null,
+): EnemyEditorValues {
   if (!isRecord(enemy)) {
     return {
       classId: 1,
@@ -201,6 +283,7 @@ export function normalizeEnemyEditorValues(enemy: unknown): EnemyEditorValues {
       attackAnimationId: 0,
       reactionSkillId: 0,
       bookChallenge: createDefaultEnemyBookChallenge(),
+      actionOverrides: {},
     };
   }
 
@@ -217,12 +300,16 @@ export function normalizeEnemyEditorValues(enemy: unknown): EnemyEditorValues {
     attackAnimationId: toIntOrZero(enemy.attackAnimationId),
     reactionSkillId: toIntOrZero(enemy.reactionSkillId),
     bookChallenge: normalizeEnemyBookChallenge(enemy.bookChallenge),
+    actionOverrides: normalizeEnemyActionOverrides(enemy, skillsData),
   };
 }
 
-export function normalizeEnemyDataEntry(enemy: unknown): RPGEnemy | null {
+export function normalizeEnemyDataEntry(
+  enemy: unknown,
+  skillsData?: unknown[] | null,
+): RPGEnemy | null {
   if (!isRecord(enemy)) return null;
-  const normalized = normalizeEnemyEditorValues(enemy);
+  const normalized = normalizeEnemyEditorValues(enemy, skillsData);
   const currentMeta = isRecord(enemy.meta) ? enemy.meta : {};
 
   return {
@@ -238,11 +325,20 @@ export function normalizeEnemyDataEntry(enemy: unknown): RPGEnemy | null {
     attackAnimationId: normalized.attackAnimationId,
     reactionSkillId: normalized.reactionSkillId,
     bookChallenge: normalized.bookChallenge,
+    actionOverrides: normalized.actionOverrides,
   };
 }
 
-export function hasEnemyEditorChanges(sourceItem: RPGEnemy, nextValues: EnemyEditorInput): boolean {
-  const currentValues = normalizeEnemyEditorValues(sourceItem);
+export function hasEnemyEditorChanges(
+  sourceItem: RPGEnemy,
+  nextValues: EnemyEditorInput,
+  skillsData?: unknown[] | null,
+): boolean {
+  const currentValues = normalizeEnemyEditorValues(sourceItem, skillsData);
+  const nextActionOverrides = normalizeEnemyActionOverrides({
+    actions: sourceItem.actions,
+    actionOverrides: nextValues.actionOverrides,
+  }, skillsData);
 
   return currentValues.classId !== normalizeEnemyClassId(nextValues.classId)
     || currentValues.level !== normalizeEnemyLevel(nextValues.level)
@@ -253,11 +349,20 @@ export function hasEnemyEditorChanges(sourceItem: RPGEnemy, nextValues: EnemyEdi
     || currentValues.bounty !== toIntOrZero(nextValues.bounty)
     || currentValues.attackAnimationId !== toIntOrZero(nextValues.attackAnimationId)
     || currentValues.reactionSkillId !== toIntOrZero(nextValues.reactionSkillId)
-    || JSON.stringify(currentValues.bookChallenge) !== JSON.stringify(normalizeEnemyBookChallenge(nextValues.bookChallenge));
+    || JSON.stringify(currentValues.bookChallenge) !== JSON.stringify(normalizeEnemyBookChallenge(nextValues.bookChallenge))
+    || !arePlainDataEqual(currentValues.actionOverrides, nextActionOverrides);
 }
 
-export function buildEnemySaveData(sourceItem: RPGEnemy, nextValues: EnemyEditorInput): RPGEnemy {
+export function buildEnemySaveData(
+  sourceItem: RPGEnemy,
+  nextValues: EnemyEditorInput,
+  skillsData?: unknown[] | null,
+): RPGEnemy {
   const currentMeta = isRecord(sourceItem.meta) ? sourceItem.meta : {};
+  const actionOverrides = normalizeEnemyActionOverrides({
+    actions: sourceItem.actions,
+    actionOverrides: nextValues.actionOverrides,
+  }, skillsData);
   return {
     ...sourceItem,
     classId: normalizeEnemyClassId(nextValues.classId),
@@ -270,6 +375,7 @@ export function buildEnemySaveData(sourceItem: RPGEnemy, nextValues: EnemyEditor
     attackAnimationId: toIntOrZero(nextValues.attackAnimationId),
     reactionSkillId: toIntOrZero(nextValues.reactionSkillId),
     bookChallenge: normalizeEnemyBookChallenge(nextValues.bookChallenge),
+    actionOverrides,
     meta: currentMeta,
   };
 }

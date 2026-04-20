@@ -86,7 +86,15 @@ describe('DataAuditService', () => {
       ]],
       ['D:/Project/data/Enemies.json', [
         null,
-        { id: 1, name: '炮台', reactionSkillId: 9, floatParams: [0.5, 0.4, 0.3] },
+        {
+          id: 1,
+          name: '炮台',
+          reactionSkillId: 9,
+          floatParams: [0.5, 0.4, 0.3],
+          actions: [
+            { skillId: 1, rating: 5, conditionType: 0, conditionParam1: 0, conditionParam2: 0 },
+          ],
+        },
       ]],
       ['D:/Project/data/Weapons.json', [
         null,
@@ -298,6 +306,19 @@ describe('DataAuditService', () => {
       reactionSkillId: 9,
       ownerParams: createDefaultOwnerParams(3),
       passiveStates: [],
+      actionOverrides: {
+        1: {
+          targetCamp: 1,
+          targetLifeState: 1,
+          selectMode: 1,
+          areaMode: 1,
+          shapeType: 0,
+          areaTargetCount: 0,
+          repeatTime: 1,
+          repeatTimeFloat: 0,
+          actionRepeat: 1,
+        },
+      },
     });
     expect(enemyPayload[1]).not.toHaveProperty('floatParams');
 
@@ -538,6 +559,7 @@ describe('DataAuditService', () => {
               challengeTroopId: 0,
               stars: [],
             },
+            actionOverrides: {},
             ownerParams: createDefaultOwnerParams(),
           }];
         }

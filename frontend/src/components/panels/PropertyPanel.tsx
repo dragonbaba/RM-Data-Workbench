@@ -49,6 +49,7 @@ import {
   normalizePassiveStates,
 } from '../../services/PassiveStatePropertyService';
 import { buildRequiredOwnerParamsSaveData } from '../../services/OwnerParamsPropertyService';
+import { EnemyActionOverridesCard } from './EnemyActionOverridesCard';
 import {
   EXTRA_PARAM_FIELDS,
   normalizeArmorElementRateFloats,
@@ -375,6 +376,7 @@ const ENEMY_BOUNTY_FIELD_KEY = 'enemyBounty';
 const ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY = 'enemyAttackAnimationId';
 const ENEMY_REACTION_SKILL_ID_FIELD_KEY = 'enemyReactionSkillId';
 const ENEMY_BOOK_CHALLENGE_FIELD_KEY = 'enemyBookChallenge';
+const ENEMY_ACTION_OVERRIDES_FIELD_KEY = 'enemyActionOverrides';
 const STATE_WEAKNESS_EFFECTS_FIELD_KEY = 'stateWeaknessEffects';
 const STATE_CHARGE_CONFIG_FIELD_KEY = 'stateChargeConfig';
 const PASSIVE_STATES_FIELD_KEY = 'passiveStates';
@@ -1195,7 +1197,7 @@ export function PropertyPanel() {
         baseFormValues[STATE_CHARGE_CONFIG_FIELD_KEY] = normalizeStateChargeEditorValues(item.chargeConfig);
       }
       if (isEnemyFile) {
-        const enemyValues = normalizeEnemyEditorValues(item as RPGEnemy);
+        const enemyValues = normalizeEnemyEditorValues(item as RPGEnemy, skillsData);
         baseFormValues[ENEMY_BASE_WEAKNESS_GROUP_FIELD_KEY] = normalizeEnemyWeaknessGroupField(item as RPGEnemy);
         baseFormValues[ENEMY_DYNAMIC_WEAKNESS_GROUPS_FIELD_KEY] = normalizeEnemyDynamicWeaknessGroupsField(item as RPGEnemy);
         baseFormValues[ENEMY_CLASS_ID_FIELD_KEY] = enemyValues.classId;
@@ -1208,6 +1210,7 @@ export function PropertyPanel() {
         baseFormValues[ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY] = enemyValues.attackAnimationId;
         baseFormValues[ENEMY_REACTION_SKILL_ID_FIELD_KEY] = enemyValues.reactionSkillId;
         baseFormValues[ENEMY_BOOK_CHALLENGE_FIELD_KEY] = enemyValues.bookChallenge;
+        baseFormValues[ENEMY_ACTION_OVERRIDES_FIELD_KEY] = enemyValues.actionOverrides;
       }
       if (supportsOwnerParams) {
         baseFormValues.ownerParams = buildOwnerParamsFormValues(item.ownerParams, ownerParamRateFields, systemData);
@@ -1273,7 +1276,7 @@ export function PropertyPanel() {
       setHasCustomChanges(pendingDraft?.hasCustomChanges ?? false);
       pendingDraftRef.current = null;
     }
-  }, [currentItem, currentItemIndex, equipExtensionsData, form, isArmorItem, isEnemyFile, isStateFile, isWeaponItem, ownerParamRateFields, supportsCommonRange, supportsFlatBaseAttributes, supportsFlatFloatBaseAttributes, supportsHiddenAttackSkill, supportsOwnerParams, supportsPrice, supportsTemplateParams, systemData]);
+  }, [currentItem, currentItemIndex, equipExtensionsData, form, isArmorItem, isEnemyFile, isStateFile, isWeaponItem, ownerParamRateFields, skillsData, supportsCommonRange, supportsFlatBaseAttributes, supportsFlatFloatBaseAttributes, supportsHiddenAttackSkill, supportsOwnerParams, supportsPrice, supportsTemplateParams, systemData]);
 
   useEffect(() => {
     if (!supportsCommonRange) {
@@ -1371,13 +1374,13 @@ export function PropertyPanel() {
     const normalized = isSkillFile
       ? normalizeSkillDataEntry(sourceItem)
       : isEnemyFile
-        ? normalizeEnemyDataEntry(sourceItem as RPGEnemy)
+        ? normalizeEnemyDataEntry(sourceItem as RPGEnemy, skillsData)
         : null;
 
     if (!normalized) return;
     if (arePlainDataEqual(normalized, sourceItem)) return;
     updateCurrentItem(normalized);
-  }, [currentData, currentItemIndex, isEnemyFile, isSkillFile, currentItem, currentFilePath]);
+  }, [currentData, currentItemIndex, isEnemyFile, isSkillFile, currentItem, currentFilePath, skillsData]);
 
   useEffect(() => {
     if ((!isWeaponItem && !isArmorItem) || !currentData || currentItemIndex < 0) {
@@ -1517,6 +1520,7 @@ export function PropertyPanel() {
           attackAnimationId: values[ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY],
           reactionSkillId: values[ENEMY_REACTION_SKILL_ID_FIELD_KEY],
           bookChallenge: values[ENEMY_BOOK_CHALLENGE_FIELD_KEY],
+          actionOverrides: values[ENEMY_ACTION_OVERRIDES_FIELD_KEY],
         }
       : null;
     const nextCommonRangeValues = supportsCommonRange ? normalizeCommonRangeValues(values) : null;
@@ -1617,7 +1621,7 @@ export function PropertyPanel() {
       || (isStateFile && !areStateChargeConfigsEqual(sourceItem.chargeConfig, nextStateChargeConfig ?? undefined))
       || (supportsProjectileConfig && nextSkillValues !== null && hasSkillEditorChanges(sourceItem, nextSkillValues, { isItem: isItemFile }))
       || ((isWeaponItem || isArmorItem) && (sourceItem.qualityLock === true) !== nextQualityLock)
-      || (isEnemyFile && nextEnemyValues !== null && hasEnemyEditorChanges(sourceItem as RPGEnemy, nextEnemyValues));
+      || (isEnemyFile && nextEnemyValues !== null && hasEnemyEditorChanges(sourceItem as RPGEnemy, nextEnemyValues, skillsData));
     const nextEquipTypeId = isWeaponItem ? toIntOrZero(values[EQUIP_TYPE_FIELD_KEY]) : 0;
 
     if (shouldUpdateItem) {
@@ -1678,7 +1682,7 @@ export function PropertyPanel() {
       }
 
       if (isEnemyFile && nextEnemyValues !== null) {
-        nextItem = buildEnemySaveData(nextItem as RPGEnemy, nextEnemyValues);
+        nextItem = buildEnemySaveData(nextItem as RPGEnemy, nextEnemyValues, skillsData);
       }
 
       updateCurrentItem(
@@ -3217,6 +3221,14 @@ export function PropertyPanel() {
               </Form.Item>
             </div>
           </Card>
+        ) : null}
+
+        {isEnemyFile ? (
+          <EnemyActionOverridesCard
+            enemy={(currentItem as RPGEnemy | null) ?? null}
+            skillsData={skillsData}
+            fieldKey={ENEMY_ACTION_OVERRIDES_FIELD_KEY}
+          />
         ) : null}
 
         {renderEnemyChallengeCard()}
