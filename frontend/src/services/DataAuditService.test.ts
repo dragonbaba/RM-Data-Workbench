@@ -13,6 +13,8 @@ const createDefaultThrowProjectileOffset = () => ({
   13: { x: -36, y: -23 },
 });
 
+const createDefaultClassParams = (value = 0) => new Array(8).fill(null).map(() => new Array(100).fill(value));
+
 describe('DataAuditService', () => {
   it('会批量修复目标数据并返回摘要', async () => {
     const writes: Array<{ filePath: string; data: unknown }> = [];
@@ -22,12 +24,21 @@ describe('DataAuditService', () => {
         weaponTypes: ['', '主炮', '副炮', 'SE', '人类通用武器', '猎人武器', '机械师武器', '战士武器', '摔跤手武器', '护士武器', '实验体改造人武器', '艺术家武器', '波奇武器'],
       }],
       ['D:/Project/data/Actors.json', [null, { id: 1, name: '主角', effects: [] }]],
-      ['D:/Project/data/Classes.json', [null, { id: 1, name: '猎人', effects: [] }]],
+      ['D:/Project/data/Classes.json', [null, {
+        id: 1,
+        name: '猎人',
+        effects: [],
+        params: [0, 1, 2, 3, 4, 5, 6, 7],
+        floatParams: [1, 2, 3],
+      }]],
       ['D:/Project/data/Skills.json', [
         null,
         {
           id: 1,
           name: '火球',
+          params: [1, 2, 3, 4, 5, 6, 7, 8],
+          floatParams: [0.1, 0.2, 0.3],
+          extraParams: [{ value: 1 }],
           projectileId: 7,
           skillProjectileTag: 1,
           skillCosts: [
@@ -40,6 +51,8 @@ describe('DataAuditService', () => {
         {
           id: 1,
           name: '蓄力',
+          params: [8, 7, 6, 5, 4, 3, 2, 1],
+          floatParams: [0.5, 0.4],
           effects: [],
           chargeConfig: {
             blockActions: true,
@@ -56,6 +69,8 @@ describe('DataAuditService', () => {
         {
           id: 1,
           name: '手雷',
+          params: [3, 3, 3, 3, 3, 3, 3, 3],
+          floatParams: [0.3, 0.2],
           projectileId: 5,
           skillProjectileTag: 1,
           targetCamp: 2,
@@ -71,7 +86,7 @@ describe('DataAuditService', () => {
       ]],
       ['D:/Project/data/Enemies.json', [
         null,
-        { id: 1, name: '炮台', reactionSkillId: 9 },
+        { id: 1, name: '炮台', reactionSkillId: 9, floatParams: [0.5, 0.4, 0.3] },
       ]],
       ['D:/Project/data/Weapons.json', [
         null,
@@ -88,7 +103,11 @@ describe('DataAuditService', () => {
           id: 1,
           name: '旧弹道',
           sourceType: '角色',
+          sourceId: 1,
           targetType: '敌人',
+          targetId: 1,
+          weaponId: 1,
+          skillId: 1,
           launchAnimation: {
             animationId: 3,
             segments: [
@@ -117,7 +136,7 @@ describe('DataAuditService', () => {
     const summary = await auditAndRepairDataFiles('D:/Project/data', {
       readJson: vi.fn(async (filePath: string) => files.get(filePath)),
       writeJson: vi.fn(async (filePath: string, data: unknown) => {
-        writes.push({ filePath, data });
+        writes.push({ filePath, data: JSON.parse(JSON.stringify(data)) });
         return null;
       }),
     });
@@ -141,6 +160,17 @@ describe('DataAuditService', () => {
       ownerParams: createDefaultOwnerParams(3),
       passiveStates: [],
     });
+    expect((classPayload[1] as any).params).toEqual([
+      new Array(100).fill(0),
+      new Array(100).fill(1),
+      new Array(100).fill(2),
+      new Array(100).fill(3),
+      new Array(100).fill(4),
+      new Array(100).fill(5),
+      new Array(100).fill(6),
+      new Array(100).fill(7),
+    ]);
+    expect(classPayload[1]).not.toHaveProperty('floatParams');
 
     const skillPayload = writes.find((item) => item.filePath.endsWith('Skills.json'))?.data as unknown[];
     expect(skillPayload[1]).toMatchObject({
@@ -188,6 +218,9 @@ describe('DataAuditService', () => {
     });
     expect(skillPayload[1]).not.toHaveProperty('isUsedForProjectile');
     expect(skillPayload[1]).not.toHaveProperty('damage');
+    expect(skillPayload[1]).not.toHaveProperty('params');
+    expect(skillPayload[1]).not.toHaveProperty('floatParams');
+    expect(skillPayload[1]).not.toHaveProperty('extraParams');
 
     const statePayload = writes.find((item) => item.filePath.endsWith('States.json'))?.data as unknown[];
     expect(statePayload[1]).toMatchObject({
@@ -213,6 +246,8 @@ describe('DataAuditService', () => {
       },
       ownerParams: createDefaultOwnerParams(3),
     });
+    expect(statePayload[1]).not.toHaveProperty('params');
+    expect(statePayload[1]).not.toHaveProperty('floatParams');
 
     const itemPayload = writes.find((item) => item.filePath.endsWith('Items.json'))?.data as unknown[];
     expect(itemPayload[1]).toMatchObject({
@@ -252,6 +287,8 @@ describe('DataAuditService', () => {
       },
     });
     expect(itemPayload[1]).not.toHaveProperty('damage');
+    expect(itemPayload[1]).not.toHaveProperty('params');
+    expect(itemPayload[1]).not.toHaveProperty('floatParams');
 
     const enemyPayload = writes.find((item) => item.filePath.endsWith('Enemies.json'))?.data as unknown[];
     expect(enemyPayload[1]).toMatchObject({
@@ -262,6 +299,7 @@ describe('DataAuditService', () => {
       ownerParams: createDefaultOwnerParams(3),
       passiveStates: [],
     });
+    expect(enemyPayload[1]).not.toHaveProperty('floatParams');
 
     const weaponPayload = writes.find((item) => item.filePath.endsWith('Weapons.json'))?.data as unknown[];
     expect(weaponPayload[1]).toMatchObject({
@@ -289,12 +327,16 @@ describe('DataAuditService', () => {
 
     const projectilePayload = writes.find((item) => item.filePath.endsWith('Projectiles.json'))?.data as unknown[];
     expect(projectilePayload[1]).toMatchObject({
-      sourceType: 'actor',
-      targetType: 'enemy',
       launchAnimation: {
         animationId: 3,
       },
     });
+    expect(projectilePayload[1]).not.toHaveProperty('sourceType');
+    expect(projectilePayload[1]).not.toHaveProperty('sourceId');
+    expect(projectilePayload[1]).not.toHaveProperty('targetType');
+    expect(projectilePayload[1]).not.toHaveProperty('targetId');
+    expect(projectilePayload[1]).not.toHaveProperty('weaponId');
+    expect(projectilePayload[1]).not.toHaveProperty('skillId');
     expect((projectilePayload[1] as any).launchAnimation.segments[0]).toMatchObject({
       duration: 1,
       easeX: 'easeOutQuad',
@@ -333,7 +375,14 @@ describe('DataAuditService', () => {
           }];
         }
         if (filePath.endsWith('Classes.json')) {
-          return [null, { id: 1, name: '猎人', effects: [], ownerParams: createDefaultOwnerParams(), passiveStates: [] }];
+          return [null, {
+            id: 1,
+            name: '猎人',
+            effects: [],
+            params: createDefaultClassParams(),
+            ownerParams: createDefaultOwnerParams(),
+            passiveStates: [],
+          }];
         }
         if (filePath.endsWith('Projectiles.json')) {
           return [null, {
@@ -353,12 +402,6 @@ describe('DataAuditService', () => {
               ],
             },
             endAnimationId: 0,
-            sourceType: 'actor',
-            sourceId: 0,
-            targetType: 'enemy',
-            targetId: 0,
-            weaponId: 0,
-            skillId: 0,
           }];
         }
         if (filePath.endsWith('Effects.json')) {
@@ -464,43 +507,6 @@ describe('DataAuditService', () => {
             targetCamp: 1,
             targetLifeState: 1,
             selectMode: 1,
-            classId: 1,
-            level: 1,
-            levelScope: 0,
-            isBoss: false,
-            allowBreak: false,
-            bounty: 0,
-            attackAnimationId: 0,
-            canReaction: false,
-            reactionSkillId: 0,
-            floatParams: [0, 0, 0, 0, 0, 0, 0, 0],
-            extraParams: [
-              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            ],
-            vehicleParams: [
-              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            ],
-            upgradeParams: [
-              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-              { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            ],
-            qualityLock: false,
-            attackSkillId: 0,
-            attackElementId: 0,
-            areaOverride: 0,
             areaMode: 1,
             shapeType: 0,
             areaTargetCount: 0,
@@ -511,82 +517,51 @@ describe('DataAuditService', () => {
             },
             repeatTime: 1,
             repeatTimeFloat: 0,
-            elementRates: [0, 0],
-            elementRateFloats: [0, 0],
+          }];
+        }
+        if (filePath.endsWith('Enemies.json')) {
+          return [null, {
+            id: 1,
+            name: '已规范敌人',
+            meta: {},
+            passiveStates: [],
+            classId: 1,
+            level: 1,
+            levelScope: 0,
+            isBoss: false,
+            allowBreak: false,
+            canReaction: false,
+            bounty: 0,
+            attackAnimationId: 0,
+            reactionSkillId: 0,
+            bookChallenge: {
+              challengeTroopId: 0,
+              stars: [],
+            },
             ownerParams: createDefaultOwnerParams(),
           }];
         }
-        return [null, {
-          id: 1,
-          name: '已规范',
-          meta: {},
-          passiveStates: [],
-          projectileId: 0,
-          skillProjectileTag: -1,
-          reactionSuccessRate: 0,
-          reactionPriority: 0,
-          chargeConfig: {
-            blockActions: false,
-            grantAction: false,
-            releaseSkillId: 0,
-            queueScope: 0,
-            queueShift: 0,
-          },
-          skillCosts: [],
-          targetCamp: 1,
-          targetLifeState: 1,
-          selectMode: 1,
-          classId: 1,
-          level: 1,
-          levelScope: 0,
-          isBoss: false,
-          allowBreak: false,
-          bounty: 0,
-          attackAnimationId: 0,
-          canReaction: false,
-          reactionSkillId: 0,
-          floatParams: [0, 0, 0, 0, 0, 0, 0, 0],
-          extraParams: [
-            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-          ],
-          vehicleParams: [
-            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-          ],
-          upgradeParams: [
-            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-            { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
-          ],
-          qualityLock: false,
-          attackSkillId: 0,
-          attackElementId: 0,
-          areaOverride: 0,
-          areaMode: 1,
-          shapeType: 0,
-          areaTargetCount: 0,
-          shapeParams: {
-            1: { radius: 120 },
-            2: { angleDeg: 60, radius: 180 },
-            3: { length: 240, width: 80 },
-          },
-          repeatTime: 1,
-          repeatTimeFloat: 0,
-          elementRates: [0, 0],
-          elementRateFloats: [0, 0],
-          ownerParams: createDefaultOwnerParams(),
-        }];
+        if (filePath.endsWith('States.json')) {
+          return [null, {
+            id: 1,
+            name: '已规范状态',
+            chargeConfig: {
+              blockActions: false,
+              grantAction: false,
+              releaseSkillId: 0,
+              queueScope: 0,
+              queueShift: 0,
+            },
+            ownerParams: createDefaultOwnerParams(),
+          }];
+        }
+        if (filePath.endsWith('Weapons.json')) {
+          return [null];
+        }
+        if (filePath.endsWith('Armors.json')) {
+          return [null];
+        }
+        return [null];
       }),
       writeJson,
     });
@@ -594,5 +569,54 @@ describe('DataAuditService', () => {
     expect(summary.repairedFiles).toBe(0);
     expect(summary.repairedEntries).toBe(0);
     expect(writeJson).not.toHaveBeenCalled();
+  });
+
+  it('会把 ownerParams 概率字段修复到 0-100 区间，同时保留 0-1 兼容值', async () => {
+    const writes: Array<{ filePath: string; data: unknown }> = [];
+    const summary = await auditAndRepairDataFiles('D:/Project/data', {
+      readJson: vi.fn(async (filePath: string) => {
+        if (filePath.endsWith('System.json')) {
+          return {
+            elements: ['', '通常', '火炎'],
+            weaponTypes: ['', '主炮', '副炮', 'SE', '人类通用武器', '猎人武器', '机械师武器', '战士武器', '摔跤手武器', '护士武器', '实验体改造人武器', '艺术家武器', '波奇武器'],
+          };
+        }
+        if (filePath.endsWith('Enemies.json')) {
+          return [null, {
+            id: 1,
+            name: '测试敌人',
+            ownerParams: {
+              extraParams: [150, -5, 0.9, 0.5, 120, 2],
+              specialParams: [0, 0, 0, 0, 0],
+              scalar: [0],
+              paramRate: [0, 0, 0, 0, 0, 0, 0, 0],
+              elementRate: [0, 0, 0],
+            },
+            passiveStates: [],
+          }];
+        }
+        if (filePath.endsWith('Effects.json')) {
+          return [null];
+        }
+        return [null, {
+          id: 1,
+          name: '已规范',
+          ownerParams: createDefaultOwnerParams(3),
+          passiveStates: [],
+        }];
+      }),
+      writeJson: vi.fn(async (filePath: string, data: unknown) => {
+        writes.push({ filePath, data: JSON.parse(JSON.stringify(data)) });
+        return null;
+      }),
+    });
+
+    const enemyPayload = writes.find((item) => item.filePath.endsWith('Enemies.json'))?.data as unknown[];
+    expect(summary.repairedFiles).toBeGreaterThan(0);
+    expect(enemyPayload[1]).toMatchObject({
+      ownerParams: {
+        extraParams: [100, 0, 0.9, 0.5, 100, 2],
+      },
+    });
   });
 });

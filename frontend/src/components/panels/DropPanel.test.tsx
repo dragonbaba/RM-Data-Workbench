@@ -77,4 +77,62 @@ describe('DropPanel', () => {
     const rareSwitch = (await screen.findAllByRole('switch'))[0];
     expect(rareSwitch).toHaveAttribute('aria-checked', 'false');
   });
+
+  it('图鉴挑战额外奖励保存到原 bookChallenge 星级字段', async () => {
+    useEditorStore.getState().loadData([
+      null,
+      createEnemy({
+        isBoss: true,
+        bookChallenge: {
+          challengeTroopId: 2,
+          stars: [
+            {
+              star: 1,
+              goldCost: 100,
+              levelRequirement: 5,
+              baseParamRate: 1.5,
+              passiveStates: [3],
+              dropRateMultiplier: 1,
+              goldMultiplier: 1,
+              expMultiplier: 1,
+              extraRewards: [],
+            },
+          ],
+        },
+      }),
+    ], ENEMIES_FILE_PATH, 'data');
+
+    render(<DropPanel />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /添加额外奖励/ }));
+
+    await waitFor(() => {
+      const currentEnemy = useEditorStore.getState().currentData?.[1] as {
+        bookChallenge?: {
+          challengeTroopId?: number;
+          stars?: Array<{
+            goldCost?: number;
+            passiveStates?: number[];
+            extraRewards?: Array<{ rewardType?: string; dataId?: number; amount?: number }>;
+          }>;
+        };
+      };
+      expect(currentEnemy.bookChallenge).toMatchObject({
+        challengeTroopId: 2,
+        stars: [
+          {
+            goldCost: 100,
+            passiveStates: [3],
+            extraRewards: [
+              {
+                rewardType: 'item',
+                dataId: 0,
+                amount: 1,
+              },
+            ],
+          },
+        ],
+      });
+    });
+  });
 });

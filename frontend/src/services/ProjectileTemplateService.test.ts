@@ -3,6 +3,7 @@ import {
   cloneProjectileTemplate,
   createDefaultProjectileTemplate,
   normalizeProjectileDataEntry,
+  stripProjectilePreviewFields,
 } from './ProjectileTemplateService';
 
 describe('ProjectileTemplateService', () => {
@@ -23,10 +24,6 @@ describe('ProjectileTemplateService', () => {
         ],
       },
       endAnimationId: 0,
-      sourceType: 'actor',
-      sourceId: 0,
-      targetType: 'enemy',
-      targetId: 0,
     });
   });
 
@@ -42,12 +39,35 @@ describe('ProjectileTemplateService', () => {
     expect(cloned.launchAnimation.segments[0].targetX).toBe(128);
   });
 
-  it('normalizes legacy projectile fields to canonical structure', () => {
+  it('strips preview-only fields before persisting edited templates', () => {
+    const persisted = stripProjectilePreviewFields({
+      ...createDefaultProjectileTemplate(),
+      sourceType: 'actor',
+      sourceId: 1,
+      targetType: 'enemy',
+      targetId: 2,
+      weaponId: 3,
+      skillId: 4,
+    });
+
+    expect(persisted).not.toHaveProperty('sourceType');
+    expect(persisted).not.toHaveProperty('sourceId');
+    expect(persisted).not.toHaveProperty('targetType');
+    expect(persisted).not.toHaveProperty('targetId');
+    expect(persisted).not.toHaveProperty('weaponId');
+    expect(persisted).not.toHaveProperty('skillId');
+  });
+
+  it('normalizes legacy projectile fields and strips preview-only data', () => {
     const normalized = normalizeProjectileDataEntry({
       id: 2,
       name: '旧模板',
       sourceType: '角色',
+      sourceId: 1,
       targetType: '敌人',
+      targetId: 2,
+      weaponId: 3,
+      skillId: 4,
       launchAnimation: {
         animationId: 5,
         segments: [
@@ -57,8 +77,6 @@ describe('ProjectileTemplateService', () => {
     });
 
     expect(normalized).toMatchObject({
-      sourceType: 'actor',
-      targetType: 'enemy',
       launchAnimation: {
         animationId: 5,
         segments: [
@@ -72,6 +90,12 @@ describe('ProjectileTemplateService', () => {
         ],
       },
     });
+    expect(normalized).not.toHaveProperty('sourceType');
+    expect(normalized).not.toHaveProperty('sourceId');
+    expect(normalized).not.toHaveProperty('targetType');
+    expect(normalized).not.toHaveProperty('targetId');
+    expect(normalized).not.toHaveProperty('weaponId');
+    expect(normalized).not.toHaveProperty('skillId');
     expect(normalized?.launchAnimation.segments[0]).not.toHaveProperty('easing');
   });
 });

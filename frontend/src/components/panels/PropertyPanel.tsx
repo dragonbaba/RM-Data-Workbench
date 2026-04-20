@@ -65,8 +65,6 @@ import {
 } from '../../types';
 import type {
   BattleOrderEffects,
-  EnemyBookChallengeExtraReward,
-  EnemyBookChallengeRewardType,
   EnemyBookChallengeStar,
   EnemyWeaknessGroup,
   EquipExtraParamMap,
@@ -467,13 +465,6 @@ const SKILL_DURABILITY_CHANGE_MODE_OPTIONS = [
   { value: 'recover', label: '2 : 恢复耐久' },
 ];
 
-const ENEMY_CHALLENGE_REWARD_TYPE_OPTIONS: Array<{ value: EnemyBookChallengeRewardType; label: string }> = [
-  { value: 'gold', label: '金币' },
-  { value: 'item', label: '物品' },
-  { value: 'weapon', label: '武器' },
-  { value: 'armor', label: '防具' },
-];
-
 const areArraysEqual = (left: number[], right: number[]) => {
   if (left.length !== right.length) {
     return false;
@@ -633,12 +624,6 @@ const getElementRateFieldDefinitions = (systemData: unknown) => {
 const normalizeEnemyElementRates = (value: unknown, systemData: unknown): number[] => {
   return normalizeArmorElementRates(value, systemData);
 };
-
-const createEmptyEnemyChallengeExtraReward = (): EnemyBookChallengeExtraReward => ({
-  rewardType: 'item',
-  dataId: 0,
-  amount: 1,
-});
 
 const createEmptyEnemyChallengeStar = (index = 0): EnemyBookChallengeStar => ({
   star: Math.max(1, index + 1),
@@ -856,6 +841,8 @@ export function PropertyPanel() {
   const isSkillFile = currentFileName === SKILLS_FILE_NAME.toLowerCase();
   const isEnemyFile = currentFileName === ENEMIES_FILE_NAME.toLowerCase();
   const isStateFile = currentFileName === STATES_FILE_NAME.toLowerCase();
+  const supportsFlatBaseAttributes = isActorFile || isEnemyFile || isWeaponItem || isArmorItem;
+  const supportsFlatFloatBaseAttributes = isWeaponItem || isArmorItem;
   const supportsProjectileConfig = isSkillFile || isItemFile;
   const projectileConfigSourceName = isItemFile ? '物品' : '技能';
   const supportsTemplateParams = isWeaponItem || isArmorItem;
@@ -1158,10 +1145,14 @@ export function PropertyPanel() {
     if (currentItem) {
       const item = currentItem as RPGItem;
       const baseFormValues: Record<string, unknown> = {};
-      for (let i = 0; i < BASE_ATTRIBUTES.length; i++) {
-        const attr = BASE_ATTRIBUTES[i];
-        baseFormValues[attr.key] = item.params?.[i] ?? 0;
-        baseFormValues[getFloatFieldKey(attr.key)] = item.floatParams?.[i] ?? 0;
+      if (supportsFlatBaseAttributes) {
+        for (let i = 0; i < BASE_ATTRIBUTES.length; i++) {
+          const attr = BASE_ATTRIBUTES[i];
+          baseFormValues[attr.key] = item.params?.[i] ?? 0;
+          if (supportsFlatFloatBaseAttributes) {
+            baseFormValues[getFloatFieldKey(attr.key)] = item.floatParams?.[i] ?? 0;
+          }
+        }
       }
       if (supportsPrice) {
         baseFormValues[PRICE_FIELD_KEY] = toIntOrZero(item.price);
@@ -1282,7 +1273,7 @@ export function PropertyPanel() {
       setHasCustomChanges(pendingDraft?.hasCustomChanges ?? false);
       pendingDraftRef.current = null;
     }
-  }, [currentItem, currentItemIndex, equipExtensionsData, form, isArmorItem, isEnemyFile, isStateFile, isWeaponItem, ownerParamRateFields, supportsCommonRange, supportsHiddenAttackSkill, supportsOwnerParams, supportsPrice, supportsTemplateParams, systemData]);
+  }, [currentItem, currentItemIndex, equipExtensionsData, form, isArmorItem, isEnemyFile, isStateFile, isWeaponItem, ownerParamRateFields, supportsCommonRange, supportsFlatBaseAttributes, supportsFlatFloatBaseAttributes, supportsHiddenAttackSkill, supportsOwnerParams, supportsPrice, supportsTemplateParams, systemData]);
 
   useEffect(() => {
     if (!supportsCommonRange) {
@@ -1467,7 +1458,9 @@ export function PropertyPanel() {
     for (let i = 0; i < BASE_ATTRIBUTES.length; i++) {
       const attr = BASE_ATTRIBUTES[i];
       newParams[i] = toIntOrZero(values[attr.key]);
-      newFloatParams[i] = toFloatOrZero(values[getFloatFieldKey(attr.key)]);
+      newFloatParams[i] = supportsFlatFloatBaseAttributes
+        ? toFloatOrZero(values[getFloatFieldKey(attr.key)])
+        : 0;
     }
     const nextPrice = supportsPrice ? toIntOrZero(values[PRICE_FIELD_KEY]) : 0;
     const nextAttackSkillId = isWeaponItem ? toIntOrZero(values[ATTACK_SKILL_FIELD_KEY]) : 0;
@@ -1579,8 +1572,8 @@ export function PropertyPanel() {
     const currentCommonRangeValues = supportsCommonRange ? getCommonRangeValues(sourceItem) : null;
     const currentWeaponRangeValues = isWeaponItem ? getWeaponRangeValues(sourceItem) : null;
 
-    const shouldUpdateItem = !areNumberArraysEqual(sourceItem.params, newParams)
-      || !areNumberArraysEqual(sourceItem.floatParams, newFloatParams)
+    const shouldUpdateItem = (supportsFlatBaseAttributes && !areNumberArraysEqual(sourceItem.params, newParams))
+      || (supportsFlatFloatBaseAttributes && !areNumberArraysEqual(sourceItem.floatParams, newFloatParams))
       || (supportsPrice && toIntOrZero(sourceItem.price) !== nextPrice)
       || (isWeaponItem && toIntOrZero(sourceItem.attackSkillId) !== nextAttackSkillId)
       || (supportsHiddenAttackSkill && toIntOrZero(sourceItem.hiddenAttackSkillId) !== nextHiddenAttackSkillId)
@@ -1663,8 +1656,8 @@ export function PropertyPanel() {
         ...(supportsCommonRange && nextCommonRangeValues ? nextCommonRangeValues : {}),
         ...(supportsCommonRange && nextOrderEffects ? { orderEffects: nextOrderEffects as BattleOrderEffects } : {}),
         ...(isWeaponItem && nextWeaponRangeValues ? nextWeaponRangeValues : {}),
-        params: newParams,
-        floatParams: newFloatParams,
+        params: supportsFlatBaseAttributes ? newParams : sourceItem.params,
+        floatParams: supportsFlatFloatBaseAttributes ? newFloatParams : sourceItem.floatParams,
       };
 
       if (supportsProjectileConfig && nextSkillValues !== null) {
@@ -2202,105 +2195,6 @@ export function PropertyPanel() {
     );
   };
 
-  const getEnemyChallengeRewardReferenceOptions = (rewardType: EnemyBookChallengeRewardType) => {
-    switch (rewardType) {
-      case 'weapon':
-        return weaponReferenceOptions;
-      case 'armor':
-        return armorReferenceOptions;
-      case 'gold':
-        return [{ value: 0, label: '0 : 金币奖励不需要数据 id' }];
-      case 'item':
-      default:
-        return itemReferenceOptions;
-    }
-  };
-
-  const renderEnemyChallengeExtraRewards = (starField: FormListFieldData) => (
-    <Form.List name={[starField.name, 'extraRewards']}>
-      {(rewardFields, { add, remove }) => (
-        <div className="space-y-3">
-          <div className="flex justify-between items-center">
-            <div className="text-xs text-gray-500">
-              额外奖励在通用掉落之外发放。金币会直接累加，物品/武器/防具会进入战斗结算掉落列表。
-            </div>
-            <Button
-              type="dashed"
-              size="small"
-              icon={<PlusOutlined />}
-              onClick={() => add(createEmptyEnemyChallengeExtraReward())}
-            >
-              添加额外奖励
-            </Button>
-          </div>
-          {rewardFields.length === 0 ? (
-            <div className="rounded border border-dashed border-gray-600 px-4 py-4 text-sm text-gray-500 text-center">
-              当前星级没有额外奖励。
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {rewardFields.map((rewardField, rewardIndex) => (
-                <div
-                  key={rewardField.key}
-                  className="grid grid-cols-[0.8fr,1.2fr,0.6fr,40px] gap-3 items-center"
-                >
-                  <Form.Item
-                    name={[rewardField.name, 'rewardType']}
-                    label={<span className="text-xs text-gray-400">奖励类型 #{rewardIndex + 1}</span>}
-                    className="mb-0"
-                  >
-                    <Select options={ENEMY_CHALLENGE_REWARD_TYPE_OPTIONS} className="w-full" />
-                  </Form.Item>
-                  <Form.Item shouldUpdate noStyle>
-                    {() => {
-                      const rewardType = (form.getFieldValue([
-                        ENEMY_BOOK_CHALLENGE_FIELD_KEY,
-                        'stars',
-                        starField.name,
-                        'extraRewards',
-                        rewardField.name,
-                        'rewardType',
-                      ]) ?? 'item') as EnemyBookChallengeRewardType;
-                      return (
-                        <Form.Item
-                          name={[rewardField.name, 'dataId']}
-                          label={<span className="text-xs text-gray-400">奖励对象</span>}
-                          className="mb-0"
-                        >
-                          <Select
-                            options={getEnemyChallengeRewardReferenceOptions(rewardType)}
-                            className="w-full"
-                            disabled={rewardType === 'gold'}
-                            showSearch
-                            optionFilterProp="label"
-                          />
-                        </Form.Item>
-                      );
-                    }}
-                  </Form.Item>
-                  <Form.Item
-                    name={[rewardField.name, 'amount']}
-                    label={<span className="text-xs text-gray-400">数量</span>}
-                    className="mb-0"
-                  >
-                    <InputNumber min={1} step={1} className="w-full" style={{ width: '100%' }} />
-                  </Form.Item>
-                  <Button
-                    type="text"
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={() => remove(rewardField.name)}
-                    title="删除奖励"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </Form.List>
-  );
-
   const renderEnemyChallengeCard = () => {
     if (!isEnemyFile) {
       return null;
@@ -2317,8 +2211,8 @@ export function PropertyPanel() {
         bodyStyle={{ backgroundColor: '#1a1f2e' }}
       >
         <div className="text-xs text-gray-500 mb-4">
-          这里只维护 `enemy.bookChallenge` 结构。运行时只有已击败的 Boss 才能在图鉴里发起挑战，
-          Boss 只要配置了挑战敌群和星级，就会自动开放挑战；修复模式会补齐完整字段。
+          这里只维护 `enemy.bookChallenge` 的挑战入口和星级属性。掉落倍率、金币/经验倍率和额外奖励请在掉落模式统一维护。
+          运行时只有已击败的 Boss 才能在图鉴里发起挑战，Boss 只要配置了挑战敌群和星级，就会自动开放挑战。
         </div>
         {!watchedEnemyIsBoss ? (
           <Alert
@@ -2405,27 +2299,6 @@ export function PropertyPanel() {
                         >
                           <InputNumber min={0} step={0.1} className="w-full" style={{ width: '100%' }} />
                         </Form.Item>
-                        <Form.Item
-                          name={[field.name, 'dropRateMultiplier']}
-                          label={<span className="text-xs text-gray-400">掉率倍率</span>}
-                          className="mb-0"
-                        >
-                          <InputNumber min={0} step={0.1} className="w-full" style={{ width: '100%' }} />
-                        </Form.Item>
-                        <Form.Item
-                          name={[field.name, 'goldMultiplier']}
-                          label={<span className="text-xs text-gray-400">金币倍率</span>}
-                          className="mb-0"
-                        >
-                          <InputNumber min={0} step={0.1} className="w-full" style={{ width: '100%' }} />
-                        </Form.Item>
-                        <Form.Item
-                          name={[field.name, 'expMultiplier']}
-                          label={<span className="text-xs text-gray-400">经验倍率</span>}
-                          className="mb-0"
-                        >
-                          <InputNumber min={0} step={0.1} className="w-full" style={{ width: '100%' }} />
-                        </Form.Item>
                       </div>
                       <Form.List name={[field.name, 'passiveStates']}>
                         {(passiveFields, { add: addPassiveState, remove: removePassiveState }) => (
@@ -2480,7 +2353,6 @@ export function PropertyPanel() {
                           </div>
                         )}
                       </Form.List>
-                      {renderEnemyChallengeExtraRewards(field)}
                     </div>
                   ))}
                 </div>
@@ -2822,10 +2694,11 @@ export function PropertyPanel() {
           }}
           bodyStyle={{ backgroundColor: '#1a1f2e' }}
         >
-          <div className="grid grid-cols-4 gap-x-4 gap-y-4">
+          {supportsFlatBaseAttributes ? (
+            <div className="grid grid-cols-4 gap-x-4 gap-y-4">
             {baseAttributeDisplayFields.flatMap(({ key, label, floatLabel }) => {
               const floatKey = getFloatFieldKey(key);
-              return [
+              const items = [
                 (
                   <Form.Item
                     key={key}
@@ -2843,7 +2716,9 @@ export function PropertyPanel() {
                     />
                   </Form.Item>
                 ),
-                (
+              ];
+              if (supportsFlatFloatBaseAttributes) {
+                items.push(
                   <Form.Item
                     key={floatKey}
                     name={floatKey}
@@ -2858,9 +2733,10 @@ export function PropertyPanel() {
                       placeholder="数字"
                       style={{ width: '100%' }}
                     />
-                  </Form.Item>
-                ),
-              ];
+                  </Form.Item>,
+                );
+              }
+              return items;
             })}
             {supportsPrice ? (
               <Form.Item
@@ -2944,7 +2820,14 @@ export function PropertyPanel() {
                 <Switch checkedChildren="锁定" unCheckedChildren="随机" />
               </Form.Item>
             ) : null}
-          </div>
+            </div>
+          ) : (
+            <div className="text-sm text-gray-400">
+              {isClassFile
+                ? '职业使用专用等级成长矩阵，不再走当前平面属性保存链。'
+                : '当前文件类型不支持平面基础属性字段，编辑器不会再写入 params。'}
+            </div>
+          )}
         </Card>
 
         {supportsProjectileConfig ? (

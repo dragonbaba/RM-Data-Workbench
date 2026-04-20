@@ -3,11 +3,10 @@ import * as PIXI from 'pixi.js';
 import { useEditorStore } from '../../stores/editorStore';
 import { DataLoaderService } from '../../services/DataLoaderService';
 import { ReadImageFile } from '../../../wailsjs/go/main/App';
-import type { ProjectileTemplate } from '../../types';
+import type { ProjectilePreviewTemplate, ProjectileTemplate } from '../../types';
 import {
   buildTrajectoryPoints,
   findDataEntryById,
-  normalizeBattlerType,
   resolveActorProjectileOffset,
   resolveEnemyProjectileOffset,
   resolveThrowProjectileWtypeId,
@@ -17,7 +16,7 @@ import {
 } from '../../services/ProjectilePreviewUtils';
 
 interface ProjectileCanvasProps {
-  template?: ProjectileTemplate | null;
+  template?: ProjectilePreviewTemplate | null;
   isPlaying?: boolean;
   playbackSpeed?: number;
   offsetRevision?: number;
@@ -260,9 +259,8 @@ export const ProjectileCanvas = memo(({
   const targetLoadTokenRef = useRef(0);
   const trajectoryLabelPoolRef = useRef<PIXI.Text[]>([]);
   
-  const currentItem = useEditorStore((state) => state.currentItem);
   const config = useEditorStore((state) => state.config);
-  const template = templateProp ?? (currentItem as ProjectileTemplate | null);
+  const template = templateProp ?? null;
   const throwProjectileWtypeId = useMemo(
     () => resolveThrowProjectileWtypeId(DataLoaderService.getCachedDataByName('System.json')),
     [referenceRevision]
@@ -322,8 +320,8 @@ export const ProjectileCanvas = memo(({
   const getEmitterOffset = useCallback(() => {
     if (!template) return { x: 0, y: 0 };
 
-    const sourceType = normalizeBattlerType(template.sourceType, 'actor');
-    const sourceId = template.sourceId || 0;
+    const sourceType = template.sourceType;
+    const sourceId = template.sourceId;
     if (sourceId <= 0) return { x: 0, y: 0 };
 
     if (sourceType === 'actor') {
@@ -495,10 +493,10 @@ export const ProjectileCanvas = memo(({
     const sourceSprite = sourceSpriteRef.current;
     const targetSprite = targetSpriteRef.current;
 
-    const sourceType = normalizeBattlerType(template.sourceType, 'actor');
-    const targetType = normalizeBattlerType(template.targetType, 'enemy');
-    const sourceId = Number(template.sourceId || 0);
-    const targetId = Number(template.targetId || 0);
+    const sourceType = template.sourceType;
+    const targetType = template.targetType;
+    const sourceId = template.sourceId;
+    const targetId = template.targetId;
 
     const sourceToken = ++sourceLoadTokenRef.current;
     const targetToken = ++targetLoadTokenRef.current;

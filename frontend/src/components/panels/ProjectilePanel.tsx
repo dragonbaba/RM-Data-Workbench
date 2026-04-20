@@ -11,15 +11,18 @@ import {
 } from '@ant-design/icons';
 import { useEditorStore } from '../../stores/editorStore';
 import { ProjectileCanvas } from '../common/ProjectileCanvas';
-import type { ProjectileTemplate, TrajectorySegment } from '../../types';
+import type { ProjectilePreviewTemplate, ProjectileTemplate, TrajectorySegment } from '../../types';
 import { ToastManager } from '../common/ToastManager';
 import { InputDialog } from '../common/InputDialog';
 import { DataLoaderService } from '../../services/DataLoaderService';
 import { EventSystem } from '../../core/EventSystem';
-import { cloneProjectileTemplate, createDefaultProjectileTemplate } from '../../services/ProjectileTemplateService';
+import {
+  cloneProjectileTemplate,
+  createDefaultProjectileTemplate,
+  stripProjectilePreviewFields,
+} from '../../services/ProjectileTemplateService';
 import {
   findDataEntryById,
-  normalizeBattlerType,
   resolveActorProjectileOffset,
   resolveEnemyProjectileOffset,
   resolveThrowProjectileWtypeId,
@@ -138,6 +141,7 @@ export function ProjectilePanel() {
   const enemySkillMemoryRef = useRef<Record<number, number>>({});
 
   const template = currentItem as ProjectileTemplate | null;
+  const hasTemplate = Boolean(template);
   const sourceType = previewSourceType;
   const targetType = previewTargetType;
   const systemData = useMemo(() => DataLoaderService.getCachedDataByName(SYSTEM_FILE_NAME), [referenceRevision]);
@@ -312,7 +316,10 @@ export function ProjectilePanel() {
   const updateTemplate = useCallback((updates: Partial<ProjectileTemplate>) => {
     if (!template || !currentData || currentItemIndex < 0) return;
 
-    const updatedTemplate = { ...template, ...updates };
+    const updatedTemplate = {
+      ...stripProjectilePreviewFields(template as unknown as Record<string, unknown>),
+      ...updates,
+    };
     const newData = [...currentData];
     newData[currentItemIndex] = updatedTemplate;
     
@@ -442,32 +449,16 @@ export function ProjectilePanel() {
   }, []);
 
   useEffect(() => {
-    if (!template) return;
-    const nextSourceType = normalizeBattlerType(template.sourceType, 'actor');
-    const nextTargetType = normalizeBattlerType(template.targetType, 'enemy');
-    const sourceId = Number(template.sourceId || 0);
-    setPreviewSourceType(nextSourceType);
-    setPreviewSourceId(sourceId);
-    setPreviewTargetType(nextTargetType);
-    setPreviewTargetId(Number(template.targetId || 0));
-    if (nextSourceType === 'actor') {
-      setActorOffsetActorId(sourceId);
-      setActorOffsetWeaponId(getRememberedActorWeapon(sourceId) || template.weaponId || 0);
-    } else {
-      setEnemyOffsetEnemyId(sourceId);
-      setEnemyOffsetSkillId(getRememberedEnemySkill(sourceId) || template.skillId || 0);
-    }
-  }, [
-    currentItemIndex,
-    getRememberedActorWeapon,
-    getRememberedEnemySkill,
-    template?.sourceType,
-    template?.sourceId,
-    template?.targetType,
-    template?.targetId,
-    template?.skillId,
-    template?.weaponId,
-  ]);
+    if (!hasTemplate) return;
+    setPreviewSourceType('actor');
+    setPreviewSourceId(0);
+    setPreviewTargetType('enemy');
+    setPreviewTargetId(0);
+    setActorOffsetActorId(0);
+    setActorOffsetWeaponId(0);
+    setEnemyOffsetEnemyId(0);
+    setEnemyOffsetSkillId(0);
+  }, [currentItemIndex, hasTemplate, template?.id]);
 
   useEffect(() => {
     const offset = getActorOffsetFromCache(actorOffsetActorId, actorOffsetWeaponId);
@@ -789,7 +780,7 @@ export function ProjectilePanel() {
   ]);
 
   const totalFrames = getSegments().reduce((sum, seg) => sum + normalizeDurationFrames(seg.duration), 0) || 0;
-  const previewTemplate = useMemo(() => {
+  const previewTemplate = useMemo<ProjectilePreviewTemplate | null>(() => {
     if (!template) return null;
     return sourceType === 'actor'
       ? {

@@ -13,22 +13,36 @@ const normalizeDurationFrames = (duration: unknown): number => {
   return Math.max(frames, MIN_DURATION_FRAMES);
 };
 
-const normalizeBattlerType = (value: unknown, fallback: 'actor' | 'enemy'): 'actor' | 'enemy' => {
-  if (typeof value !== 'string') return fallback;
-  const trimmed = value.trim().toLowerCase();
-  if (trimmed === 'actor' || trimmed === '角色' || trimmed === 'ally' || trimmed === 'player') {
-    return 'actor';
-  }
-  if (trimmed === 'enemy' || trimmed === '敌人' || trimmed === 'foe') {
-    return 'enemy';
-  }
-  return fallback;
-};
-
 const normalizeEaseName = (value: unknown): string => {
   if (typeof value !== 'string') return '';
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : '';
+};
+
+const PROJECTILE_PREVIEW_FIELD_KEYS = [
+  'sourceType',
+  'sourceId',
+  'targetType',
+  'targetId',
+  'weaponId',
+  'skillId',
+] as const;
+
+const isProjectilePreviewFieldKey = (key: string): boolean => {
+  for (let i = 0; i < PROJECTILE_PREVIEW_FIELD_KEYS.length; i++) {
+    if (PROJECTILE_PREVIEW_FIELD_KEYS[i] === key) return true;
+  }
+  return false;
+};
+
+export const stripProjectilePreviewFields = (source: Record<string, unknown>): ProjectileTemplate => {
+  const persistedSource: Record<string, unknown> = {};
+  for (const key in source) {
+    if (!isProjectilePreviewFieldKey(key)) {
+      persistedSource[key] = source[key];
+    }
+  }
+  return persistedSource as unknown as ProjectileTemplate;
 };
 
 export const createDefaultProjectileTemplate = (): ProjectileTemplate => ({
@@ -47,25 +61,24 @@ export const createDefaultProjectileTemplate = (): ProjectileTemplate => ({
     ],
   },
   endAnimationId: 0,
-  sourceType: 'actor',
-  sourceId: 0,
-  targetType: 'enemy',
-  targetId: 0,
 });
 
 export const cloneProjectileTemplate = (
   source: ProjectileTemplate,
   overrides: Partial<ProjectileTemplate> = {},
-): ProjectileTemplate => ({
-  ...source,
-  ...overrides,
-  launchAnimation: {
-    animationId: source.launchAnimation?.animationId || 0,
-    segments: Array.isArray(source.launchAnimation?.segments)
-      ? source.launchAnimation.segments.map((segment) => ({ ...segment }))
-      : [],
-  },
-});
+): ProjectileTemplate => {
+  const persistedSource = stripProjectilePreviewFields(source as unknown as Record<string, unknown>);
+  return {
+    ...persistedSource,
+    ...overrides,
+    launchAnimation: {
+      animationId: source.launchAnimation?.animationId || 0,
+      segments: Array.isArray(source.launchAnimation?.segments)
+        ? source.launchAnimation.segments.map((segment) => ({ ...segment }))
+        : [],
+    },
+  };
+};
 
 export const normalizeProjectileDataEntry = (value: unknown): ProjectileTemplate | null => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -79,13 +92,15 @@ export const normalizeProjectileDataEntry = (value: unknown): ProjectileTemplate
       ? launchAnimationSource
       : {}
   ) as Record<string, unknown>;
+  const persistedSource = stripProjectilePreviewFields(source);
   const segmentSource = Array.isArray(launchAnimation.segments) ? launchAnimation.segments : [];
 
   const segments = segmentSource.map((segment) => {
     const current = (segment && typeof segment === 'object' && !Array.isArray(segment))
       ? (segment as Record<string, unknown>)
       : {};
-    const { easing: _legacyEasing, ...rest } = current;
+    const rest = { ...current };
+    delete rest.easing;
     const legacyEasing = normalizeEaseName(current.easing);
     const easeX = normalizeEaseName(current.easeX) || legacyEasing || 'linear';
     const easeY = normalizeEaseName(current.easeY) || legacyEasing || 'linear';
@@ -101,7 +116,7 @@ export const normalizeProjectileDataEntry = (value: unknown): ProjectileTemplate
   });
 
   return {
-    ...(source as unknown as ProjectileTemplate),
+    ...(persistedSource as unknown as ProjectileTemplate),
     name: typeof source.name === 'string' && source.name.trim().length > 0 ? source.name : '新弹道',
     startAnimationId: Math.max(0, toIntOrZero(source.startAnimationId)),
     launchAnimation: {
@@ -109,11 +124,5 @@ export const normalizeProjectileDataEntry = (value: unknown): ProjectileTemplate
       segments,
     },
     endAnimationId: Math.max(0, toIntOrZero(source.endAnimationId)),
-    sourceType: normalizeBattlerType(source.sourceType, 'actor'),
-    sourceId: Math.max(0, toIntOrZero(source.sourceId)),
-    targetType: normalizeBattlerType(source.targetType, 'enemy'),
-    targetId: Math.max(0, toIntOrZero(source.targetId)),
-    weaponId: Math.max(0, toIntOrZero(source.weaponId)),
-    skillId: Math.max(0, toIntOrZero(source.skillId)),
   };
 };

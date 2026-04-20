@@ -125,6 +125,16 @@ describe('GameEffectService', () => {
     expect(result[2]).toBeNull();
   });
 
+  it('会拒绝 legacy owner effectType 作为正式效果协议', () => {
+    expect(normalizeGameEffectEntry({
+      name: '旧 owner 奖励',
+      description: '',
+      effectType: 'owner_stat_bonus',
+      isStatic: true,
+      config: { selector: {}, args: { ops: [{ group: 'extraParams', key: 'hitRate', op: 'add', value: 10 }] } },
+    })).toBeNull();
+  });
+
   it('会把旧字符串描述归一化为 description 数组', () => {
     expect(normalizeGameEffectEntry({
       name: '单引擎补正',

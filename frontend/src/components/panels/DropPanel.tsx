@@ -4,7 +4,14 @@ import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { EventSystem } from '../../core/EventSystem';
 import { useEditorStore } from '../../stores/editorStore';
 import { DataLoaderService } from '../../services/DataLoaderService';
-import type { EnemyDropEntry, RPGEnemy } from '../../types';
+import { normalizeEnemyBookChallenge } from '../../services/EnemyPropertyService';
+import type {
+  EnemyBookChallengeExtraReward,
+  EnemyBookChallengeRewardType,
+  EnemyBookChallengeStar,
+  EnemyDropEntry,
+  RPGEnemy,
+} from '../../types';
 
 type DataOption = {
   value: number;
@@ -27,6 +34,13 @@ const DROP_TYPE_OPTIONS: Array<{ value: 0 | 1 | 2; label: string }> = [
   { value: 2, label: '防具' },
 ];
 
+const CHALLENGE_REWARD_TYPE_OPTIONS: Array<{ value: EnemyBookChallengeRewardType; label: string }> = [
+  { value: 'gold', label: '金币' },
+  { value: 'item', label: '物品' },
+  { value: 'weapon', label: '武器' },
+  { value: 'armor', label: '防具' },
+];
+
 const getDisplayName = (item: DataRecord | null, fallback: string) => {
   const name = typeof item?.name === 'string' ? item.name.trim() : '';
   return name || fallback;
@@ -44,6 +58,12 @@ const toDropChance = (value: unknown) => {
   return Math.min(100, Math.max(0, numeric));
 };
 
+const toChallengeMultiplier = (value: unknown) => {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return 1;
+  return numeric;
+};
+
 const toBooleanFlag = (value: unknown): boolean => value === true;
 
 const normalizeDropType = (value: unknown): 0 | 1 | 2 => {
@@ -59,6 +79,12 @@ const createDefaultDropEntry = (): EnemyDropEntry => ({
   dropId: 0,
   dropChance: 0,
   isRare: false,
+});
+
+const createDefaultChallengeReward = (): EnemyBookChallengeExtraReward => ({
+  rewardType: 'item',
+  dataId: 0,
+  amount: 1,
 });
 
 const normalizeDropEntry = (entry: unknown): EnemyDropEntry => {
@@ -101,6 +127,30 @@ const buildDataOptions = (data: unknown[] | null, emptyLabel: string): DataOptio
 const hasDataOption = (options: DataOption[], value: number) => {
   return options.some((option) => option.value === value);
 };
+
+const normalizeChallengeRewardType = (value: unknown): EnemyBookChallengeRewardType => {
+  switch (value) {
+    case 'gold':
+    case 'item':
+    case 'weapon':
+    case 'armor':
+      return value;
+    default:
+      return 'item';
+  }
+};
+
+const cloneChallengeReward = (reward: EnemyBookChallengeExtraReward): EnemyBookChallengeExtraReward => ({
+  rewardType: reward.rewardType,
+  dataId: reward.dataId,
+  amount: reward.amount,
+});
+
+const cloneChallengeStar = (star: EnemyBookChallengeStar): EnemyBookChallengeStar => ({
+  ...star,
+  passiveStates: star.passiveStates.slice(),
+  extraRewards: star.extraRewards.map((reward) => cloneChallengeReward(reward)),
+});
 
 export function DropPanel() {
   const currentData = useEditorStore((state) => state.currentData);
@@ -203,6 +253,10 @@ export function DropPanel() {
     [armorsData],
   );
 
+  const challengeStars = useMemo(() => {
+    return normalizeEnemyBookChallenge(enemy?.bookChallenge).stars;
+  }, [enemy?.bookChallenge]);
+
   const buildReferenceOptions = useCallback((dropType: 0 | 1 | 2, currentDropId: number): DataOption[] => {
     const baseOptions = dropType === 0
       ? itemOptions
@@ -213,6 +267,28 @@ export function DropPanel() {
     if (currentDropId > 0 && !hasDataOption(baseOptions, currentDropId)) {
       return [
         { value: currentDropId, label: `${currentDropId} : 已失效引用` },
+        ...baseOptions,
+      ];
+    }
+
+    return baseOptions;
+  }, [armorOptions, itemOptions, weaponOptions]);
+
+  const buildChallengeRewardReferenceOptions = useCallback((
+    rewardType: EnemyBookChallengeRewardType,
+    currentDataId: number,
+  ): DataOption[] => {
+    const baseOptions = rewardType === 'weapon'
+      ? weaponOptions
+      : rewardType === 'armor'
+        ? armorOptions
+        : rewardType === 'gold'
+          ? [{ value: 0, label: '0 : 金币奖励不需要数据 id' }]
+          : itemOptions;
+
+    if (currentDataId > 0 && !hasDataOption(baseOptions, currentDataId)) {
+      return [
+        { value: currentDataId, label: `${currentDataId} : 已失效引用` },
         ...baseOptions,
       ];
     }
@@ -288,6 +364,106 @@ export function DropPanel() {
       };
     });
   }, [updateEnemy]);
+
+  const updateChallengeStarAt = useCallback((
+    starIndex: number,
+    buildNextStar: (star: EnemyBookChallengeStar) => EnemyBookChallengeStar,
+  ) => {
+    updateEnemy((source) => {
+      const bookChallenge = normalizeEnemyBookChallenge(source.bookChallenge);
+      const currentStar = bookChallenge.stars[starIndex];
+      if (!currentStar) {
+        return source;
+      }
+
+      const stars = bookChallenge.stars.map((star) => cloneChallengeStar(star));
+      stars[starIndex] = buildNextStar(stars[starIndex]);
+      return {
+        ...source,
+        bookChallenge: {
+          ...bookChallenge,
+          stars,
+        },
+      };
+    });
+  }, [updateEnemy]);
+
+  const updateChallengeStarDrop = useCallback((starIndex: number, updates: Partial<EnemyBookChallengeStar>) => {
+    updateChallengeStarAt(starIndex, (star) => ({
+      ...star,
+      dropRateMultiplier: updates.dropRateMultiplier !== undefined
+        ? toChallengeMultiplier(updates.dropRateMultiplier)
+        : star.dropRateMultiplier,
+      goldMultiplier: updates.goldMultiplier !== undefined
+        ? toChallengeMultiplier(updates.goldMultiplier)
+        : star.goldMultiplier,
+      expMultiplier: updates.expMultiplier !== undefined
+        ? toChallengeMultiplier(updates.expMultiplier)
+        : star.expMultiplier,
+    }));
+  }, [updateChallengeStarAt]);
+
+  const addChallengeReward = useCallback((starIndex: number) => {
+    updateChallengeStarAt(starIndex, (star) => ({
+      ...star,
+      extraRewards: [
+        ...star.extraRewards.map((reward) => cloneChallengeReward(reward)),
+        createDefaultChallengeReward(),
+      ],
+    }));
+  }, [updateChallengeStarAt]);
+
+  const updateChallengeRewardAt = useCallback((
+    starIndex: number,
+    rewardIndex: number,
+    updates: Partial<EnemyBookChallengeExtraReward>,
+  ) => {
+    updateChallengeStarAt(starIndex, (star) => {
+      const currentReward = star.extraRewards[rewardIndex];
+      if (!currentReward) {
+        return star;
+      }
+
+      const nextReward = {
+        ...cloneChallengeReward(currentReward),
+        ...updates,
+      };
+
+      if (updates.rewardType !== undefined) {
+        nextReward.rewardType = normalizeChallengeRewardType(updates.rewardType);
+        const nextOptions = buildChallengeRewardReferenceOptions(nextReward.rewardType, 0);
+        if (nextReward.rewardType === 'gold' || !hasDataOption(nextOptions, nextReward.dataId)) {
+          nextReward.dataId = 0;
+        }
+      }
+
+      if (updates.dataId !== undefined) {
+        nextReward.dataId = nextReward.rewardType === 'gold' ? 0 : Math.max(0, toIntOrZero(updates.dataId));
+      }
+
+      if (updates.amount !== undefined) {
+        nextReward.amount = Math.max(1, toIntOrZero(updates.amount) || 1);
+      }
+
+      const extraRewards = star.extraRewards.map((reward) => cloneChallengeReward(reward));
+      extraRewards[rewardIndex] = nextReward;
+      return {
+        ...star,
+        extraRewards,
+      };
+    });
+  }, [buildChallengeRewardReferenceOptions, updateChallengeStarAt]);
+
+  const removeChallengeReward = useCallback((starIndex: number, rewardIndex: number) => {
+    updateChallengeStarAt(starIndex, (star) => {
+      const extraRewards = star.extraRewards.map((reward) => cloneChallengeReward(reward));
+      extraRewards.splice(rewardIndex, 1);
+      return {
+        ...star,
+        extraRewards,
+      };
+    });
+  }, [updateChallengeStarAt]);
 
   const hasCurrentEnemyChanges = useMemo(() => {
     if (!currentFilePath || currentItemIndex <= 0) {
@@ -392,6 +568,134 @@ export function DropPanel() {
                       onChange={(value) => updateDropAt(index, { dropId: Number(value || 0) })}
                     />
                   </div>
+                </div>
+              </Card>
+            ))}
+          </Space>
+        )}
+      </Card>
+
+      <Card title="图鉴挑战掉落" className="mt-4">
+        <div className="text-xs text-gray-500 mb-4">
+          这里维护 `enemy.bookChallenge.stars[]` 中的掉落倍率、金币/经验倍率和额外奖励。挑战敌群、星级、挑战消耗和被动状态仍在属性模式维护。
+        </div>
+        {challengeStars.length === 0 ? (
+          <div className="py-10 text-center text-gray-500">
+            当前敌人没有图鉴挑战星级。请先在属性模式添加挑战星级，再回到掉落模式配置奖励。
+          </div>
+        ) : (
+          <Space direction="vertical" className="w-full">
+            {challengeStars.map((star, starIndex) => (
+              <Card
+                key={`book-challenge-drop-${starIndex}`}
+                size="small"
+                title={`挑战星级 ${star.star}`}
+                extra={<Tag color={enemy.isBoss === true ? 'purple' : 'default'}>{enemy.isBoss === true ? 'Boss' : '非 Boss'}</Tag>}
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end mb-4">
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">掉率倍率</label>
+                    <InputNumber
+                      value={star.dropRateMultiplier}
+                      min={0}
+                      step={0.1}
+                      className="w-full"
+                      onChange={(value) => updateChallengeStarDrop(starIndex, { dropRateMultiplier: value ?? 1 })}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">金币倍率</label>
+                    <InputNumber
+                      value={star.goldMultiplier}
+                      min={0}
+                      step={0.1}
+                      className="w-full"
+                      onChange={(value) => updateChallengeStarDrop(starIndex, { goldMultiplier: value ?? 1 })}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">经验倍率</label>
+                    <InputNumber
+                      value={star.expMultiplier}
+                      min={0}
+                      step={0.1}
+                      className="w-full"
+                      onChange={(value) => updateChallengeStarDrop(starIndex, { expMultiplier: value ?? 1 })}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <div className="text-xs text-gray-400">额外奖励</div>
+                    <Button
+                      type="dashed"
+                      size="small"
+                      icon={<PlusOutlined />}
+                      onClick={() => addChallengeReward(starIndex)}
+                    >
+                      添加额外奖励
+                    </Button>
+                  </div>
+
+                  {star.extraRewards.length === 0 ? (
+                    <div className="rounded border border-dashed border-gray-600 px-4 py-4 text-sm text-gray-500 text-center">
+                      当前星级没有额外奖励。
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {star.extraRewards.map((reward, rewardIndex) => (
+                        <div
+                          key={`book-challenge-drop-${starIndex}-reward-${rewardIndex}`}
+                          className="grid grid-cols-1 sm:grid-cols-[minmax(110px,0.9fr),minmax(220px,2fr),minmax(96px,0.8fr),40px] gap-3 items-end"
+                        >
+                          <div>
+                            <label className="block text-xs text-gray-400 mb-1">奖励类型 #{rewardIndex + 1}</label>
+                            <Select
+                              value={reward.rewardType}
+                              options={CHALLENGE_REWARD_TYPE_OPTIONS}
+                              className="w-full"
+                              onChange={(value) => updateChallengeRewardAt(starIndex, rewardIndex, { rewardType: value })}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs text-gray-400 mb-1">奖励对象</label>
+                            <Select
+                              value={reward.dataId}
+                              options={buildChallengeRewardReferenceOptions(reward.rewardType, reward.dataId)}
+                              className="w-full"
+                              disabled={reward.rewardType === 'gold'}
+                              showSearch
+                              optionFilterProp="label"
+                              onChange={(value) => updateChallengeRewardAt(starIndex, rewardIndex, { dataId: Number(value || 0) })}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs text-gray-400 mb-1">数量</label>
+                            <InputNumber
+                              value={reward.amount}
+                              min={1}
+                              step={1}
+                              className="w-full"
+                              onChange={(value) => updateChallengeRewardAt(starIndex, rewardIndex, { amount: value ?? 1 })}
+                            />
+                          </div>
+
+                          <Button
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={() => removeChallengeReward(starIndex, rewardIndex)}
+                            title="删除奖励"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </Card>
             ))}

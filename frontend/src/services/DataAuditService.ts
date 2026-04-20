@@ -31,6 +31,20 @@ export const AUDIT_TARGET_FILE_NAMES = [
 ] as const;
 
 export const SYSTEM_FILE_NAME = 'System.json';
+const FLAT_PARAM_HOST_FILE_NAMES = new Set([
+  ACTORS_FILE_NAME,
+  'Enemies.json',
+  'Weapons.json',
+  'Armors.json',
+]);
+const FLOAT_PARAM_HOST_FILE_NAMES = new Set([
+  'Weapons.json',
+  'Armors.json',
+]);
+const EQUIPMENT_TEMPLATE_HOST_FILE_NAMES = new Set([
+  'Weapons.json',
+  'Armors.json',
+]);
 const OWNER_PARAM_HOST_FILE_NAMES = new Set([
   ACTORS_FILE_NAME,
   CLASSES_FILE_NAME,
@@ -53,6 +67,14 @@ const LEGACY_OWNER_EFFECT_TYPES = new Set([
   'owner_element_rate_bonus',
   'cunit_owner_stat_bonus',
 ]);
+const OWNER_PROBABILITY_EXTRA_PARAM_KEYS = new Set([
+  'hitRate',
+  'evadeRate',
+  'critRate',
+  'interceptRate',
+]);
+const CLASS_PARAM_COUNT = 8;
+const CLASS_PARAM_LEVEL_COUNT = 100;
 
 export interface DataAuditFileResult {
   fileName: string;
@@ -148,6 +170,46 @@ const normalizeEntryByFileName = (
   return entry;
 };
 
+const sanitizeEntryByFileContract = (
+  fileName: string,
+  entry: unknown,
+): unknown => {
+  const record = asRecord(entry);
+  if (!record) {
+    return entry;
+  }
+
+  const nextEntry = fileName === CLASSES_FILE_NAME
+    ? normalizeClassParamMatrix(record)
+    : { ...record };
+
+  if (fileName !== CLASSES_FILE_NAME && !FLAT_PARAM_HOST_FILE_NAMES.has(fileName) && hasOwnKey(nextEntry, 'params')) {
+    nextEntry.params = undefined;
+  }
+  if (!FLOAT_PARAM_HOST_FILE_NAMES.has(fileName) && hasOwnKey(nextEntry, 'floatParams')) {
+    nextEntry.floatParams = undefined;
+  }
+  if (!EQUIPMENT_TEMPLATE_HOST_FILE_NAMES.has(fileName)) {
+    if (hasOwnKey(nextEntry, 'extraParams')) {
+      nextEntry.extraParams = undefined;
+    }
+    if (hasOwnKey(nextEntry, 'vehicleParams')) {
+      nextEntry.vehicleParams = undefined;
+    }
+    if (hasOwnKey(nextEntry, 'upgradeParams')) {
+      nextEntry.upgradeParams = undefined;
+    }
+  }
+  if (!OWNER_PARAM_HOST_FILE_NAMES.has(fileName) && hasOwnKey(nextEntry, 'ownerParams')) {
+    nextEntry.ownerParams = undefined;
+  }
+  if (!PASSIVE_STATE_HOST_FILE_NAMES.has(fileName) && hasOwnKey(nextEntry, 'passiveStates')) {
+    nextEntry.passiveStates = undefined;
+  }
+
+  return nextEntry;
+};
+
 const asRecord = (value: unknown): Record<string, unknown> | null => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null;
@@ -155,9 +217,28 @@ const asRecord = (value: unknown): Record<string, unknown> | null => {
   return value as Record<string, unknown>;
 };
 
+const hasOwnKey = (value: Record<string, unknown>, key: string): boolean => {
+  return Object.prototype.hasOwnProperty.call(value, key);
+};
+
 const toFiniteNumber = (value: unknown): number | null => {
   const nextValue = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(nextValue) ? nextValue : null;
+};
+
+const toFiniteInteger = (value: unknown): number | null => {
+  const numeric = toFiniteNumber(value);
+  return numeric == null ? null : Math.trunc(numeric);
+};
+
+const normalizeOwnerExtraParamValue = (key: string, value: unknown): number => {
+  const numeric = toFiniteNumber(value) ?? 0;
+  if (!OWNER_PROBABILITY_EXTRA_PARAM_KEYS.has(key)) {
+    return numeric;
+  }
+  if (numeric <= 0) return 0;
+  if (numeric >= 100) return 100;
+  return numeric;
 };
 
 const getSystemElementCount = (systemData: unknown): number => {
@@ -170,6 +251,35 @@ const getSystemWeaponTypeCount = (systemData: unknown): number => {
   const record = asRecord(systemData);
   const weaponTypes = Array.isArray(record?.weaponTypes) ? record.weaponTypes : [];
   return weaponTypes.length;
+};
+
+const buildClassParamRow = (value: unknown): number[] => {
+  if (!Array.isArray(value)) {
+    return new Array(CLASS_PARAM_LEVEL_COUNT).fill(toFiniteInteger(value) ?? 0);
+  }
+
+  const nextRow = new Array(CLASS_PARAM_LEVEL_COUNT);
+  let fallback = 0;
+  for (let index = 0; index < CLASS_PARAM_LEVEL_COUNT; index++) {
+    const normalized = toFiniteInteger(value[index]);
+    if (normalized != null) {
+      fallback = normalized;
+    }
+    nextRow[index] = fallback;
+  }
+  return nextRow;
+};
+
+const normalizeClassParamMatrix = (entry: Record<string, unknown>): Record<string, unknown> => {
+  const rawParams = Array.isArray(entry.params) ? entry.params : [];
+  const nextParams = new Array(CLASS_PARAM_COUNT);
+  for (let index = 0; index < CLASS_PARAM_COUNT; index++) {
+    nextParams[index] = buildClassParamRow(rawParams[index]);
+  }
+  return {
+    ...entry,
+    params: nextParams,
+  };
 };
 
 type LegacyOwnerGroupKey = 'extraParams' | 'specialParams' | 'scalar' | 'paramRate' | 'elementRate';
@@ -273,7 +383,9 @@ const buildOwnerFixedGroupArray = (
   const nextValues = new Array(keys.length).fill(0);
   if (Array.isArray(value)) {
     for (let index = 0; index < keys.length; index++) {
-      nextValues[index] = toFiniteNumber(value[index]) ?? 0;
+      nextValues[index] = groupKey === 'extraParams'
+        ? normalizeOwnerExtraParamValue(keys[index], value[index])
+        : (toFiniteNumber(value[index]) ?? 0);
     }
   } else {
     const record = asRecord(value);
@@ -281,7 +393,9 @@ const buildOwnerFixedGroupArray = (
       return nextValues;
     }
     for (let index = 0; index < keys.length; index++) {
-      nextValues[index] = toFiniteNumber(record[keys[index]]) ?? 0;
+      nextValues[index] = groupKey === 'extraParams'
+        ? normalizeOwnerExtraParamValue(keys[index], record[keys[index]])
+        : (toFiniteNumber(record[keys[index]]) ?? 0);
     }
   }
   return nextValues;
@@ -382,7 +496,9 @@ const normalizeOwnerParams = (
     const source = ownerParams[groupKey];
     const nextGroup = new Array(OWNER_GROUP_KEYS[groupKey].length).fill(0);
     for (let index = 0; index < nextGroup.length; index++) {
-      nextGroup[index] = toFiniteNumber(source?.[index]) ?? 0;
+      nextGroup[index] = groupKey === 'extraParams'
+        ? normalizeOwnerExtraParamValue(OWNER_GROUP_KEYS[groupKey][index], source?.[index])
+        : (toFiniteNumber(source?.[index]) ?? 0);
     }
     result[groupKey] = nextGroup;
   }
@@ -560,6 +676,7 @@ export async function auditAndRepairDataFiles(
           normalizedEntry = null;
         }
       }
+      normalizedEntry = sanitizeEntryByFileContract(fileName, normalizedEntry);
       if (!arePlainDataEqual(normalizedEntry, currentEntry)) {
         nextData[index] = normalizedEntry;
         repairedEntries++;

@@ -1,9 +1,5 @@
 export type GameEffectType =
   | 'equip_stat_bonus'
-  | 'owner_stat_bonus'
-  | 'owner_scalar_bonus'
-  | 'owner_param_rate_bonus'
-  | 'owner_element_rate_bonus'
   | 'runtime_stat_bonus'
   | 'single_engine_bonus'
   | 'single_cunit_bonus'
@@ -12,7 +8,6 @@ export type GameEffectType =
   | 'pair_same_engine_bonus'
   | 'pair_same_cunit_bonus'
   | 'pair_same_cunit_owner_bonus'
-  | 'cunit_owner_stat_bonus'
   | 'cunit_slot_action_repeat_bonus'
   | 'equip_id_set_bonus';
 
@@ -447,15 +442,18 @@ export interface ProjectileTemplate {
   startAnimationId?: number;
   launchAnimation: LaunchAnimation;
   endAnimationId?: number;
-  // 发射方设置
-  sourceType?: 'actor' | 'enemy';
-  sourceId?: number;
-  weaponId?: number; // 角色使用武器
-  skillId?: number; // 敌人使用技能
-  // 目标方设置
-  targetType?: 'actor' | 'enemy';
-  targetId?: number;
 }
+
+export interface ProjectilePreviewContext {
+  sourceType: 'actor' | 'enemy';
+  sourceId: number;
+  weaponId?: number;
+  skillId?: number;
+  targetType: 'actor' | 'enemy';
+  targetId: number;
+}
+
+export type ProjectilePreviewTemplate = ProjectileTemplate & ProjectilePreviewContext;
 
 export interface RPGMapInfo {
   id: number;
