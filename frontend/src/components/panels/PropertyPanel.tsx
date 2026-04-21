@@ -268,6 +268,18 @@ const toFloatOrZero = (value: unknown): number => {
   return n;
 };
 
+const readFormIntField = (
+  form: ReturnType<typeof Form.useForm>[0],
+  name: string | (string | number)[],
+  fallbackValue: number,
+) => {
+  const currentValue = form.getFieldValue(name);
+  if (currentValue === undefined || currentValue === null || currentValue === '') {
+    return fallbackValue;
+  }
+  return toIntOrZero(currentValue);
+};
+
 const hasOwn = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key);
 
 const normalizeParamTemplate = (value: ParamTemplateInput | undefined): ParamTemplate => {
@@ -320,6 +332,7 @@ const PRICE_FIELD_KEY = 'price';
 const ATTACK_SKILL_FIELD_KEY = 'attackSkillId';
 const HIDDEN_ATTACK_SKILL_FIELD_KEY = 'hiddenAttackSkillId';
 const ATTACK_ELEMENT_FIELD_KEY = 'attackElementId';
+const WEAPON_IMAGE_ID_FIELD_KEY = 'weaponImageId';
 const ELEMENT_RATES_FIELD_KEY = 'elementRates';
 const ELEMENT_RATE_FLOATS_FIELD_KEY = 'elementRateFloats';
 const QUALITY_LOCK_FIELD_KEY = 'qualityLock';
@@ -1163,6 +1176,7 @@ export function PropertyPanel() {
         baseFormValues[EQUIP_TYPE_FIELD_KEY] = getWeaponEquipTypeAtIndex(equipExtensionsData, currentItemIndex);
         baseFormValues[ATTACK_SKILL_FIELD_KEY] = toIntOrZero(item.attackSkillId);
         baseFormValues[ATTACK_ELEMENT_FIELD_KEY] = toIntOrZero(item.attackElementId);
+        baseFormValues[WEAPON_IMAGE_ID_FIELD_KEY] = Math.max(1, toIntOrZero(item.weaponImageId || 1));
         Object.assign(baseFormValues, getWeaponRangeValues(item));
       }
       if (isArmorItem) {
@@ -1283,28 +1297,32 @@ export function PropertyPanel() {
       return;
     }
     const nextValues: Record<string, number> = {};
-    let nextAreaMode = watchedAreaMode;
-    if (watchedTargetCamp === 3) {
+    const currentTargetCamp = readFormIntField(form, TARGET_CAMP_FIELD_KEY, watchedTargetCamp);
+    const currentSelectMode = readFormIntField(form, SELECT_MODE_FIELD_KEY, watchedSelectMode);
+    const currentAreaMode = readFormIntField(form, AREA_MODE_FIELD_KEY, watchedAreaMode);
+    const currentShapeType = readFormIntField(form, SHAPE_TYPE_FIELD_KEY, watchedShapeType);
+    const currentAreaTargetCount = readFormIntField(form, AREA_TARGET_COUNT_FIELD_KEY, 0);
+    let nextAreaMode = currentAreaMode;
+    if (currentTargetCamp === 3) {
       if ((form.getFieldValue(TARGET_LIFE_STATE_FIELD_KEY) ?? 1) !== 1) nextValues[TARGET_LIFE_STATE_FIELD_KEY] = 1;
-      if (watchedSelectMode !== 1) nextValues[SELECT_MODE_FIELD_KEY] = 1;
+      if (currentSelectMode !== 1) nextValues[SELECT_MODE_FIELD_KEY] = 1;
       nextAreaMode = 1;
-    } else if (watchedTargetCamp === 4) {
-      if (watchedSelectMode !== 2) nextValues[SELECT_MODE_FIELD_KEY] = 2;
+    } else if (currentTargetCamp === 4) {
+      if (currentSelectMode !== 2) nextValues[SELECT_MODE_FIELD_KEY] = 2;
       nextAreaMode = 4;
-    } else if (watchedSelectMode === 2) {
+    } else if (currentSelectMode === 2) {
       nextAreaMode = 4;
     }
-    if (watchedAreaMode !== nextAreaMode) nextValues[AREA_MODE_FIELD_KEY] = nextAreaMode;
+    if (currentAreaMode !== nextAreaMode) nextValues[AREA_MODE_FIELD_KEY] = nextAreaMode;
     if (nextAreaMode === 1 || nextAreaMode === 4) {
-      if (watchedShapeType !== 0) nextValues[SHAPE_TYPE_FIELD_KEY] = 0;
-      if ((form.getFieldValue(AREA_TARGET_COUNT_FIELD_KEY) ?? 0) !== 0) nextValues[AREA_TARGET_COUNT_FIELD_KEY] = 0;
+      if (currentShapeType !== 0) nextValues[SHAPE_TYPE_FIELD_KEY] = 0;
+      if (currentAreaTargetCount !== 0) nextValues[AREA_TARGET_COUNT_FIELD_KEY] = 0;
     } else if (nextAreaMode === 3) {
-      if (watchedShapeType !== 3) nextValues[SHAPE_TYPE_FIELD_KEY] = 3;
-      if ((form.getFieldValue(AREA_TARGET_COUNT_FIELD_KEY) ?? 0) !== 0) nextValues[AREA_TARGET_COUNT_FIELD_KEY] = 0;
+      if (currentShapeType !== 3) nextValues[SHAPE_TYPE_FIELD_KEY] = 3;
+      if (currentAreaTargetCount !== 0) nextValues[AREA_TARGET_COUNT_FIELD_KEY] = 0;
     } else {
-      if (watchedShapeType !== 1 && watchedShapeType !== 2) nextValues[SHAPE_TYPE_FIELD_KEY] = 1;
-      const currentTargetCount = form.getFieldValue(AREA_TARGET_COUNT_FIELD_KEY) ?? 0;
-      if (currentTargetCount < 1) nextValues[AREA_TARGET_COUNT_FIELD_KEY] = 1;
+      if (currentShapeType !== 1 && currentShapeType !== 2) nextValues[SHAPE_TYPE_FIELD_KEY] = 1;
+      if (currentAreaTargetCount < 1) nextValues[AREA_TARGET_COUNT_FIELD_KEY] = 1;
     }
     if (Object.keys(nextValues).length > 0) {
       form.setFieldsValue(nextValues);
@@ -1316,20 +1334,23 @@ export function PropertyPanel() {
       return;
     }
     const nextValues: Record<string, number> = {};
-    if (watchedAreaOverride !== 1) {
-      if (watchedAreaMode !== 1) nextValues[AREA_MODE_FIELD_KEY] = 1;
-      if (watchedShapeType !== 0) nextValues[SHAPE_TYPE_FIELD_KEY] = 0;
-      if ((form.getFieldValue(AREA_TARGET_COUNT_FIELD_KEY) ?? 0) !== 0) nextValues[AREA_TARGET_COUNT_FIELD_KEY] = 0;
-    } else if (watchedAreaMode === 1 || watchedAreaMode === 4) {
-      if (watchedShapeType !== 0) nextValues[SHAPE_TYPE_FIELD_KEY] = 0;
-      if ((form.getFieldValue(AREA_TARGET_COUNT_FIELD_KEY) ?? 0) !== 0) nextValues[AREA_TARGET_COUNT_FIELD_KEY] = 0;
-    } else if (watchedAreaMode === 3) {
-      if (watchedShapeType !== 3) nextValues[SHAPE_TYPE_FIELD_KEY] = 3;
-      if ((form.getFieldValue(AREA_TARGET_COUNT_FIELD_KEY) ?? 0) !== 0) nextValues[AREA_TARGET_COUNT_FIELD_KEY] = 0;
+    const currentAreaOverride = readFormIntField(form, AREA_OVERRIDE_FIELD_KEY, watchedAreaOverride);
+    const currentAreaMode = readFormIntField(form, AREA_MODE_FIELD_KEY, watchedAreaMode);
+    const currentShapeType = readFormIntField(form, SHAPE_TYPE_FIELD_KEY, watchedShapeType);
+    const currentAreaTargetCount = readFormIntField(form, AREA_TARGET_COUNT_FIELD_KEY, 0);
+    if (currentAreaOverride !== 1) {
+      if (currentAreaMode !== 1) nextValues[AREA_MODE_FIELD_KEY] = 1;
+      if (currentShapeType !== 0) nextValues[SHAPE_TYPE_FIELD_KEY] = 0;
+      if (currentAreaTargetCount !== 0) nextValues[AREA_TARGET_COUNT_FIELD_KEY] = 0;
+    } else if (currentAreaMode === 1 || currentAreaMode === 4) {
+      if (currentShapeType !== 0) nextValues[SHAPE_TYPE_FIELD_KEY] = 0;
+      if (currentAreaTargetCount !== 0) nextValues[AREA_TARGET_COUNT_FIELD_KEY] = 0;
+    } else if (currentAreaMode === 3) {
+      if (currentShapeType !== 3) nextValues[SHAPE_TYPE_FIELD_KEY] = 3;
+      if (currentAreaTargetCount !== 0) nextValues[AREA_TARGET_COUNT_FIELD_KEY] = 0;
     } else {
-      if (watchedShapeType !== 1 && watchedShapeType !== 2) nextValues[SHAPE_TYPE_FIELD_KEY] = 1;
-      const currentTargetCount = form.getFieldValue(AREA_TARGET_COUNT_FIELD_KEY) ?? 0;
-      if (currentTargetCount < 1) nextValues[AREA_TARGET_COUNT_FIELD_KEY] = 1;
+      if (currentShapeType !== 1 && currentShapeType !== 2) nextValues[SHAPE_TYPE_FIELD_KEY] = 1;
+      if (currentAreaTargetCount < 1) nextValues[AREA_TARGET_COUNT_FIELD_KEY] = 1;
     }
     if (Object.keys(nextValues).length > 0) {
       form.setFieldsValue(nextValues);
@@ -1469,6 +1490,7 @@ export function PropertyPanel() {
     const nextAttackSkillId = isWeaponItem ? toIntOrZero(values[ATTACK_SKILL_FIELD_KEY]) : 0;
     const nextHiddenAttackSkillId = supportsHiddenAttackSkill ? toIntOrZero(values[HIDDEN_ATTACK_SKILL_FIELD_KEY]) : 0;
     const nextAttackElementId = isWeaponItem ? toIntOrZero(values[ATTACK_ELEMENT_FIELD_KEY]) : 0;
+    const nextWeaponImageId = isWeaponItem ? Math.max(1, toIntOrZero(values[WEAPON_IMAGE_ID_FIELD_KEY] ?? 1)) : 0;
     const nextArmorElementRates = isArmorItem
       ? normalizeArmorElementRates(values[ELEMENT_RATES_FIELD_KEY], systemData)
       : null;
@@ -1582,6 +1604,7 @@ export function PropertyPanel() {
       || (isWeaponItem && toIntOrZero(sourceItem.attackSkillId) !== nextAttackSkillId)
       || (supportsHiddenAttackSkill && toIntOrZero(sourceItem.hiddenAttackSkillId) !== nextHiddenAttackSkillId)
       || (isWeaponItem && toIntOrZero(sourceItem.attackElementId) !== nextAttackElementId)
+      || (isWeaponItem && Math.max(1, toIntOrZero(sourceItem.weaponImageId || 1)) !== nextWeaponImageId)
       || (supportsCommonRange && currentCommonRangeValues !== null && nextCommonRangeValues !== null && (
         currentCommonRangeValues.targetCamp !== nextCommonRangeValues.targetCamp
         || currentCommonRangeValues.targetLifeState !== nextCommonRangeValues.targetLifeState
@@ -1641,6 +1664,7 @@ export function PropertyPanel() {
         ...(isWeaponItem ? {
           attackSkillId: nextAttackSkillId,
           attackElementId: nextAttackElementId,
+          weaponImageId: nextWeaponImageId,
         } : {}),
         ...(supportsHiddenAttackSkill ? { hiddenAttackSkillId: nextHiddenAttackSkillId } : {}),
         ...(supportsTemplateParams && nextExtraParams ? { extraParams: nextExtraParams } : {}),
@@ -2783,6 +2807,21 @@ export function PropertyPanel() {
                     options={elementOptions}
                     className="w-full"
                     placeholder="选择攻击元素"
+                  />
+                </Form.Item>
+                <Form.Item
+                  key={WEAPON_IMAGE_ID_FIELD_KEY}
+                  name={WEAPON_IMAGE_ID_FIELD_KEY}
+                  label={<span className="text-xs text-gray-400">武器图片 ID</span>}
+                  className="mb-0"
+                >
+                  <InputNumber
+                    min={1}
+                    precision={0}
+                    step={1}
+                    className="w-full"
+                    placeholder="输入武器图片 ID"
+                    style={{ width: '100%' }}
                   />
                 </Form.Item>
                 <Form.Item

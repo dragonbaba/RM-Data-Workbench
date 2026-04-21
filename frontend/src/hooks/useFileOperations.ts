@@ -7,12 +7,9 @@ import { useEditorStore } from '../stores/editorStore';
 import type { FileType, RPGMapInfo } from '../types';
 import {
   buildDataReloadBatchConfirmMessage,
-  buildDataReloadConfirmMessage,
   extractFileName,
   isReloadableDataFile,
-  normalizeDataPathKey,
   resolveDataChangeBatch,
-  resolveDataChangeImpact,
   type DataFileChangePayload,
 } from '../services/BaseDataReloadService';
 import { normalizeStandardDataForEditor, prepareDataForWrite, SYSTEM_FILE_NAME } from '../services/DataFileFormatService';
@@ -25,6 +22,7 @@ import { ScriptCacheManager } from '../services/ScriptCacheManager';
 import { copyScript, createScript, deleteAllScripts, deleteScript, renameScript, saveAllScripts, saveCurrentScript, saveScript } from '../services/ScriptOperations';
 import { ScriptPathManager } from '../services/ScriptPathManager';
 import { EQUIP_EXTENSIONS_FILE_NAME, previewEquipExtensionsNormalization } from '../services/EquipExtensionsService';
+import { ExternalDataChangeQueue } from '../services/ExternalDataChangeQueue';
 
 interface WorkspacePayload {
   projectRoot: string;
@@ -58,6 +56,7 @@ const ACTORS_FILE_NAME = 'Actors.json';
 const ENEMIES_FILE_NAME = 'Enemies.json';
 const EFFECTS_FILE_NAME = 'Effects.json';
 const WEAPONS_FILE_NAME = 'Weapons.json';
+const EXTERNAL_CHANGE_BATCH_WINDOW_MS = 180;
 
 const joinPath = (basePath: string, fileName: string) => {
   if (!basePath) return fileName;
@@ -450,7 +449,7 @@ export function useFileOperations() {
 
   const setupMenuListeners = () => {
     let closeRequestPending = false;
-    const pendingExternalChanges = new Map<string, DataFileChangePayload>();
+    const externalChangeQueue = new ExternalDataChangeQueue();
     let externalChangeFlushTimer: ReturnType<typeof setTimeout> | null = null;
     let isProcessingExternalChanges = false;
 
@@ -564,22 +563,16 @@ export function useFileOperations() {
     };
 
     const handleExternalDataChange = async (payload: DataFileChangePayload) => {
-      const fileName = payload.fileName || extractFileName(payload.filePath);
-      if (!isReloadableDataFile(fileName)) {
+      if (!externalChangeQueue.enqueue(payload)) {
         return;
       }
 
-      const normalizedPath = normalizeDataPathKey(payload.filePath);
-      pendingExternalChanges.set(normalizedPath, {
-        ...payload,
-        fileName,
-      });
       if (externalChangeFlushTimer) {
         clearTimeout(externalChangeFlushTimer);
       }
       externalChangeFlushTimer = setTimeout(() => {
         void flushExternalDataChanges();
-      }, 180);
+      }, EXTERNAL_CHANGE_BATCH_WINDOW_MS);
     };
 
     const flushExternalDataChanges = async () => {
@@ -593,9 +586,8 @@ export function useFileOperations() {
       }
 
       try {
-        while (pendingExternalChanges.size > 0) {
-          const queuedPayloads = Array.from(pendingExternalChanges.values());
-          pendingExternalChanges.clear();
+        while (externalChangeQueue.hasPending()) {
+          const queuedPayloads = externalChangeQueue.drainPending();
 
           const state = useEditorStore.getState();
           const snapshot = {
@@ -609,44 +601,57 @@ export function useFileOperations() {
             continue;
           }
 
+          externalChangeQueue.markBatchHandled(plan.entries.map((entry) => entry.payload));
+
           if (!plan.shouldConfirm) {
             for (const entry of plan.entries) {
               await reloadChangedFile(entry.payload);
             }
-            continue;
-          }
+          } else {
+            const hasUnsavedChanges = plan.affectsCurrentFile
+              && !!state.currentFilePath
+              && state.isFileDirty(state.currentFilePath);
+            const confirmed = await InputDialog.confirm({
+              title: '检测到外部数据变化',
+              content: buildDataReloadBatchConfirmMessage(snapshot, plan, hasUnsavedChanges),
+              confirmText: '统一重新加载',
+              cancelText: '稍后处理',
+              type: 'warning',
+            });
 
-          const hasUnsavedChanges = plan.affectsCurrentFile
-            && !!state.currentFilePath
-            && state.isFileDirty(state.currentFilePath);
-          const confirmed = await InputDialog.confirm({
-            title: '检测到外部数据变化',
-            content: buildDataReloadBatchConfirmMessage(snapshot, plan, hasUnsavedChanges),
-            confirmText: '统一重新加载',
-            cancelText: '稍后处理',
-            type: 'warning',
-          });
-
-          if (!confirmed) {
-            continue;
-          }
-
-          for (const entry of plan.entries) {
-            await reloadChangedFile(entry.payload);
-          }
-
-          if (plan.shouldReloadCurrentSelection) {
-            await reloadCurrentSelection();
-            if (plan.affectsCurrentFile && state.currentFilePath) {
-              useEditorStore.getState().markFileClean(state.currentFilePath);
+            if (!confirmed) {
+              if (externalChangeQueue.hasPending()) {
+                await new Promise<void>((resolve) => {
+                  setTimeout(resolve, EXTERNAL_CHANGE_BATCH_WINDOW_MS);
+                });
+              }
+              continue;
             }
+
+            for (const entry of plan.entries) {
+              await reloadChangedFile(entry.payload);
+            }
+
+            if (plan.shouldReloadCurrentSelection) {
+              await reloadCurrentSelection();
+              if (plan.affectsCurrentFile && state.currentFilePath) {
+                useEditorStore.getState().markFileClean(state.currentFilePath);
+              }
+            }
+
+            const changedFileNames = Array.from(new Set(plan.entries.map((entry) => entry.fileName)));
+            ToastManager.success(`已统一重新加载 ${changedFileNames.length} 个外部变更文件`);
           }
 
-          const changedFileNames = Array.from(new Set(plan.entries.map((entry) => entry.fileName)));
-          ToastManager.success(`已统一重新加载 ${changedFileNames.length} 个外部变更文件`);
+          if (externalChangeQueue.hasPending()) {
+            await new Promise<void>((resolve) => {
+              setTimeout(resolve, EXTERNAL_CHANGE_BATCH_WINDOW_MS);
+            });
+          }
         }
       } finally {
         isProcessingExternalChanges = false;
+        externalChangeQueue.resetSession();
       }
     };
 

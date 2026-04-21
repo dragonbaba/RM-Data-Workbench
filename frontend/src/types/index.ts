@@ -244,6 +244,7 @@ export interface RPGItem {
   attackSkillId?: number;
   hiddenAttackSkillId?: number;
   attackElementId?: number;
+  weaponImageId?: number;
   targetCamp?: number;
   targetLifeState?: number;
   selectMode?: number;

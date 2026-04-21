@@ -325,6 +325,7 @@ describe('DataAuditService', () => {
     const weaponPayload = writes.find((item) => item.filePath.endsWith('Weapons.json'))?.data as unknown[];
     expect(weaponPayload[1]).toMatchObject({
       id: 1,
+      weaponImageId: 1,
       ownerParams: createDefaultOwnerParams(3),
       passiveStates: [],
     });

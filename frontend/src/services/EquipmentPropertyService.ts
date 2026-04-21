@@ -88,6 +88,11 @@ const toFloatOrZero = (value: unknown): number => {
   return numeric;
 };
 
+const normalizeWeaponImageId = (value: unknown): number => {
+  const numeric = toIntOrZero(value);
+  return numeric >= 1 ? numeric : 1;
+};
+
 const hasOwn = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key);
 
 const normalizeParamTemplate = (value: unknown): ParamTemplate => {
@@ -179,7 +184,7 @@ const normalizeFloatParams = (value: unknown): number[] => {
 };
 
 const normalizeWeaponRangeValues = (raw: Record<string, unknown>) => {
-  let areaOverride = Math.max(0, toIntOrZero(raw.areaOverride));
+  const areaOverride = Math.max(0, toIntOrZero(raw.areaOverride));
   let areaMode = Math.max(1, toIntOrZero(raw.areaMode || 1));
   let shapeType = Math.max(0, toIntOrZero(raw.shapeType));
   let areaTargetCount = Math.max(0, toIntOrZero(raw.areaTargetCount));
@@ -245,6 +250,7 @@ export function normalizeEquipmentDataEntry(
     const rangeValues = normalizeWeaponRangeValues(item);
     normalized.attackSkillId = Math.max(0, toIntOrZero(item.attackSkillId));
     normalized.attackElementId = Math.max(0, toIntOrZero(item.attackElementId));
+    normalized.weaponImageId = normalizeWeaponImageId(item.weaponImageId);
     normalized.areaOverride = rangeValues.areaOverride;
     normalized.areaMode = rangeValues.areaMode;
     normalized.shapeType = rangeValues.shapeType;

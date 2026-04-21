@@ -26,6 +26,7 @@ describe('EquipmentPropertyService', () => {
       floatParams: [0, 0, 0, 0, 0, 0, 0, 0],
       attackSkillId: 0,
       attackElementId: 0,
+      weaponImageId: 1,
       areaOverride: 0,
       areaMode: 1,
       shapeType: 0,

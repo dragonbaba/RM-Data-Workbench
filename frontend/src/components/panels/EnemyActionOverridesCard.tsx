@@ -125,6 +125,20 @@ const setFieldIfChanged = (
   }
 };
 
+const readScopedIntField = (
+  form: ReturnType<typeof Form.useFormInstance>,
+  fieldKey: string,
+  selectedKey: string,
+  name: string,
+  fallbackValue: number,
+) => {
+  const currentValue = form.getFieldValue([fieldKey, selectedKey, name]);
+  if (currentValue === undefined || currentValue === null || currentValue === '') {
+    return fallbackValue;
+  }
+  return toIntOrZero(currentValue);
+};
+
 export function EnemyActionOverridesCard({
   enemy,
   skillsData,
@@ -177,19 +191,20 @@ export function EnemyActionOverridesCard({
     }
 
     let nextTargetLifeState = form.getFieldValue([fieldKey, selectedKey, 'targetLifeState']);
-    let nextSelectMode = watchedSelectMode;
-    let nextAreaMode = watchedAreaMode;
-    let nextShapeType = watchedShapeType;
-    let nextAreaTargetCount = watchedAreaTargetCount;
+    let nextSelectMode = readScopedIntField(form, fieldKey, selectedKey, 'selectMode', watchedSelectMode);
+    let nextAreaMode = readScopedIntField(form, fieldKey, selectedKey, 'areaMode', watchedAreaMode);
+    let nextShapeType = readScopedIntField(form, fieldKey, selectedKey, 'shapeType', watchedShapeType);
+    let nextAreaTargetCount = readScopedIntField(form, fieldKey, selectedKey, 'areaTargetCount', watchedAreaTargetCount);
+    const currentTargetCamp = readScopedIntField(form, fieldKey, selectedKey, 'targetCamp', watchedTargetCamp);
 
-    if (watchedTargetCamp === 3) {
+    if (currentTargetCamp === 3) {
       nextTargetLifeState = 1;
       nextSelectMode = 1;
       nextAreaMode = 1;
-    } else if (watchedTargetCamp === 4) {
+    } else if (currentTargetCamp === 4) {
       nextSelectMode = 2;
       nextAreaMode = 4;
-    } else if (watchedSelectMode === 2) {
+    } else if (nextSelectMode === 2) {
       nextAreaMode = 4;
     }
 
