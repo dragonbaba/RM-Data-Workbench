@@ -60,7 +60,6 @@ import {
 } from '../../services/EquipmentPropertyService';
 import {
   OWNER_EXTRA_PARAM_KEYS,
-  OWNER_PARAM_RATE_KEYS,
   OWNER_SCALAR_KEYS,
   OWNER_SPECIAL_PARAM_KEYS,
 } from '../../types';
@@ -72,7 +71,6 @@ import type {
   EquipUpgradeParamMap,
   EquipVehicleParamMap,
   OwnerExtraParamMap,
-  OwnerParamRateMap,
   OwnerParams,
   OwnerScalarMap,
   OwnerSpecialParamMap,
@@ -108,7 +106,7 @@ interface PendingDraftState {
 }
 
 type FixedParamGroupKey = 'extraParams' | 'vehicleParams' | 'upgradeParams';
-type OwnerParamGroupKey = 'extraParams' | 'specialParams' | 'scalar' | 'paramRate';
+type OwnerParamGroupKey = 'extraParams' | 'specialParams' | 'scalar';
 
 interface FixedParamFieldDefinition {
   index: number;
@@ -126,7 +124,6 @@ interface OwnerParamsFormValues {
   extraParams?: number[];
   specialParams?: number[];
   scalar?: number[];
-  paramRate?: number[];
   elementRate?: number[];
 }
 
@@ -194,17 +191,12 @@ const OWNER_SPECIAL_PARAM_FIELDS: OwnerParamFieldDefinition[] = [
   { index: 2, key: OWNER_SPECIAL_PARAM_KEYS[2], label: '恢复效果' },
   { index: 3, key: OWNER_SPECIAL_PARAM_KEYS[3], label: '药效' },
   { index: 4, key: OWNER_SPECIAL_PARAM_KEYS[4], label: '物理伤害' },
+  { index: 5, key: OWNER_SPECIAL_PARAM_KEYS[5], label: 'HP 再生率' },
 ];
 
 const OWNER_SCALAR_FIELDS: OwnerParamFieldDefinition[] = [
   { index: 0, key: OWNER_SCALAR_KEYS[0], label: '经验获取率' },
 ];
-
-const OWNER_PARAM_RATE_FIELDS: OwnerParamFieldDefinition[] = BASE_ATTRIBUTES.map((attribute, index) => ({
-  index,
-  key: OWNER_PARAM_RATE_KEYS[index],
-  label: attribute.fallbackLabel,
-}));
 
 const buildOwnerNumberGroupFormValues = (
   groupValue: number[] | undefined,
@@ -238,23 +230,23 @@ const normalizeOwnerElementRates = (value: unknown, systemData: unknown): number
 
 const buildOwnerParamsFormValues = (
   ownerParams: OwnerParams | undefined,
-  ownerParamRateFields: OwnerParamFieldDefinition[],
   systemData: unknown,
+  supportsOwnerElementRate: boolean,
 ) => ({
   extraParams: buildOwnerNumberGroupFormValues(ownerParams?.extraParams, OWNER_EXTRA_PARAM_FIELDS),
   specialParams: buildOwnerNumberGroupFormValues(ownerParams?.specialParams, OWNER_SPECIAL_PARAM_FIELDS),
   scalar: buildOwnerNumberGroupFormValues(ownerParams?.scalar, OWNER_SCALAR_FIELDS),
-  paramRate: buildOwnerNumberGroupFormValues(ownerParams?.paramRate, ownerParamRateFields),
-  elementRate: normalizeOwnerElementRates(ownerParams?.elementRate, systemData),
+  ...(supportsOwnerElementRate
+    ? { elementRate: normalizeOwnerElementRates(ownerParams?.elementRate, systemData) }
+    : {}),
 });
 
 const buildOwnerParamsSaveData = (
   extraParams: OwnerExtraParamMap | null,
   specialParams: OwnerSpecialParamMap | null,
   scalar: OwnerScalarMap | null,
-  paramRate: OwnerParamRateMap | null,
   elementRate: number[] | null,
-): OwnerParams => buildRequiredOwnerParamsSaveData(extraParams, specialParams, scalar, paramRate, elementRate);
+): OwnerParams => buildRequiredOwnerParamsSaveData(extraParams, specialParams, scalar, elementRate);
 
 const toIntOrZero = (value: unknown): number => {
   const n = typeof value === 'number' ? value : Number(value);
@@ -862,6 +854,7 @@ export function PropertyPanel() {
   const projectileConfigSourceName = isItemFile ? '物品' : '技能';
   const supportsTemplateParams = isWeaponItem || isArmorItem;
   const supportsOwnerParams = supportsOwnerParamsFile(currentFileName);
+  const supportsOwnerElementRate = supportsOwnerParams && !isWeaponItem && !isArmorItem;
   const supportsPassiveStates = supportsPassiveStatesFile(currentFileName);
   const supportsPrice = isItemFile || isWeaponItem || isArmorItem;
   const supportsCommonRange = isItemFile || isSkillFile;
@@ -990,10 +983,6 @@ export function PropertyPanel() {
   const baseAttributeDisplayFields = useMemo(
     () => getBaseAttributeDisplayFields(systemData),
     [systemData],
-  );
-  const ownerParamRateFields = useMemo<OwnerParamFieldDefinition[]>(
-    () => baseAttributeDisplayFields.map((field, index) => ({ index, key: OWNER_PARAM_RATE_KEYS[index], label: field.label })),
-    [baseAttributeDisplayFields],
   );
   const enemyWeaknessDuplicateMessages = useMemo(
     () => getEnemyWeaknessDuplicateMessages(
@@ -1227,7 +1216,7 @@ export function PropertyPanel() {
         baseFormValues[ENEMY_ACTION_OVERRIDES_FIELD_KEY] = enemyValues.actionOverrides;
       }
       if (supportsOwnerParams) {
-        baseFormValues.ownerParams = buildOwnerParamsFormValues(item.ownerParams, ownerParamRateFields, systemData);
+        baseFormValues.ownerParams = buildOwnerParamsFormValues(item.ownerParams, systemData, supportsOwnerElementRate);
       }
       if (supportsPassiveStates) {
         baseFormValues[PASSIVE_STATES_FIELD_KEY] = normalizePassiveStates(item.passiveStates);
@@ -1273,7 +1262,7 @@ export function PropertyPanel() {
         nextBaseValues.upgradeParams = buildGroupFormValues(item.upgradeParams, UPGRADE_PARAM_FIELDS);
       }
       if (supportsOwnerParams && !pendingDraft?.baseValues) {
-        nextBaseValues.ownerParams = buildOwnerParamsFormValues(item.ownerParams, ownerParamRateFields, systemData);
+        nextBaseValues.ownerParams = buildOwnerParamsFormValues(item.ownerParams, systemData, supportsOwnerElementRate);
       }
       if (supportsPassiveStates && !pendingDraft?.baseValues) {
         nextBaseValues[PASSIVE_STATES_FIELD_KEY] = normalizePassiveStates(item.passiveStates);
@@ -1290,7 +1279,7 @@ export function PropertyPanel() {
       setHasCustomChanges(pendingDraft?.hasCustomChanges ?? false);
       pendingDraftRef.current = null;
     }
-  }, [currentItem, currentItemIndex, equipExtensionsData, form, isArmorItem, isEnemyFile, isStateFile, isWeaponItem, ownerParamRateFields, skillsData, supportsCommonRange, supportsFlatBaseAttributes, supportsFlatFloatBaseAttributes, supportsHiddenAttackSkill, supportsOwnerParams, supportsPrice, supportsTemplateParams, systemData]);
+  }, [currentItem, currentItemIndex, equipExtensionsData, form, isArmorItem, isEnemyFile, isStateFile, isWeaponItem, skillsData, supportsCommonRange, supportsFlatBaseAttributes, supportsFlatFloatBaseAttributes, supportsHiddenAttackSkill, supportsOwnerElementRate, supportsOwnerParams, supportsPrice, supportsTemplateParams, systemData]);
 
   useEffect(() => {
     if (!supportsCommonRange) {
@@ -1572,10 +1561,7 @@ export function PropertyPanel() {
     const nextOwnerScalar = supportsOwnerParams
       ? normalizeOwnerNumberGroupValues<OwnerScalarMap>(ownerValues.scalar, OWNER_SCALAR_FIELDS)
       : null;
-    const nextOwnerParamRate = supportsOwnerParams
-      ? normalizeOwnerNumberGroupValues<OwnerParamRateMap>(ownerValues.paramRate, ownerParamRateFields)
-      : null;
-    const nextOwnerElementRate = supportsOwnerParams
+    const nextOwnerElementRate = supportsOwnerElementRate
       ? normalizeOwnerElementRates(ownerValues.elementRate, systemData)
       : null;
     const nextOwnerParams = supportsOwnerParams
@@ -1583,7 +1569,6 @@ export function PropertyPanel() {
         nextOwnerExtraParams,
         nextOwnerSpecialParams,
         nextOwnerScalar,
-        nextOwnerParamRate,
         nextOwnerElementRate,
       )
       : undefined;
@@ -1632,8 +1617,9 @@ export function PropertyPanel() {
       || (supportsOwnerParams && nextOwnerExtraParams !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.extraParams, nextOwnerExtraParams, OWNER_EXTRA_PARAM_FIELDS))
       || (supportsOwnerParams && nextOwnerSpecialParams !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.specialParams, nextOwnerSpecialParams, OWNER_SPECIAL_PARAM_FIELDS))
       || (supportsOwnerParams && nextOwnerScalar !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.scalar, nextOwnerScalar, OWNER_SCALAR_FIELDS))
-      || (supportsOwnerParams && nextOwnerParamRate !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.paramRate, nextOwnerParamRate, ownerParamRateFields))
-      || (supportsOwnerParams && nextOwnerElementRate !== null && !areFloatArraysEqual(normalizeOwnerElementRates(sourceItem.ownerParams?.elementRate, systemData), nextOwnerElementRate))
+      || (supportsOwnerParams && sourceItem.ownerParams != null && Object.prototype.hasOwnProperty.call(sourceItem.ownerParams, 'paramRate'))
+      || (supportsOwnerElementRate && nextOwnerElementRate !== null && !areFloatArraysEqual(normalizeOwnerElementRates(sourceItem.ownerParams?.elementRate, systemData), nextOwnerElementRate))
+      || (!supportsOwnerElementRate && sourceItem.ownerParams != null && Object.prototype.hasOwnProperty.call(sourceItem.ownerParams, 'elementRate'))
       || (supportsOwnerParams && sourceItem.ownerParams == null)
       || (supportsPassiveStates && !arePassiveStatesEqual(sourceItem.passiveStates, nextPassiveStates))
       || (isArmorItem && nextArmorElementRates !== null && !areFloatArraysEqual(sourceItem.elementRates, nextArmorElementRates))
@@ -2092,7 +2078,7 @@ export function PropertyPanel() {
 
   const renderOwnerElementRateCard = (description: string) => (
     <Card
-      title="元素奖励"
+      title="元素属性率"
       className="mb-4"
       headStyle={{
         backgroundColor: '#252b3d',
@@ -2130,19 +2116,16 @@ export function PropertyPanel() {
     const ownerIntro = isWeaponItem || isArmorItem
       ? '这里维护装备穿上后加给宿主的固定奖励；装备自身属性仍然在本页其他区块维护。'
       : '这里维护宿主固有的固定战斗奖励，运行时会直接累计到 owner 静态字段。';
-    const ownerElementIntro = isArmorItem
-      ? '这里维护宿主元素倍率增量；防具本体元素率请继续在上面的“元素属性”维护。'
-      : '这里维护宿主元素倍率增量，写 0.2 表示额外 +20%。';
+    const ownerElementIntro = '这里维护宿主受到对应元素时的元素属性率增量。正数表示更脆，受到该元素伤害增加；负数表示抗性，受到该元素伤害减少。写 0.2 表示最终元素率额外 +20%，写 -0.2 表示额外 -20%。';
     return (
       <>
         {sectionTitle ? (
           <div className="mb-3 text-sm font-medium text-gray-200">{sectionTitle}</div>
         ) : null}
         {renderOwnerParamCard('额外奖励', 'extraParams', OWNER_EXTRA_PARAM_FIELDS, ownerIntro)}
-        {renderOwnerParamCard('特殊奖励', 'specialParams', OWNER_SPECIAL_PARAM_FIELDS, '这些字段会直接作用到仇恨、防御效率、恢复效果、药效和物理伤害。')}
-        {renderOwnerParamCard('基础属性倍率', 'paramRate', ownerParamRateFields, '这里维护 owner 的基础属性倍率增量，写 0.1 表示对应基础属性额外 +10%。')}
+        {renderOwnerParamCard('特殊奖励', 'specialParams', OWNER_SPECIAL_PARAM_FIELDS, '这些字段会直接作用到仇恨、防御效率、恢复效果、药效、物理伤害和 HP 再生率。')}
         {renderOwnerParamCard('标量奖励', 'scalar', OWNER_SCALAR_FIELDS, '当前只保留经验获取率这类全局标量字段。')}
-        {renderOwnerElementRateCard(ownerElementIntro)}
+        {supportsOwnerElementRate ? renderOwnerElementRateCard(ownerElementIntro) : null}
       </>
     );
   };
@@ -2401,7 +2384,7 @@ export function PropertyPanel() {
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <div className="text-xs text-gray-500">
-              每条弱点配置一个元素和倍率。编辑器会阻止同组重复元素。
+              这里是敌人弱点槽位，不是 owner 元素属性率。倍率写增量值，实际按 1 + 增量 结算：0.3 表示弱点，最终元素率 1.3；-0.2 表示抗性，最终元素率 0.8。编辑器会阻止同组重复元素。
             </div>
             <Button
               type="dashed"
@@ -2489,7 +2472,7 @@ export function PropertyPanel() {
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <div className="text-xs text-gray-500">
-                每条弱点配置一个元素和倍率。编辑器会阻止同组重复元素。
+                这里是敌人弱点槽位，不是 owner 元素属性率。倍率写增量值，实际按 1 + 增量 结算：0.3 表示弱点，最终元素率 1.3；-0.2 表示抗性，最终元素率 0.8。编辑器会阻止同组重复元素。
               </div>
               <Button
                 type="dashed"
@@ -3337,7 +3320,7 @@ export function PropertyPanel() {
                 {renderWeaknessGroupCard(
                   '基础弱点组',
                   [ENEMY_BASE_WEAKNESS_GROUP_FIELD_KEY],
-                  '基础组会作为 groupIndex=0 使用。倍率写增量值，`0.3` 表示实际元素倍率为 `1.3`。',
+                  '基础组会作为 groupIndex=0 使用。这里是敌人弱点槽位，不是 owner 元素属性率；倍率写增量值，最终按 `1 + 增量` 结算，`0.3` 表示实际元素倍率为 `1.3`，`-0.2` 表示实际元素倍率为 `0.8`。',
                   '当前没有基础弱点，敌人将不会显示弱点槽位。',
                 )}
                 <Form.List name={ENEMY_DYNAMIC_WEAKNESS_GROUPS_FIELD_KEY}>
@@ -3365,7 +3348,7 @@ export function PropertyPanel() {
                       bodyStyle={{ backgroundColor: '#1a1f2e' }}
                     >
                       <div className="text-xs text-gray-500 mb-4">
-                        动态组从 `groupIndex=1` 开始。后续状态/技能即时效果会直接切到这些组，并同步刷新该组盾上限。
+                        动态组从 `groupIndex=1` 开始。这里同样是敌人弱点槽位，不是 owner 元素属性率；后续状态/技能即时效果会直接切到这些组，并同步刷新该组盾上限。
                       </div>
                       {fields.length === 0 ? (
                         <div className="rounded border border-dashed border-gray-600 px-4 py-6 text-sm text-gray-500 text-center">
@@ -3595,7 +3578,7 @@ export function PropertyPanel() {
 
         {isArmorItem ? (
           <Card
-            title="元素属性"
+            title="元素属性率"
             className="mb-4"
             headStyle={{
               backgroundColor: '#252b3d',
@@ -3605,7 +3588,7 @@ export function PropertyPanel() {
             bodyStyle={{ backgroundColor: '#1a1f2e' }}
           >
             <div className="text-xs text-gray-500 mb-4">
-              每个元素维护基础元素率与浮动值（小数百分比）。例如 0.2 表示 +20%，浮动 0.05 表示在 ±5% 范围内变化。索引 0 固定为 0，不在面板中编辑。
+              这里维护防具自身提供的固定元素属性率与浮动值。正数表示穿上后更脆，受到该元素伤害增加；负数表示抗性，受到该元素伤害减少。基础值 0.2 表示 +20%，-0.2 表示 -20%；浮动 0.05 表示在该基础上再做 ±5% 变化。索引 0 固定为 0，不在面板中编辑。
             </div>
             {armorElementRateFields.length === 0 ? (
               <div className="rounded border border-dashed border-gray-600 px-4 py-6 text-sm text-gray-500 text-center">

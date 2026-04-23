@@ -1,7 +1,7 @@
 import type {
   GameEffectAttributeOp,
+  GameEffectBaseParamKey,
   GameEffectConfig,
-  GameEffectElementRateKey,
   GameEffectEntry,
   GameEffectOpGroup,
   GameEffectOpKind,
@@ -65,14 +65,19 @@ const EQUIP_VEHICLE_PARAM_KEYS = ['repeat'] as const;
 const PAIR_CUNIT_EQUIP_VEHICLE_PARAM_KEYS = ['repeat', 'actionRepeat'] as const;
 const ACTION_REPEAT_KEYS = ['actionRepeat'] as const;
 const SCALAR_KEYS = ['expRate'] as const;
-const SPECIAL_PARAM_KEYS = ['tgr', 'grd', 'rec', 'pha', 'pdr'] as const;
+const SPECIAL_PARAM_KEYS = ['tgr', 'grd', 'rec', 'pha', 'pdr', 'hrg'] as const;
 const OP_OPTIONS: EffectOption<GameEffectOpKind>[] = [
   { value: 'add', label: '加算' },
   { value: 'mul', label: '乘算' },
   { value: 'set', label: '设定值' },
 ];
-const EMPTY_SELECTOR_TEMPLATE = Object.freeze({
+const FULL_EQUIP_SELECTOR_TEMPLATE = Object.freeze({
   slotIndexes: [],
+  etypeIds: [],
+  wtypeIds: [],
+  atypeIds: [],
+});
+const TYPE_EQUIP_SELECTOR_TEMPLATE = Object.freeze({
   etypeIds: [],
   wtypeIds: [],
   atypeIds: [],
@@ -90,12 +95,22 @@ const ARGS_FIELDS_BY_MODE: Record<GameEffectArgsMode, GameEffectArgsFieldKey[]> 
   'id-set+ops': ['weaponIds', 'armorIds', 'ops'],
 };
 const GROUP_LABELS: Record<GameEffectOpGroup, string> = {
+  baseParams: '基础属性',
   extraParams: '额外属性',
   vehicleParams: '车辆属性',
   scalar: '标量',
   specialParams: '特殊属性',
-  paramRate: '基础参数率',
-  elementRate: '元素率',
+  baseParamRate: '基础属性率',
+};
+const BASE_PARAM_LABELS: Record<string, string> = {
+  mhp: '最大生命值',
+  mmp: '最大魔法值',
+  atk: '攻击力',
+  def: '防御力',
+  mat: '魔法攻击力',
+  mdf: '魔法防御力',
+  agi: '速度',
+  luk: '幸运',
 };
 const EXTRA_PARAM_LABELS: Record<string, string> = {
   hitRate: '命中率',
@@ -120,46 +135,48 @@ const SPECIAL_PARAM_LABELS: Record<string, string> = {
   rec: '恢复效果',
   pha: '药效',
   pdr: '物理伤害',
+  hrg: 'HP 再生率',
 };
 const DEFAULT_KEY_BY_GROUP: Record<GameEffectOpGroup, string> = {
+  baseParams: 'mhp',
   extraParams: 'hitRate',
   vehicleParams: 'repeat',
   scalar: 'expRate',
   specialParams: 'tgr',
-  paramRate: 'mhp',
-  elementRate: '1',
+  baseParamRate: 'mhp',
 };
 
 const OWNER_STATIC_GROUPS: GameEffectAllowedGroupDefinition[] = [
+  { group: 'baseParams', keys: [...PARAM_RATE_KEYS] },
   { group: 'extraParams', keys: [...EXTRA_PARAM_KEYS] },
   { group: 'vehicleParams', keys: [...OWNER_VEHICLE_PARAM_KEYS] },
   { group: 'specialParams', keys: [...SPECIAL_PARAM_KEYS] },
+  { group: 'baseParamRate', keys: [...PARAM_RATE_KEYS] },
 ];
-const EQUIP_STAT_GROUPS: GameEffectAllowedGroupDefinition[] = [
+const EQUIP_EFFECT_GROUPS: GameEffectAllowedGroupDefinition[] = [
+  { group: 'baseParams', keys: [...PARAM_RATE_KEYS] },
   { group: 'extraParams', keys: [...EXTRA_PARAM_KEYS] },
   { group: 'vehicleParams', keys: [...EQUIP_VEHICLE_PARAM_KEYS] },
-];
-const RUNTIME_STAT_GROUPS: GameEffectAllowedGroupDefinition[] = [
-  { group: 'extraParams', keys: ['hitRate', 'critRate', 'critDamage', 'evadeRate', 'finalDamage'] },
+  { group: 'baseParamRate', keys: [...PARAM_RATE_KEYS] },
 ];
 const ENGINE_OWNER_GROUPS: GameEffectAllowedGroupDefinition[] = [
+  { group: 'baseParams', keys: [...PARAM_RATE_KEYS] },
+  { group: 'baseParamRate', keys: [...PARAM_RATE_KEYS] },
   { group: 'vehicleParams', keys: [...OWNER_VEHICLE_PARAM_KEYS] },
 ];
 const ACTION_REPEAT_GROUPS: GameEffectAllowedGroupDefinition[] = [
   { group: 'vehicleParams', keys: [...ACTION_REPEAT_KEYS] },
 ];
 const PAIR_SAME_CUNIT_EQUIP_GROUPS: GameEffectAllowedGroupDefinition[] = [
+  { group: 'baseParams', keys: [...PARAM_RATE_KEYS] },
   { group: 'extraParams', keys: [...EXTRA_PARAM_KEYS] },
   { group: 'vehicleParams', keys: [...PAIR_CUNIT_EQUIP_VEHICLE_PARAM_KEYS] },
+  { group: 'baseParamRate', keys: [...PARAM_RATE_KEYS] },
 ];
 const SCALAR_GROUPS: GameEffectAllowedGroupDefinition[] = [{ group: 'scalar', keys: [...SCALAR_KEYS] }];
-const PARAM_RATE_GROUPS: GameEffectAllowedGroupDefinition[] = [{ group: 'paramRate', keys: null }];
-const ELEMENT_RATE_GROUPS: GameEffectAllowedGroupDefinition[] = [{ group: 'elementRate', keys: null }];
 const OWNER_EXTENDED_GROUPS: GameEffectAllowedGroupDefinition[] = [
   ...OWNER_STATIC_GROUPS,
   ...SCALAR_GROUPS,
-  ...PARAM_RATE_GROUPS,
-  ...ELEMENT_RATE_GROUPS,
 ];
 
 const asRecord = (value: unknown): Record<string, unknown> | null => {
@@ -231,19 +248,7 @@ const getSystemParamNames = (systemData: unknown): string[] => {
   return names;
 };
 
-const getSystemElementNames = (systemData: unknown): string[] => {
-  const systemRecord = getSystemRecord(systemData);
-  const elements = systemRecord?.elements;
-  const rawElements = Array.isArray(elements) ? elements : [];
-  const names: string[] = [];
-  for (let index = 1; index < rawElements.length; index++) {
-    const rawName = typeof rawElements[index] === 'string' ? rawElements[index].trim() : '';
-    names.push(rawName || `元素${index}`);
-  }
-  return names;
-};
-
-const buildParamRateOptions = (systemData: unknown): EffectOption<string>[] => {
+const buildBaseParamOptions = (systemData: unknown): EffectOption<GameEffectBaseParamKey>[] => {
   const paramNames = getSystemParamNames(systemData);
   return PARAM_RATE_KEYS.map((key, index) => ({
     value: key,
@@ -251,25 +256,22 @@ const buildParamRateOptions = (systemData: unknown): EffectOption<string>[] => {
   }));
 };
 
-const buildElementRateOptions = (systemData: unknown): EffectOption<string>[] =>
-  getSystemElementNames(systemData).map((label, offset) => ({
-    value: String(offset + 1) as GameEffectElementRateKey,
-    label,
-  }));
-
 const getKeyLabel = (group: GameEffectOpGroup, key: string, systemData?: unknown): string => {
+  if (group === 'baseParams') return BASE_PARAM_LABELS[key] || key;
   if (group === 'extraParams') return EXTRA_PARAM_LABELS[key] || key;
   if (group === 'vehicleParams') return VEHICLE_PARAM_LABELS[key] || key;
   if (group === 'scalar') return SCALAR_LABELS[key] || key;
   if (group === 'specialParams') return SPECIAL_PARAM_LABELS[key] || key;
-  if (group === 'paramRate') {
-    return buildParamRateOptions(systemData).find((option) => option.value === key)?.label || key;
-  }
-  return buildElementRateOptions(systemData).find((option) => option.value === key)?.label || `元素${key}`;
+  return buildBaseParamOptions(systemData).find((option) => option.value === key)?.label || key;
 };
 
-const getSelectorFields = (selectorMode: GameEffectSelectorMode): GameEffectSelectorFieldKey[] =>
-  selectorMode === 'equip' ? [...SELECTOR_FIELD_KEYS] : [];
+const getSelectorFields = (
+  selectorMode: GameEffectSelectorMode,
+  selectorTemplate: Record<string, unknown>,
+): GameEffectSelectorFieldKey[] =>
+  selectorMode === 'equip'
+    ? SELECTOR_FIELD_KEYS.filter((key) => Object.prototype.hasOwnProperty.call(selectorTemplate, key))
+    : [];
 
 const createEffectExample = (
   effectType: GameEffectType,
@@ -311,15 +313,12 @@ const createTypeDefinition = (input: {
   allowIsStaticToggle: input.allowIsStaticToggle === true,
   selectorMode: input.selectorMode,
   argsMode: input.argsMode,
-  selectorTemplate: {
-    ...cloneJsonValue(EMPTY_SELECTOR_TEMPLATE),
-    ...cloneJsonValue(input.selectorTemplate),
-  },
+  selectorTemplate: cloneJsonValue(input.selectorTemplate),
   argsTemplate: {
     ...cloneJsonValue(EMPTY_ARGS_TEMPLATE),
     ...cloneJsonValue(input.argsTemplate),
   },
-  selectorFields: getSelectorFields(input.selectorMode),
+  selectorFields: getSelectorFields(input.selectorMode, input.selectorTemplate),
   argsFields: [...ARGS_FIELDS_BY_MODE[input.argsMode]],
   allowedGroups: cloneAllowedGroups(input.allowedGroups),
   example: createEffectExample(
@@ -327,10 +326,7 @@ const createTypeDefinition = (input: {
     input.exampleName,
     input.exampleDescription,
     input.isStatic,
-    {
-      ...cloneJsonValue(EMPTY_SELECTOR_TEMPLATE),
-      ...cloneJsonValue(input.selectorTemplate),
-    },
+    cloneJsonValue(input.selectorTemplate) as GameEffectConfig['selector'],
     {
       ...cloneJsonValue(EMPTY_ARGS_TEMPLATE),
       ...cloneJsonValue(input.argsTemplate),
@@ -339,36 +335,6 @@ const createTypeDefinition = (input: {
 });
 
 const GAME_EFFECT_TYPE_DEFINITIONS: GameEffectTypeDefinition[] = [
-  createTypeDefinition({
-    effectType: 'equip_stat_bonus',
-    label: '静态装备属性修正',
-    isStatic: true,
-    selectorMode: 'equip',
-    argsMode: 'ops',
-    exampleName: '主炮支援',
-    exampleDescription: '给命中的装备实例增加静态属性',
-    selectorTemplate: EMPTY_SELECTOR_TEMPLATE,
-    argsTemplate: { ops: [{ group: 'vehicleParams', key: 'repeat', op: 'add', value: 1 }] },
-    allowedGroups: EQUIP_STAT_GROUPS,
-  }),
-  createTypeDefinition({
-    effectType: 'runtime_stat_bonus',
-    label: '运行时属性修正',
-    isStatic: false,
-    selectorMode: 'equip',
-    argsMode: 'ops',
-    exampleName: '失准过载',
-    exampleDescription: '对本次行动的命中、暴击和暴伤做临时修正',
-    selectorTemplate: EMPTY_SELECTOR_TEMPLATE,
-    argsTemplate: {
-      ops: [
-        { group: 'extraParams', key: 'hitRate', op: 'mul', value: 0.5 },
-        { group: 'extraParams', key: 'critRate', op: 'mul', value: 0.5 },
-        { group: 'extraParams', key: 'critDamage', op: 'mul', value: 2 },
-      ],
-    },
-    allowedGroups: RUNTIME_STAT_GROUPS,
-  }),
   createTypeDefinition({
     effectType: 'single_engine_bonus',
     label: '单引擎奖励',
@@ -395,27 +361,15 @@ const GAME_EFFECT_TYPE_DEFINITIONS: GameEffectTypeDefinition[] = [
   }),
   createTypeDefinition({
     effectType: 'equip_count_bonus',
-    label: '装备数量达标',
+    label: '同角色装备类型数量奖励',
     isStatic: true,
     selectorMode: 'equip',
     argsMode: 'count+ops',
     exampleName: '双件套奖励',
-    exampleDescription: '命中集合数量达到阈值时对同集合应用属性',
-    selectorTemplate: { ...EMPTY_SELECTOR_TEMPLATE, etypeIds: [10] },
+    exampleDescription: '同一角色身上命中的装备类型数量达到阈值时应用属性',
+    selectorTemplate: { ...TYPE_EQUIP_SELECTOR_TEMPLATE, etypeIds: [10] },
     argsTemplate: { requiredCount: 2, ops: [{ group: 'vehicleParams', key: 'repeat', op: 'add', value: 1 }] },
-    allowedGroups: EQUIP_STAT_GROUPS,
-  }),
-  createTypeDefinition({
-    effectType: 'same_base_id_count_bonus',
-    label: '同基础 ID 数量达标',
-    isStatic: true,
-    selectorMode: 'equip',
-    argsMode: 'count+ops',
-    exampleName: '同型套装奖励',
-    exampleDescription: '命中集合里只要有同基础 ID 达标就应用属性',
-    selectorTemplate: { ...EMPTY_SELECTOR_TEMPLATE, etypeIds: [10] },
-    argsTemplate: { requiredCount: 2, ops: [{ group: 'vehicleParams', key: 'repeat', op: 'add', value: 1 }] },
-    allowedGroups: EQUIP_STAT_GROUPS,
+    allowedGroups: EQUIP_EFFECT_GROUPS,
   }),
   createTypeDefinition({
     effectType: 'pair_same_engine_bonus',
@@ -437,7 +391,7 @@ const GAME_EFFECT_TYPE_DEFINITIONS: GameEffectTypeDefinition[] = [
     argsMode: 'count+ops',
     exampleName: '双同型 C 装联动',
     exampleDescription: 'owner 已装备 c 装中存在一对同基础 ID 时，对命中装备应用属性',
-    selectorTemplate: { ...EMPTY_SELECTOR_TEMPLATE, etypeIds: [10] },
+    selectorTemplate: { ...FULL_EQUIP_SELECTOR_TEMPLATE, etypeIds: [10] },
     argsTemplate: { requiredCount: 2, ops: [{ group: 'vehicleParams', key: 'actionRepeat', op: 'add', value: 2 }] },
     allowedGroups: PAIR_SAME_CUNIT_EQUIP_GROUPS,
   }),
@@ -461,7 +415,7 @@ const GAME_EFFECT_TYPE_DEFINITIONS: GameEffectTypeDefinition[] = [
     argsMode: 'ops',
     exampleName: '主炮追加发射',
     exampleDescription: 'C 装置给指定槽位武器追加发射次数',
-    selectorTemplate: { ...EMPTY_SELECTOR_TEMPLATE, etypeIds: [10] },
+    selectorTemplate: { ...FULL_EQUIP_SELECTOR_TEMPLATE, etypeIds: [10] },
     argsTemplate: { ops: [{ group: 'vehicleParams', key: 'actionRepeat', op: 'add', value: 1 }] },
     allowedGroups: ACTION_REPEAT_GROUPS,
   }),
@@ -477,7 +431,7 @@ const GAME_EFFECT_TYPE_DEFINITIONS: GameEffectTypeDefinition[] = [
     argsTemplate: {
       weaponIds: [1],
       armorIds: [2, 5, 10],
-      ops: [{ group: 'scalar', key: 'expRate', op: 'mul', value: 2 }],
+      ops: [{ group: 'baseParamRate', key: 'mhp', op: 'mul', value: 1.2 }],
     },
     allowedGroups: OWNER_EXTENDED_GROUPS,
   }),
@@ -490,8 +444,10 @@ const GAME_EFFECT_TYPE_MAP = new Map(
 export const getGameEffectTypeDefinition = (
   effectType: GameEffectType | '',
 ): GameEffectTypeDefinition => {
-  const definition = GAME_EFFECT_TYPE_MAP.get(effectType as GameEffectType)
-    || GAME_EFFECT_TYPE_MAP.get('equip_stat_bonus')!;
+  const definition = GAME_EFFECT_TYPE_MAP.get(effectType as GameEffectType);
+  if (!definition) {
+    throw new Error(`未知 effectType: ${String(effectType)}`);
+  }
   return {
     ...definition,
     selectorFields: [...definition.selectorFields],
@@ -522,8 +478,6 @@ const buildKeyOptions = (
   const allowedGroup = getAllowedGroupDefinition(effectType, group);
   if (!allowedGroup) return [];
   if (allowedGroup.keys === null) {
-    if (group === 'paramRate') return buildParamRateOptions(systemData);
-    if (group === 'elementRate') return buildElementRateOptions(systemData);
     return [];
   }
   return allowedGroup.keys.map((key) => ({
@@ -534,11 +488,12 @@ const buildKeyOptions = (
 
 const sanitizeSelectorRecord = (
   selector: unknown,
+  allowedKeys: readonly GameEffectSelectorFieldKey[],
 ): Record<string, unknown> => {
   const record = asRecord(selector);
   if (!record) return {};
   const sanitized: Record<string, unknown> = {};
-  for (const key of SELECTOR_FIELD_KEYS) {
+  for (const key of allowedKeys) {
     const normalized = sanitizeNumberArray(record[key]);
     if (normalized) sanitized[key] = normalized;
   }
@@ -557,12 +512,12 @@ const normalizeEffectOpRow = (
   const op = record.op;
   const value = record.value;
   if (
-    (group !== 'extraParams'
+    (group !== 'baseParams'
+      && group !== 'extraParams'
       && group !== 'vehicleParams'
       && group !== 'scalar'
       && group !== 'specialParams'
-      && group !== 'paramRate'
-      && group !== 'elementRate')
+      && group !== 'baseParamRate')
     || typeof key !== 'string'
     || !isEffectOpKind(op)
     || !isFiniteNumber(value)
@@ -650,12 +605,12 @@ export const parseOpsToRows = (value: unknown): EffectOpRow[] => {
     const op = record.op;
     const opValue = record.value;
     if (
-      (group !== 'extraParams'
+      (group !== 'baseParams'
+        && group !== 'extraParams'
         && group !== 'vehicleParams'
         && group !== 'scalar'
         && group !== 'specialParams'
-        && group !== 'paramRate'
-        && group !== 'elementRate')
+        && group !== 'baseParamRate')
       || typeof key !== 'string'
       || !isEffectOpKind(op)
       || !isFiniteNumber(opValue)
@@ -681,12 +636,12 @@ export const validateEffectOpRows = (
   for (let index = 0; index < rows.length; index++) {
     const row = rows[index];
     if (
-      row?.group !== 'extraParams'
+      row?.group !== 'baseParams'
+      && row?.group !== 'extraParams'
       && row?.group !== 'vehicleParams'
       && row?.group !== 'scalar'
       && row?.group !== 'specialParams'
-      && row?.group !== 'paramRate'
-      && row?.group !== 'elementRate'
+      && row?.group !== 'baseParamRate'
     ) {
       return { valid: false, message: `第 ${index + 1} 条操作缺少属性分组` };
     }
@@ -712,14 +667,14 @@ export const validateEffectOpRows = (
 };
 
 export const createGameEffectConfig = (
-  effectType: GameEffectType = 'equip_stat_bonus',
+  effectType: GameEffectType,
   value?: { selector?: unknown; args?: unknown },
   systemData?: unknown,
 ): GameEffectConfig => {
   const definition = getGameEffectTypeDefinition(effectType);
   const selectorTemplate = cloneJsonValue(definition.selectorTemplate);
   const argsTemplate = cloneJsonValue(definition.argsTemplate);
-  const normalizedSelector = sanitizeSelectorRecord(value?.selector);
+  const normalizedSelector = sanitizeSelectorRecord(value?.selector, definition.selectorFields);
   const normalizedArgs = sanitizeArgsRecord(value?.args, definition, systemData);
   const selector = {
     ...cloneJsonValue(selectorTemplate),

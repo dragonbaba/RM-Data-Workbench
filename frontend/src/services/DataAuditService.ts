@@ -10,7 +10,6 @@ import { normalizeStateDataEntry } from './StateChargePropertyService';
 import { normalizeStandardDataForEditor } from './DataFileFormatService';
 import {
   OWNER_EXTRA_PARAM_KEYS,
-  OWNER_PARAM_RATE_KEYS,
   OWNER_SCALAR_KEYS,
   OWNER_SPECIAL_PARAM_KEYS,
 } from '../types';
@@ -46,6 +45,7 @@ const EQUIPMENT_TEMPLATE_HOST_FILE_NAMES = new Set([
   'Weapons.json',
   'Armors.json',
 ]);
+const ARMOR_ONLY_FIELD_HOST_FILE_NAMES = new Set(['Armors.json']);
 const OWNER_PARAM_HOST_FILE_NAMES = new Set([
   ACTORS_FILE_NAME,
   CLASSES_FILE_NAME,
@@ -53,6 +53,12 @@ const OWNER_PARAM_HOST_FILE_NAMES = new Set([
   'Enemies.json',
   'Weapons.json',
   'Armors.json',
+]);
+const OWNER_ELEMENT_RATE_HOST_FILE_NAMES = new Set([
+  ACTORS_FILE_NAME,
+  CLASSES_FILE_NAME,
+  'States.json',
+  'Enemies.json',
 ]);
 const PASSIVE_STATE_HOST_FILE_NAMES = new Set([
   ACTORS_FILE_NAME,
@@ -202,6 +208,14 @@ const sanitizeEntryByFileContract = (
       nextEntry.upgradeParams = undefined;
     }
   }
+  if (!ARMOR_ONLY_FIELD_HOST_FILE_NAMES.has(fileName)) {
+    if (hasOwnKey(nextEntry, 'elementRates')) {
+      nextEntry.elementRates = undefined;
+    }
+    if (hasOwnKey(nextEntry, 'elementRateFloats')) {
+      nextEntry.elementRateFloats = undefined;
+    }
+  }
   if (!OWNER_PARAM_HOST_FILE_NAMES.has(fileName) && hasOwnKey(nextEntry, 'ownerParams')) {
     nextEntry.ownerParams = undefined;
   }
@@ -285,26 +299,23 @@ const normalizeClassParamMatrix = (entry: Record<string, unknown>): Record<strin
 };
 
 type LegacyOwnerGroupKey = 'extraParams' | 'specialParams' | 'scalar' | 'paramRate' | 'elementRate';
-type FixedOwnerGroupKey = Exclude<LegacyOwnerGroupKey, 'elementRate'>;
+type FixedOwnerGroupKey = 'extraParams' | 'specialParams' | 'scalar';
 
 const OWNER_GROUP_KEYS = Object.freeze({
   extraParams: OWNER_EXTRA_PARAM_KEYS,
   specialParams: OWNER_SPECIAL_PARAM_KEYS,
   scalar: OWNER_SCALAR_KEYS,
-  paramRate: OWNER_PARAM_RATE_KEYS,
 });
 const OWNER_GROUP_INDEX_MAP: Record<FixedOwnerGroupKey, Map<string, number>> = Object.freeze({
   extraParams: new Map<string, number>(OWNER_EXTRA_PARAM_KEYS.map((key, index) => [key, index])),
   specialParams: new Map<string, number>(OWNER_SPECIAL_PARAM_KEYS.map((key, index) => [key, index])),
   scalar: new Map<string, number>(OWNER_SCALAR_KEYS.map((key, index) => [key, index])),
-  paramRate: new Map<string, number>(OWNER_PARAM_RATE_KEYS.map((key, index) => [key, index])),
 });
 
 interface MutableOwnerParams {
   extraParams?: number[];
   specialParams?: number[];
   scalar?: number[];
-  paramRate?: number[];
   elementRate?: number[];
 }
 
@@ -428,7 +439,6 @@ const getOwnerParamsRecord = (
     extraParams: buildOwnerFixedGroupArray('extraParams', currentOwnerParams.extraParams),
     specialParams: buildOwnerFixedGroupArray('specialParams', currentOwnerParams.specialParams),
     scalar: buildOwnerFixedGroupArray('scalar', currentOwnerParams.scalar),
-    paramRate: buildOwnerFixedGroupArray('paramRate', currentOwnerParams.paramRate),
     elementRate: buildOwnerElementRateArray(currentOwnerParams.elementRate, elementCount),
   };
 };
@@ -479,6 +489,9 @@ const applyLegacyOwnerOp = (
     currentArray[elementId] = (toFiniteNumber(currentArray[elementId]) ?? 0) + op.value;
     return;
   }
+  if (op.group === 'paramRate') {
+    return;
+  }
   const groupKey = op.group as FixedOwnerGroupKey;
   const index = OWNER_GROUP_INDEX_MAP[groupKey].get(op.key);
   if (index == null) {
@@ -491,9 +504,10 @@ const applyLegacyOwnerOp = (
 const normalizeOwnerParams = (
   ownerParams: MutableOwnerParams,
   elementCount: number,
+  allowElementRate: boolean,
 ): MutableOwnerParams => {
   const result: MutableOwnerParams = {};
-  const groupKeys: FixedOwnerGroupKey[] = ['extraParams', 'specialParams', 'scalar', 'paramRate'];
+  const groupKeys: FixedOwnerGroupKey[] = ['extraParams', 'specialParams', 'scalar'];
   for (const groupKey of groupKeys) {
     const source = ownerParams[groupKey];
     const nextGroup = new Array(OWNER_GROUP_KEYS[groupKey].length).fill(0);
@@ -505,13 +519,15 @@ const normalizeOwnerParams = (
     result[groupKey] = nextGroup;
   }
 
-  const rawElementRate = ownerParams.elementRate;
-  const elementRateLength = Math.max(1, elementCount, rawElementRate?.length ?? 0);
-  const nextElementRate = new Array(elementRateLength).fill(0);
-  for (let index = 0; index < nextElementRate.length; index++) {
-    nextElementRate[index] = toFiniteNumber(rawElementRate?.[index]) ?? 0;
+  if (allowElementRate) {
+    const rawElementRate = ownerParams.elementRate;
+    const elementRateLength = Math.max(1, elementCount, rawElementRate?.length ?? 0);
+    const nextElementRate = new Array(elementRateLength).fill(0);
+    for (let index = 0; index < nextElementRate.length; index++) {
+      nextElementRate[index] = toFiniteNumber(rawElementRate?.[index]) ?? 0;
+    }
+    result.elementRate = nextElementRate;
   }
-  result.elementRate = nextElementRate;
 
   return result;
 };
@@ -610,6 +626,7 @@ const migrateLegacyOwnerEffectsOnEntry = (
   entry: unknown,
   legacyOwnerEffects: Map<number, LegacyOwnerEffectEntry>,
   systemData: unknown,
+  fileName: string,
 ): unknown => {
   const record = asRecord(entry);
   if (!record) {
@@ -633,7 +650,11 @@ const migrateLegacyOwnerEffectsOnEntry = (
   if (migratedEffects.length > 0) {
     nextEntry.effects = effectIds.filter((effectId) => !legacyOwnerEffects.has(effectId));
   }
-  nextEntry.ownerParams = normalizeOwnerParams(ownerParams, elementCount);
+  nextEntry.ownerParams = normalizeOwnerParams(
+    ownerParams,
+    elementCount,
+    OWNER_ELEMENT_RATE_HOST_FILE_NAMES.has(fileName),
+  );
   return nextEntry;
 };
 
@@ -678,7 +699,7 @@ export async function auditAndRepairDataFiles(
       checkedEntries++;
       let normalizedEntry = normalizeEntryByFileName(fileName, currentEntry, systemData, normalizedSkillsData);
       if (OWNER_PARAM_HOST_FILE_NAMES.has(fileName)) {
-        normalizedEntry = migrateLegacyOwnerEffectsOnEntry(normalizedEntry, legacyOwnerEffects, systemData);
+        normalizedEntry = migrateLegacyOwnerEffectsOnEntry(normalizedEntry, legacyOwnerEffects, systemData, fileName);
       }
       if (PASSIVE_STATE_HOST_FILE_NAMES.has(fileName)) {
         normalizedEntry = normalizePassiveStateHostEntry(normalizedEntry) ?? normalizedEntry;

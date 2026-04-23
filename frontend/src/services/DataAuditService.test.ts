@@ -3,9 +3,8 @@ import { auditAndRepairDataFiles, toAuditSummaryText } from './DataAuditService'
 
 const createDefaultOwnerParams = (elementCount = 2) => ({
   extraParams: [0, 0, 0, 0, 0, 0],
-  specialParams: [0, 0, 0, 0, 0],
+  specialParams: [0, 0, 0, 0, 0, 0],
   scalar: [0],
-  paramRate: [0, 0, 0, 0, 0, 0, 0, 0],
   elementRate: new Array(elementCount).fill(0),
 });
 
@@ -326,7 +325,11 @@ describe('DataAuditService', () => {
     expect(weaponPayload[1]).toMatchObject({
       id: 1,
       weaponImageId: 1,
-      ownerParams: createDefaultOwnerParams(3),
+      ownerParams: {
+        extraParams: [0, 0, 0, 0, 0, 0],
+        scalar: [0],
+        specialParams: [0, 0, 0, 0, 0, 0],
+      },
       passiveStates: [],
     });
 
@@ -343,7 +346,11 @@ describe('DataAuditService', () => {
     expect(armorPayload[2]).toMatchObject({
       etypeId: 9,
       hiddenAttackSkillId: 23,
-      ownerParams: createDefaultOwnerParams(3),
+      ownerParams: {
+        extraParams: [0, 0, 0, 0, 0, 0],
+        scalar: [0],
+        specialParams: [0, 0, 0, 0, 0, 0],
+      },
       passiveStates: [],
     });
 
@@ -434,12 +441,7 @@ describe('DataAuditService', () => {
             effectType: 'single_engine_bonus',
             isStatic: true,
             config: {
-              selector: {
-                slotIndexes: [],
-                etypeIds: [],
-                wtypeIds: [],
-                atypeIds: [],
-              },
+              selector: {},
               args: {
                 ops: [{ group: 'vehicleParams', key: 'loadValue', op: 'add', value: 3000 }],
                 requiredCount: 0,
@@ -610,9 +612,8 @@ describe('DataAuditService', () => {
             name: '测试敌人',
             ownerParams: {
               extraParams: [150, -5, 0.9, 0.5, 120, 2],
-              specialParams: [0, 0, 0, 0, 0],
+              specialParams: [0, 0, 0, 0, 0, 0],
               scalar: [0],
-              paramRate: [0, 0, 0, 0, 0, 0, 0, 0],
               elementRate: [0, 0, 0],
             },
             passiveStates: [],

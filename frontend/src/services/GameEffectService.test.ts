@@ -41,12 +41,9 @@ describe('GameEffectService', () => {
 
   it('模板注册表只暴露集中式 effectType', () => {
     expect(getGameEffectTypeDefinitions().map((definition) => definition.effectType)).toEqual([
-      'equip_stat_bonus',
-      'runtime_stat_bonus',
       'single_engine_bonus',
       'single_cunit_bonus',
       'equip_count_bonus',
-      'same_base_id_count_bonus',
       'pair_same_engine_bonus',
       'pair_same_cunit_bonus',
       'pair_same_cunit_owner_bonus',
@@ -57,6 +54,7 @@ describe('GameEffectService', () => {
 
   it('模板定义会暴露 selector、args 和分组限制', () => {
     const ownerParamDefinition = getGameEffectTypeDefinition('pair_same_cunit_owner_bonus');
+    const equipCountDefinition = getGameEffectTypeDefinition('equip_count_bonus');
     const equipSetDefinition = getGameEffectTypeDefinition('equip_id_set_bonus');
 
     expect(ownerParamDefinition.selectorMode).toBe('none');
@@ -64,32 +62,36 @@ describe('GameEffectService', () => {
     expect(ownerParamDefinition.selectorFields).toEqual([]);
     expect(ownerParamDefinition.allowIsStaticToggle).toBe(false);
     expect(ownerParamDefinition.allowedGroups.map((entry) => entry.group)).toEqual([
+      'baseParams',
       'extraParams',
       'vehicleParams',
       'specialParams',
+      'baseParamRate',
     ]);
 
+    expect(equipCountDefinition.selectorMode).toBe('equip');
+    expect(equipCountDefinition.selectorFields).toEqual(['etypeIds', 'wtypeIds', 'atypeIds']);
     expect(equipSetDefinition.argsFields).toEqual(['weaponIds', 'armorIds', 'ops']);
     expect(equipSetDefinition.allowedGroups.map((entry) => entry.group)).toEqual([
+      'baseParams',
       'extraParams',
       'vehicleParams',
       'specialParams',
+      'baseParamRate',
       'scalar',
-      'paramRate',
-      'elementRate',
     ]);
   });
 
   it('默认模板会直接生成新对象协议', () => {
-    expect(createGameEffectTemplate('equip_stat_bonus')).toEqual({
-      name: '主炮支援',
-      description: ['给命中的装备实例增加静态属性'],
-      effectType: 'equip_stat_bonus',
+    expect(createGameEffectTemplate('equip_count_bonus')).toEqual({
+      name: '双件套奖励',
+      description: ['同一角色身上命中的装备类型数量达到阈值时应用属性'],
+      effectType: 'equip_count_bonus',
       isStatic: true,
       config: {
-        selector: { slotIndexes: [], etypeIds: [], wtypeIds: [], atypeIds: [] },
+        selector: { etypeIds: [10], wtypeIds: [], atypeIds: [] },
         args: {
-          requiredCount: 0,
+          requiredCount: 2,
           weaponIds: [],
           armorIds: [],
           ops: [{ group: 'vehicleParams', key: 'repeat', op: 'add', value: 1 }],
@@ -98,7 +100,7 @@ describe('GameEffectService', () => {
     });
 
     expect(createGameEffectConfig('pair_same_engine_bonus')).toEqual({
-      selector: { slotIndexes: [], etypeIds: [], wtypeIds: [], atypeIds: [] },
+      selector: {},
       args: {
         requiredCount: 2,
         weaponIds: [],
@@ -123,6 +125,25 @@ describe('GameEffectService', () => {
 
     expect(result[1]).toMatchObject({ id: 1, effectType: 'single_engine_bonus' });
     expect(result[2]).toBeNull();
+  });
+
+  it('会在规范化时清理 equip_count_bonus 遗留的 slotIndexes', () => {
+    expect(normalizeGameEffectEntry({
+      name: '旧件数奖励',
+      description: '',
+      effectType: 'equip_count_bonus',
+      isStatic: true,
+      config: {
+        selector: { slotIndexes: [0, 1], etypeIds: [10], wtypeIds: [], atypeIds: [] },
+        args: { requiredCount: 2, ops: [{ group: 'vehicleParams', key: 'repeat', op: 'add', value: 1 }] },
+      },
+    })).toMatchObject({
+      effectType: 'equip_count_bonus',
+      config: {
+        selector: { etypeIds: [10], wtypeIds: [], atypeIds: [] },
+        args: { requiredCount: 2 },
+      },
+    });
   });
 
   it('会拒绝 legacy owner effectType 作为正式效果协议', () => {
@@ -160,14 +181,18 @@ describe('GameEffectService', () => {
   });
 
   it('会按 effectType 暴露 group/key/op 选项和默认操作行', () => {
-    expect(getGroupOptions('single_engine_bonus')).toEqual([{ value: 'vehicleParams', label: '车辆属性' }]);
+    expect(getGroupOptions('single_engine_bonus')).toEqual([
+      { value: 'baseParams', label: '基础属性' },
+      { value: 'baseParamRate', label: '基础属性率' },
+      { value: 'vehicleParams', label: '车辆属性' },
+    ]);
     expect(getKeyOptions('single_engine_bonus', 'vehicleParams')).toEqual([
       { value: 'loadValue', label: '载重' },
       { value: 'carryValue', label: '承重量' },
     ]);
-    expect(getKeyOptions('equip_id_set_bonus', 'paramRate', systemData)).toContainEqual({ value: 'mhp', label: '体力' });
-    expect(getKeyOptions('equip_id_set_bonus', 'elementRate', systemData)).toContainEqual({ value: '2', label: '火炎' });
-    expect(getKeyOptions('single_cunit_bonus', 'specialParams')).toContainEqual({ value: 'tgr', label: '仇恨' });
+    expect(getKeyOptions('equip_id_set_bonus', 'baseParams', systemData)).toContainEqual({ value: 'mhp', label: '最大生命值' });
+    expect(getKeyOptions('equip_id_set_bonus', 'baseParamRate', systemData)).toContainEqual({ value: 'mhp', label: '体力' });
+    expect(getKeyOptions('single_cunit_bonus', 'specialParams')).toContainEqual({ value: 'hrg', label: 'HP 再生率' });
     expect(getOpOptions()).toEqual([
       { value: 'add', label: '加算' },
       { value: 'mul', label: '乘算' },
@@ -182,13 +207,13 @@ describe('GameEffectService', () => {
   });
 
   it('会正确读取编辑器缓存中的 System.json 包装结构', () => {
-    expect(getKeyOptions('equip_id_set_bonus', 'paramRate', wrappedSystemData)).toContainEqual({ value: 'mhp', label: '体力' });
-    expect(getKeyOptions('equip_id_set_bonus', 'elementRate', wrappedSystemData)).toContainEqual({ value: '2', label: '火炎' });
+    expect(getKeyOptions('equip_id_set_bonus', 'baseParams', wrappedSystemData)).toContainEqual({ value: 'mhp', label: '最大生命值' });
+    expect(getKeyOptions('equip_id_set_bonus', 'baseParamRate', wrappedSystemData)).toContainEqual({ value: 'mhp', label: '体力' });
   });
 
   it('会在行级校验中阻止空 ops、非法 group/key 和非法 value', () => {
-    expect(validateEffectOpRows('equip_stat_bonus', [])).toEqual({ valid: false, message: '至少需要一条属性操作' });
-    expect(validateEffectOpRows('equip_stat_bonus', [{ group: 'scalar', key: 'expRate', op: 'add', value: 1 }])).toEqual({
+    expect(validateEffectOpRows('equip_count_bonus', [])).toEqual({ valid: false, message: '至少需要一条属性操作' });
+    expect(validateEffectOpRows('equip_count_bonus', [{ group: 'scalar', key: 'expRate', op: 'add', value: 1 }])).toEqual({
       valid: false,
       message: '当前模板不允许使用分组 scalar',
     });
@@ -199,35 +224,35 @@ describe('GameEffectService', () => {
   });
 
   it('保存前会校验 selector 和 args 必须存在且为对象', () => {
-    expect(validateGameEffectConfig('equip_stat_bonus', {
-      selector: { slotIndexes: [], etypeIds: [], wtypeIds: [], atypeIds: [] },
+    expect(validateGameEffectConfig('equip_count_bonus', {
+      selector: { etypeIds: [], wtypeIds: [], atypeIds: [] },
       args: {
         ops: [{ group: 'vehicleParams', key: 'repeat', op: 'add', value: 1 }],
-        requiredCount: 0,
+        requiredCount: 2,
         weaponIds: [],
         armorIds: [],
       },
     })).toEqual({ valid: true });
 
-    expect(validateGameEffectConfig('equip_stat_bonus', { args: {} })).toEqual({
+    expect(validateGameEffectConfig('equip_count_bonus', { args: {} })).toEqual({
       valid: false,
       message: '配置缺少 selector 对象',
     });
 
-    expect(validateGameEffectConfig('equip_stat_bonus', { selector: {}, args: 'invalid' })).toEqual({
+    expect(validateGameEffectConfig('equip_count_bonus', { selector: {}, args: 'invalid' })).toEqual({
       valid: false,
       message: '配置缺少 args 对象',
     });
   });
 
-  it('共享模板会接受固定 selector 键，但仍会拒绝错误 key', () => {
+  it('会按模板严格校验 selector 字段', () => {
     expect(validateGameEffectEntry({
       name: '测试',
       description: '',
       effectType: 'single_cunit_bonus',
       isStatic: true,
       config: {
-        selector: { slotIndexes: [], etypeIds: [10], wtypeIds: [], atypeIds: [] },
+        selector: { etypeIds: [10] },
         args: {
           ops: [{ group: 'specialParams', key: 'tgr', op: 'add', value: 0.2 }],
           requiredCount: 0,
@@ -235,31 +260,31 @@ describe('GameEffectService', () => {
           armorIds: [],
         },
       },
-    })).toEqual({ valid: true });
+    })).toEqual({ valid: false, message: 'selector 存在未定义字段: etypeIds' });
 
     expect(validateGameEffectEntry({
-      name: '载重补正',
+      name: '件数奖励',
       description: '',
-      effectType: 'equip_stat_bonus',
+      effectType: 'equip_count_bonus',
       isStatic: true,
       config: {
-        selector: { slotIndexes: [], etypeIds: [], wtypeIds: [], atypeIds: [] },
+        selector: { slotIndexes: [0], etypeIds: [], wtypeIds: [], atypeIds: [] },
         args: {
-          ops: [{ group: 'vehicleParams', key: 'loadValue', op: 'add', value: 300 }],
-          requiredCount: 0,
+          ops: [{ group: 'vehicleParams', key: 'repeat', op: 'add', value: 1 }],
+          requiredCount: 2,
           weaponIds: [],
           armorIds: [],
         },
       },
     })).toEqual({
       valid: false,
-      message: 'args.ops 必须是合法的对象数组，且属性分组与 key 必须符合当前模板约束',
+      message: 'selector 存在未定义字段: slotIndexes',
     });
   });
 
   it('装备合集模板会校验 weaponIds 和 armorIds', () => {
     expect(validateGameEffectConfig('equip_id_set_bonus', {
-      selector: { slotIndexes: [], etypeIds: [], wtypeIds: [], atypeIds: [] },
+      selector: {},
       args: {
         weaponIds: [1],
         armorIds: [2, 5, 10],
@@ -269,7 +294,7 @@ describe('GameEffectService', () => {
     }, systemData)).toEqual({ valid: true });
 
     expect(validateGameEffectConfig('equip_id_set_bonus', {
-      selector: { slotIndexes: [], etypeIds: [], wtypeIds: [], atypeIds: [] },
+      selector: {},
       args: {
         weaponIds: '1',
         armorIds: [2],
@@ -289,12 +314,12 @@ describe('GameEffectService', () => {
     })).toEqual({ valid: false, message: '模板 pair_same_engine_bonus 的 isStatic 必须为 true' });
 
     expect(validateGameEffectEntry({
-      name: '行动时暴伤强化',
+      name: '件数奖励',
       description: '',
-      effectType: 'runtime_stat_bonus',
+      effectType: 'equip_count_bonus',
       isStatic: false,
-      config: { selector: {}, args: { ops: [{ group: 'extraParams', key: 'finalDamage', op: 'add', value: 0.2 }] } },
-    })).toEqual({ valid: true });
+      config: { selector: { etypeIds: [], wtypeIds: [], atypeIds: [] }, args: { requiredCount: 2, ops: [{ group: 'vehicleParams', key: 'repeat', op: 'add', value: 1 }] } },
+    })).toEqual({ valid: false, message: '模板 equip_count_bonus 的 isStatic 必须为 true' });
   });
 
   it('owner 属性模板允许特殊属性分组', () => {

@@ -222,10 +222,10 @@ export function EffectPanel() {
 
   const definition: GameEffectTypeDefinition = useMemo(() => {
     if (!effect) {
-      return getGameEffectTypeDefinition('equip_stat_bonus');
+      return definitions[0]!;
     }
     return definitionMap.get(effect.effectType) || getGameEffectTypeDefinition(effect.effectType);
-  }, [definitionMap, effect]);
+  }, [definitionMap, definitions, effect]);
 
   const groupOptions = useMemo(
     () => (effect ? getGroupOptions(effect.effectType) : []),

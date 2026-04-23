@@ -1,10 +1,7 @@
 export type GameEffectType =
-  | 'equip_stat_bonus'
-  | 'runtime_stat_bonus'
   | 'single_engine_bonus'
   | 'single_cunit_bonus'
   | 'equip_count_bonus'
-  | 'same_base_id_count_bonus'
   | 'pair_same_engine_bonus'
   | 'pair_same_cunit_bonus'
   | 'pair_same_cunit_owner_bonus'
@@ -13,28 +10,32 @@ export type GameEffectType =
 
 export type GameEffectOpKind = 'add' | 'mul' | 'set';
 export type GameEffectOpGroup =
+  | 'baseParams'
   | 'extraParams'
   | 'vehicleParams'
   | 'scalar'
   | 'specialParams'
-  | 'paramRate'
-  | 'elementRate';
+  | 'baseParamRate';
 
-export const OWNER_PARAM_RATE_KEYS = ['mhp', 'mmp', 'atk', 'def', 'mat', 'mdf', 'agi', 'luk'] as const;
-export type GameEffectParamRateKey = typeof OWNER_PARAM_RATE_KEYS[number];
-
-export type GameEffectElementRateKey = string;
+export const BASE_PARAM_KEYS = ['mhp', 'mmp', 'atk', 'def', 'mat', 'mdf', 'agi', 'luk'] as const;
+export const OWNER_PARAM_RATE_KEYS = BASE_PARAM_KEYS;
+export type GameEffectBaseParamKey = typeof BASE_PARAM_KEYS[number];
 
 export interface GameEffectSelector {
-  slotIndexes: number[];
-  etypeIds: number[];
-  wtypeIds: number[];
-  atypeIds: number[];
+  slotIndexes?: number[];
+  etypeIds?: number[];
+  wtypeIds?: number[];
+  atypeIds?: number[];
 }
 
 export interface GameEffectBaseOp {
   op: GameEffectOpKind;
   value: number;
+}
+
+export interface GameEffectBaseParamOp extends GameEffectBaseOp {
+  group: 'baseParams';
+  key: GameEffectBaseParamKey;
 }
 
 export interface GameEffectExtraParamOp extends GameEffectBaseOp {
@@ -54,26 +55,21 @@ export interface GameEffectScalarOp extends GameEffectBaseOp {
 
 export interface GameEffectSpecialParamOp extends GameEffectBaseOp {
   group: 'specialParams';
-  key: 'tgr' | 'grd' | 'rec' | 'pha' | 'pdr';
+  key: 'tgr' | 'grd' | 'rec' | 'pha' | 'pdr' | 'hrg';
 }
 
-export interface GameEffectParamRateOp extends GameEffectBaseOp {
-  group: 'paramRate';
-  key: GameEffectParamRateKey;
-}
-
-export interface GameEffectElementRateOp extends GameEffectBaseOp {
-  group: 'elementRate';
-  key: GameEffectElementRateKey;
+export interface GameEffectBaseParamRateOp extends GameEffectBaseOp {
+  group: 'baseParamRate';
+  key: GameEffectBaseParamKey;
 }
 
 export type GameEffectAttributeOp =
+  | GameEffectBaseParamOp
   | GameEffectExtraParamOp
   | GameEffectVehicleParamOp
   | GameEffectScalarOp
   | GameEffectSpecialParamOp
-  | GameEffectParamRateOp
-  | GameEffectElementRateOp;
+  | GameEffectBaseParamRateOp;
 
 export interface GameEffectArgs {
   ops: GameEffectAttributeOp[];
@@ -177,7 +173,7 @@ export const EQUIP_EXTRA_PARAM_KEYS = ['interceptRate', 'evadeRate', 'critRate',
 export const OWNER_EXTRA_PARAM_KEYS = ['hitRate', 'evadeRate', 'critRate', 'critDamage', 'interceptRate', 'finalDamage'] as const;
 export type OwnerExtraParamKey = typeof OWNER_EXTRA_PARAM_KEYS[number];
 
-export const OWNER_SPECIAL_PARAM_KEYS = ['tgr', 'grd', 'rec', 'pha', 'pdr'] as const;
+export const OWNER_SPECIAL_PARAM_KEYS = ['tgr', 'grd', 'rec', 'pha', 'pdr', 'hrg'] as const;
 export type OwnerSpecialParamKey = typeof OWNER_SPECIAL_PARAM_KEYS[number];
 
 export const OWNER_SCALAR_KEYS = ['expRate'] as const;
@@ -214,13 +210,11 @@ export type EquipUpgradeParamMap = ParamTemplate[];
 export type OwnerExtraParamMap = number[];
 export type OwnerSpecialParamMap = number[];
 export type OwnerScalarMap = number[];
-export type OwnerParamRateMap = number[];
 
 export interface OwnerParams {
   extraParams?: OwnerExtraParamMap;
   specialParams?: OwnerSpecialParamMap;
   scalar?: OwnerScalarMap;
-  paramRate?: OwnerParamRateMap;
   elementRate?: number[];
 }
 

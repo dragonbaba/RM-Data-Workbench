@@ -251,6 +251,8 @@ export function normalizeEquipmentDataEntry(
     normalized.attackSkillId = Math.max(0, toIntOrZero(item.attackSkillId));
     normalized.attackElementId = Math.max(0, toIntOrZero(item.attackElementId));
     normalized.weaponImageId = normalizeWeaponImageId(item.weaponImageId);
+    delete normalized.elementRates;
+    delete normalized.elementRateFloats;
     normalized.areaOverride = rangeValues.areaOverride;
     normalized.areaMode = rangeValues.areaMode;
     normalized.shapeType = rangeValues.shapeType;
