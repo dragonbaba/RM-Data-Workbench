@@ -99,6 +99,15 @@ export interface ParamTemplate {
   upgradeFloatValue?: number;
 }
 
+export interface EquipUpgradeCostEntry {
+  successRate: number;
+  goldCost: number;
+  requiredItemId: number;
+  requiredItemAmount: number;
+  protectItemId: number;
+  protectItemAmount: number;
+}
+
 export interface BattleOrderEffects {
   userNext?: number;
   targetCurrent?: number;
@@ -233,6 +242,7 @@ export interface RPGItem {
   extraParams?: EquipExtraParamMap;
   vehicleParams?: EquipVehicleParamMap;
   upgradeParams?: EquipUpgradeParamMap;
+  upgradeCosts?: EquipUpgradeCostEntry[];
   customParams?: Record<string, { value?: number; floatValue?: number } | number>;
   scripts?: Record<string, string>;
   attackSkillId?: number;

@@ -331,6 +331,7 @@ describe('DataAuditService', () => {
         specialParams: [0, 0, 0, 0, 0, 0],
       },
       passiveStates: [],
+      upgradeCosts: [],
     });
 
     const armorPayload = writes.find((item) => item.filePath.endsWith('Armors.json'))?.data as unknown[];
@@ -339,6 +340,7 @@ describe('DataAuditService', () => {
       hiddenAttackSkillId: 17,
       effects: [],
       passiveStates: [],
+      upgradeCosts: [],
       ownerParams: {
         scalar: [0.1],
       },
@@ -352,6 +354,7 @@ describe('DataAuditService', () => {
         specialParams: [0, 0, 0, 0, 0, 0],
       },
       passiveStates: [],
+      upgradeCosts: [],
     });
 
     const projectilePayload = writes.find((item) => item.filePath.endsWith('Projectiles.json'))?.data as unknown[];

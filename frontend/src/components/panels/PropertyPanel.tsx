@@ -54,6 +54,7 @@ import {
   EXTRA_PARAM_FIELDS,
   normalizeArmorElementRateFloats,
   normalizeArmorElementRates,
+  normalizeEquipUpgradeCosts,
   normalizeEquipmentDataEntry,
   UPGRADE_PARAM_FIELDS,
   VEHICLE_PARAM_FIELDS,
@@ -68,6 +69,7 @@ import type {
   EnemyBookChallengeStar,
   EnemyWeaknessGroup,
   EquipExtraParamMap,
+  EquipUpgradeCostEntry,
   EquipUpgradeParamMap,
   EquipVehicleParamMap,
   OwnerExtraParamMap,
@@ -112,6 +114,13 @@ interface FixedParamFieldDefinition {
   index: number;
   key: string;
   label: string;
+}
+
+interface FixedParamColumnLabels {
+  value: string;
+  floatValue: string;
+  upgradeValue: string;
+  upgradeFloatValue: string;
 }
 
 interface OwnerParamFieldDefinition {
@@ -168,6 +177,26 @@ const LEGACY_BUSINESS_CUSTOM_PARAM_KEYS = new Set(
     '强化防御力',
   ],
 );
+
+const UPGRADE_PARAM_DISPLAY_FIELDS: FixedParamFieldDefinition[] = [
+  { index: UPGRADE_PARAM_FIELDS[0].index, key: UPGRADE_PARAM_FIELDS[0].key, label: '可强化次数' },
+  { index: UPGRADE_PARAM_FIELDS[1].index, key: UPGRADE_PARAM_FIELDS[1].key, label: '攻击力' },
+  { index: UPGRADE_PARAM_FIELDS[2].index, key: UPGRADE_PARAM_FIELDS[2].key, label: '防御力' },
+];
+
+const DEFAULT_FIXED_PARAM_COLUMN_LABELS: FixedParamColumnLabels = {
+  value: '未强化值',
+  floatValue: '随机浮动',
+  upgradeValue: '每级强化追加',
+  upgradeFloatValue: '追加浮动',
+};
+
+const UPGRADE_PARAM_COLUMN_LABELS: FixedParamColumnLabels = {
+  value: '配置值',
+  floatValue: '配置浮动',
+  upgradeValue: '每级追加',
+  upgradeFloatValue: '追加浮动',
+};
 
 const EMPTY_PARAM_TEMPLATE: ParamTemplate = Object.freeze({
   value: 0,
@@ -318,6 +347,20 @@ const areParamGroupsEqual = (
   right,
 );
 
+const getDefaultUpgradeSuccessRate = (index: number): number => {
+  const nextLevel = Math.max(1, index + 1);
+  return Math.min(100, Math.max(0, 100 / nextLevel));
+};
+
+const createEmptyUpgradeCostEntry = (index: number): EquipUpgradeCostEntry => ({
+  successRate: getDefaultUpgradeSuccessRate(index),
+  goldCost: 0,
+  requiredItemId: 0,
+  requiredItemAmount: 0,
+  protectItemId: 0,
+  protectItemAmount: 0,
+});
+
 const getFloatFieldKey = (key: string) => `${key}_float`;
 const EQUIP_TYPE_FIELD_KEY = 'etypeId';
 const PRICE_FIELD_KEY = 'price';
@@ -328,6 +371,7 @@ const WEAPON_IMAGE_ID_FIELD_KEY = 'weaponImageId';
 const ELEMENT_RATES_FIELD_KEY = 'elementRates';
 const ELEMENT_RATE_FLOATS_FIELD_KEY = 'elementRateFloats';
 const QUALITY_LOCK_FIELD_KEY = 'qualityLock';
+const UPGRADE_COSTS_FIELD_KEY = 'upgradeCosts';
 const TARGET_CAMP_FIELD_KEY = 'targetCamp';
 const TARGET_LIFE_STATE_FIELD_KEY = 'targetLifeState';
 const SELECT_MODE_FIELD_KEY = 'selectMode';
@@ -1254,12 +1298,14 @@ export function PropertyPanel() {
               extraParams: buildGroupFormValues(item.extraParams, EXTRA_PARAM_FIELDS),
               vehicleParams: buildGroupFormValues(item.vehicleParams, VEHICLE_PARAM_FIELDS),
               upgradeParams: buildGroupFormValues(item.upgradeParams, UPGRADE_PARAM_FIELDS),
+              [UPGRADE_COSTS_FIELD_KEY]: normalizeEquipUpgradeCosts(item.upgradeCosts),
             } : {}),
           };
       if (supportsTemplateParams && !pendingDraft?.baseValues) {
         nextBaseValues.extraParams = buildGroupFormValues(item.extraParams, EXTRA_PARAM_FIELDS);
         nextBaseValues.vehicleParams = buildGroupFormValues(item.vehicleParams, VEHICLE_PARAM_FIELDS);
         nextBaseValues.upgradeParams = buildGroupFormValues(item.upgradeParams, UPGRADE_PARAM_FIELDS);
+        nextBaseValues[UPGRADE_COSTS_FIELD_KEY] = normalizeEquipUpgradeCosts(item.upgradeCosts);
       }
       if (supportsOwnerParams && !pendingDraft?.baseValues) {
         nextBaseValues.ownerParams = buildOwnerParamsFormValues(item.ownerParams, systemData, supportsOwnerElementRate);
@@ -1552,6 +1598,9 @@ export function PropertyPanel() {
     const nextUpgradeParams = supportsTemplateParams
       ? normalizeGroupValues<EquipUpgradeParamMap>(values.upgradeParams, UPGRADE_PARAM_FIELDS)
       : null;
+    const nextUpgradeCosts = supportsTemplateParams
+      ? normalizeEquipUpgradeCosts(values[UPGRADE_COSTS_FIELD_KEY])
+      : null;
     const nextOwnerExtraParams = supportsOwnerParams
       ? normalizeOwnerNumberGroupValues<OwnerExtraParamMap>(ownerValues.extraParams, OWNER_EXTRA_PARAM_FIELDS)
       : null;
@@ -1614,6 +1663,7 @@ export function PropertyPanel() {
       || (supportsTemplateParams && nextExtraParams !== null && !areParamGroupsEqual(sourceItem.extraParams, nextExtraParams, EXTRA_PARAM_FIELDS))
       || (supportsTemplateParams && nextVehicleParams !== null && !areParamGroupsEqual(sourceItem.vehicleParams, nextVehicleParams, VEHICLE_PARAM_FIELDS))
       || (supportsTemplateParams && nextUpgradeParams !== null && !areParamGroupsEqual(sourceItem.upgradeParams, nextUpgradeParams, UPGRADE_PARAM_FIELDS))
+      || (supportsTemplateParams && nextUpgradeCosts !== null && !arePlainDataEqual(normalizeEquipUpgradeCosts(sourceItem.upgradeCosts), nextUpgradeCosts))
       || (supportsOwnerParams && nextOwnerExtraParams !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.extraParams, nextOwnerExtraParams, OWNER_EXTRA_PARAM_FIELDS))
       || (supportsOwnerParams && nextOwnerSpecialParams !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.specialParams, nextOwnerSpecialParams, OWNER_SPECIAL_PARAM_FIELDS))
       || (supportsOwnerParams && nextOwnerScalar !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.scalar, nextOwnerScalar, OWNER_SCALAR_FIELDS))
@@ -1656,6 +1706,7 @@ export function PropertyPanel() {
         ...(supportsTemplateParams && nextExtraParams ? { extraParams: nextExtraParams } : {}),
         ...(supportsTemplateParams && nextVehicleParams ? { vehicleParams: nextVehicleParams } : {}),
         ...(supportsTemplateParams && nextUpgradeParams ? { upgradeParams: nextUpgradeParams } : {}),
+        ...(supportsTemplateParams && nextUpgradeCosts ? { upgradeCosts: nextUpgradeCosts } : {}),
         ...(supportsOwnerParams ? { ownerParams: nextOwnerParams } : {}),
         ...(supportsPassiveStates ? { passiveStates: nextPassiveStates } : {}),
         ...(isArmorItem && nextArmorElementRates ? { elementRates: nextArmorElementRates } : {}),
@@ -1978,6 +2029,7 @@ export function PropertyPanel() {
     groupKey: FixedParamGroupKey,
     fields: FixedParamFieldDefinition[],
     description: string,
+    columnLabels: FixedParamColumnLabels = DEFAULT_FIXED_PARAM_COLUMN_LABELS,
   ) => (
     <Card
       title={title}
@@ -1992,10 +2044,10 @@ export function PropertyPanel() {
       <div className="text-xs text-gray-500 mb-4">{description}</div>
       <div className="grid grid-cols-5 gap-x-4 gap-y-4 items-start">
         <div className="text-xs text-gray-400">属性</div>
-        <div className="text-xs text-gray-400">基础值</div>
-        <div className="text-xs text-gray-400">基础浮动</div>
-        <div className="text-xs text-gray-400">强化值</div>
-        <div className="text-xs text-gray-400">强化浮动</div>
+        <div className="text-xs text-gray-400">{columnLabels.value}</div>
+        <div className="text-xs text-gray-400">{columnLabels.floatValue}</div>
+        <div className="text-xs text-gray-400">{columnLabels.upgradeValue}</div>
+        <div className="text-xs text-gray-400">{columnLabels.upgradeFloatValue}</div>
         {fields.flatMap((field) => [
           (
             <div key={`${groupKey}-${field.key}-label`} className="text-sm text-gray-200 pt-2">
@@ -2041,6 +2093,103 @@ export function PropertyPanel() {
         ])}
       </div>
     </Card>
+  );
+
+  const renderUpgradeCostsCard = () => (
+    <Form.List name={UPGRADE_COSTS_FIELD_KEY}>
+      {(fields, { add, remove }) => (
+        <Card
+          title={(
+            <div className="flex justify-between items-center">
+              <span>强化耗材</span>
+              <Button
+                type="dashed"
+                size="small"
+                icon={<PlusOutlined />}
+                onClick={() => add(createEmptyUpgradeCostEntry(fields.length))}
+              >
+                添加一级
+              </Button>
+            </div>
+          )}
+          className="mb-4"
+          headStyle={{
+            backgroundColor: '#252b3d',
+            borderBottom: '1px solid var(--color-border)',
+            color: 'var(--color-accent)',
+          }}
+          bodyStyle={{ backgroundColor: '#1a1f2e' }}
+        >
+          <div className="text-xs text-gray-500 mb-4">
+            逐级配置强化消耗，第一行对应强化到 +1，第二行对应强化到 +2。金币和必需物品在强化失败时也会消耗；保底物品只在本次选择保底强化时消耗。
+          </div>
+          {fields.length === 0 ? (
+            <div className="rounded border border-dashed border-gray-600 px-4 py-6 text-sm text-gray-500 text-center">
+              当前没有逐级耗材配置，运行时会视为该装备不可强化。点击右上角“添加一级”开始配置。
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="grid grid-cols-[64px_96px_repeat(5,minmax(0,1fr))_40px] gap-x-3 text-xs text-gray-400">
+                <div>等级</div>
+                <div>成功率%</div>
+                <div>所需金币</div>
+                <div>必需物品</div>
+                <div>必需数量</div>
+                <div>保底物品</div>
+                <div>保底数量</div>
+                <div>操作</div>
+              </div>
+              {fields.map((field, index) => {
+                const canRemove = index === fields.length - 1;
+                return (
+                  <div
+                    key={field.key}
+                    className="grid grid-cols-[64px_96px_repeat(5,minmax(0,1fr))_40px] gap-x-3 items-center"
+                  >
+                    <div className="text-sm text-gray-200">+{index + 1}</div>
+                    <Form.Item name={[field.name, 'successRate']} className="mb-0">
+                      <InputNumber min={0} max={100} step={0.01} className="w-full" style={{ width: '100%' }} />
+                    </Form.Item>
+                    <Form.Item name={[field.name, 'goldCost']} className="mb-0">
+                      <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+                    </Form.Item>
+                    <Form.Item name={[field.name, 'requiredItemId']} className="mb-0">
+                      <Select
+                        options={itemReferenceOptions}
+                        className="w-full"
+                        optionFilterProp="label"
+                        showSearch
+                      />
+                    </Form.Item>
+                    <Form.Item name={[field.name, 'requiredItemAmount']} className="mb-0">
+                      <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+                    </Form.Item>
+                    <Form.Item name={[field.name, 'protectItemId']} className="mb-0">
+                      <Select
+                        options={itemReferenceOptions}
+                        className="w-full"
+                        optionFilterProp="label"
+                        showSearch
+                      />
+                    </Form.Item>
+                    <Form.Item name={[field.name, 'protectItemAmount']} className="mb-0">
+                      <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+                    </Form.Item>
+                    <Button
+                      type="text"
+                      danger
+                      icon={<DeleteOutlined />}
+                      disabled={!canRemove}
+                      onClick={() => remove(field.name)}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      )}
+    </Form.List>
   );
 
   const renderOwnerParamCard = (
@@ -3627,22 +3776,25 @@ export function PropertyPanel() {
           '额外统一属性',
           'extraParams',
           EXTRA_PARAM_FIELDS,
-          '固定维护命中、回避、暴击、暴伤、迎击与最终伤害。业务属性已迁移到统一模板，不再通过自定义属性名称保存。',
+          '固定维护命中、回避、暴击、暴伤、迎击与最终伤害。未强化值是装备当前提供的数值；每级强化追加是强化结算时按等级叠加的增量。',
         ) : null}
 
         {supportsTemplateParams ? renderFixedParamCard(
           '车属性',
           'vehicleParams',
           VEHICLE_PARAM_FIELDS,
-          '固定维护重量、承重、载重、耐久、弹舱、弹药价格和连发。即使当前条目用不到，也统一保留字段结构。',
+          '固定维护重量、承重、载重、耐久、弹舱、弹药价格和连发。未强化值是装备当前提供的数值；每级强化追加是强化结算时按等级叠加的增量。',
         ) : null}
 
         {supportsTemplateParams ? renderFixedParamCard(
           '基础强化',
           'upgradeParams',
-          UPGRADE_PARAM_FIELDS,
-          '承接强化次数、强化攻击力、强化防御力这类不属于 extra/vehicle 的固定业务字段。',
+          UPGRADE_PARAM_DISPLAY_FIELDS,
+          '承接装备强化相关固定字段。配置值记录强化次数、攻击力、防御力这些强化参数本身；每级追加记录该参数随强化等级继续叠加的增量。',
+          UPGRADE_PARAM_COLUMN_LABELS,
         ) : null}
+
+        {supportsTemplateParams ? renderUpgradeCostsCard() : null}
       </Form>
 
       <Card

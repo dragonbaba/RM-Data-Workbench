@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   normalizeArmorElementRateFloats,
   normalizeArmorElementRates,
+  normalizeEquipUpgradeCosts,
   normalizeEquipmentDataEntry,
 } from './EquipmentPropertyService';
 
@@ -34,6 +35,7 @@ describe('EquipmentPropertyService', () => {
       repeatTime: 1,
       repeatTimeFloat: 0,
       qualityLock: false,
+      upgradeCosts: [],
       vehicleParams: [
         { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
         { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
@@ -94,9 +96,57 @@ describe('EquipmentPropertyService', () => {
     expect(normalized?.extraParams).toHaveLength(6);
     expect(normalized?.vehicleParams).toHaveLength(8);
     expect(normalized?.upgradeParams).toHaveLength(3);
+    expect(normalized?.upgradeCosts).toEqual([]);
     expect(normalized?.extraParams?.[0]).toEqual({ value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 });
     expect(normalized?.vehicleParams?.[7]).toEqual({ value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 });
     expect(normalized?.upgradeParams?.[0]).toEqual({ value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 });
+  });
+
+  it('会标准化逐级强化耗材配置', () => {
+    expect(normalizeEquipUpgradeCosts([
+      {
+        successRate: 120,
+        goldCost: -50,
+        requiredItemId: 3,
+        requiredItemAmount: 0,
+        protectItemId: 0,
+        protectItemAmount: 9,
+      },
+      {
+        goldCost: '120',
+        successRate: '37.5',
+        requiredItemId: 0,
+        requiredItemAmount: 5,
+        protectItemId: 4,
+        protectItemAmount: -2,
+      },
+      null,
+    ])).toEqual([
+      {
+        successRate: 100,
+        goldCost: 0,
+        requiredItemId: 3,
+        requiredItemAmount: 1,
+        protectItemId: 0,
+        protectItemAmount: 0,
+      },
+      {
+        successRate: 37.5,
+        goldCost: 120,
+        requiredItemId: 0,
+        requiredItemAmount: 0,
+        protectItemId: 4,
+        protectItemAmount: 1,
+      },
+      {
+        successRate: 100 / 3,
+        goldCost: 0,
+        requiredItemId: 0,
+        requiredItemAmount: 0,
+        protectItemId: 0,
+        protectItemAmount: 0,
+      },
+    ]);
   });
 
   it('非底盘与C装置防具不会补 hiddenAttackSkillId', () => {

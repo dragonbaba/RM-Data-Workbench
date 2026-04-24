@@ -1,5 +1,6 @@
 import type {
   EquipExtraParamMap,
+  EquipUpgradeCostEntry,
   EquipUpgradeParamMap,
   EquipVehicleParamMap,
   ParamTemplate,
@@ -34,6 +35,15 @@ const EMPTY_PARAM_TEMPLATE: ParamTemplate = Object.freeze({
   floatValue: 0,
   upgradeValue: 0,
   upgradeFloatValue: 0,
+});
+
+const EMPTY_UPGRADE_COST_ENTRY: EquipUpgradeCostEntry = Object.freeze({
+  successRate: 100,
+  goldCost: 0,
+  requiredItemId: 0,
+  requiredItemAmount: 0,
+  protectItemId: 0,
+  protectItemAmount: 0,
 });
 
 const DEFAULT_SHAPE_PARAMS: ShapeParams = Object.freeze({
@@ -106,6 +116,50 @@ const normalizeParamTemplate = (value: unknown): ParamTemplate => {
     upgradeValue: toFloatOrZero(value.upgradeValue),
     upgradeFloatValue: toFloatOrZero(value.upgradeFloatValue),
   };
+};
+
+const getDefaultUpgradeSuccessRate = (index: number): number => {
+  const nextLevel = Math.max(1, index + 1);
+  return Math.min(100, Math.max(0, 100 / nextLevel));
+};
+
+const normalizeSuccessRate = (value: unknown, index: number): number => {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    return getDefaultUpgradeSuccessRate(index);
+  }
+  return Math.min(100, Math.max(0, numeric));
+};
+
+const normalizeUpgradeCostEntry = (value: unknown, index: number): EquipUpgradeCostEntry => {
+  if (!isRecord(value)) {
+    return {
+      ...EMPTY_UPGRADE_COST_ENTRY,
+      successRate: getDefaultUpgradeSuccessRate(index),
+    };
+  }
+
+  const requiredItemId = Math.max(0, toIntOrZero(value.requiredItemId));
+  const protectItemId = Math.max(0, toIntOrZero(value.protectItemId));
+  return {
+    successRate: normalizeSuccessRate(value.successRate, index),
+    goldCost: Math.max(0, toIntOrZero(value.goldCost)),
+    requiredItemId,
+    requiredItemAmount: requiredItemId > 0 ? Math.max(1, toIntOrZero(value.requiredItemAmount)) : 0,
+    protectItemId,
+    protectItemAmount: protectItemId > 0 ? Math.max(1, toIntOrZero(value.protectItemAmount)) : 0,
+  };
+};
+
+export const normalizeEquipUpgradeCosts = (value: unknown): EquipUpgradeCostEntry[] => {
+  const source = Array.isArray(value) ? value : [];
+  const normalized = new Array<EquipUpgradeCostEntry>(source.length);
+
+  for (let index = 0; index < source.length; index++) {
+    normalized[index] = normalizeUpgradeCostEntry(source[index], index);
+  }
+
+  return normalized;
 };
 
 const normalizeParamGroup = <T extends ParamTemplate[]>(
@@ -233,6 +287,7 @@ export function normalizeEquipmentDataEntry(
       COMPLETE_VEHICLE_PARAM_FIELDS,
     );
     normalized.upgradeParams = normalizeParamGroup<EquipUpgradeParamMap>(item.upgradeParams, UPGRADE_PARAM_FIELDS);
+    normalized.upgradeCosts = normalizeEquipUpgradeCosts(item.upgradeCosts);
     normalized.qualityLock = item.qualityLock === true;
   }
 

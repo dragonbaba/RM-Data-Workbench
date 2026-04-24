@@ -207,6 +207,9 @@ const sanitizeEntryByFileContract = (
     if (hasOwnKey(nextEntry, 'upgradeParams')) {
       nextEntry.upgradeParams = undefined;
     }
+    if (hasOwnKey(nextEntry, 'upgradeCosts')) {
+      nextEntry.upgradeCosts = undefined;
+    }
   }
   if (!ARMOR_ONLY_FIELD_HOST_FILE_NAMES.has(fileName)) {
     if (hasOwnKey(nextEntry, 'elementRates')) {
