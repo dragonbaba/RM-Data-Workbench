@@ -19,8 +19,7 @@ const TARGET_LIFE_STATE_ALIVE = 1;
 const SELECT_MODE_SINGLE = 1;
 const AREA_MODE_SINGLE = 1;
 const DEFAULT_DAMAGE_SCATTER = 0;
-const DEFAULT_HALF_BROKEN_RATE = 50;
-const DEFAULT_SKILL_DURABILITY_BASE_LOSS = 1;
+const DEFAULT_HALF_BROKEN_SKIP_RATE = 50;
 
 export type SkillDamageType = 'none' | 'hp' | 'heal';
 export type SkillDamageFormulaMode = 'basic' | 'script';
@@ -45,8 +44,7 @@ export interface SkillDurabilityChangeSpec {
 }
 
 export interface SkillDurabilitySpec {
-  baseLoss: number;
-  halfBrokenRate: number;
+  halfBrokenSkipRate: number;
 }
 
 export interface SkillEffectSpec {
@@ -383,11 +381,11 @@ const normalizeDurabilityChangeValue = (value: unknown): SkillDurabilityChangeSp
 
 const normalizeSkillDurabilityValue = (value: unknown): SkillDurabilitySpec => {
   const source = isRecord(value) ? value : {};
-  const baseLoss = source.baseLoss === undefined ? DEFAULT_SKILL_DURABILITY_BASE_LOSS : source.baseLoss;
-  const halfBrokenRate = source.halfBrokenRate === undefined ? DEFAULT_HALF_BROKEN_RATE : source.halfBrokenRate;
+  const halfBrokenSkipRate = source.halfBrokenSkipRate === undefined
+    ? (source.halfBrokenRate === undefined ? DEFAULT_HALF_BROKEN_SKIP_RATE : source.halfBrokenRate)
+    : source.halfBrokenSkipRate;
   return {
-    baseLoss: Math.max(0, toIntOrZero(baseLoss)) || DEFAULT_SKILL_DURABILITY_BASE_LOSS,
-    halfBrokenRate: clampPercent(halfBrokenRate),
+    halfBrokenSkipRate: clampPercent(halfBrokenSkipRate),
   };
 };
 
@@ -431,7 +429,7 @@ const areSkillDurabilityChangeEqual = (left: SkillDurabilityChangeSpec, right: S
 };
 
 const areSkillDurabilityEqual = (left: SkillDurabilitySpec, right: SkillDurabilitySpec): boolean => {
-  return left.baseLoss === right.baseLoss && left.halfBrokenRate === right.halfBrokenRate;
+  return left.halfBrokenSkipRate === right.halfBrokenSkipRate;
 };
 
 const areSkillEffectSpecEqual = (left: SkillEffectSpec, right: SkillEffectSpec): boolean => {
@@ -512,8 +510,7 @@ export function normalizeSkillEditorValues(
           value: 0,
         },
         skillDurability: {
-          baseLoss: DEFAULT_SKILL_DURABILITY_BASE_LOSS,
-          halfBrokenRate: DEFAULT_HALF_BROKEN_RATE,
+          halfBrokenSkipRate: DEFAULT_HALF_BROKEN_SKIP_RATE,
         },
       },
     };

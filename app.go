@@ -185,9 +185,6 @@ func (a *App) setupMenu() {
 	modeMenu.AddText("属性模式", keys.Key("f3"), func(cd *menu.CallbackData) {
 		runtime.EventsEmit(a.ctx, "mode:change", "property")
 	})
-	modeMenu.AddText("备注模式", keys.Key("f4"), func(cd *menu.CallbackData) {
-		runtime.EventsEmit(a.ctx, "mode:change", "note")
-	})
 	modeMenu.AddText("任务模式", keys.Key("f5"), func(cd *menu.CallbackData) {
 		runtime.EventsEmit(a.ctx, "mode:change", "quest")
 	})

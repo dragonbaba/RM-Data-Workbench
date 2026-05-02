@@ -6,7 +6,6 @@ import { useEditorStore } from '../../stores/editorStore';
 
 const CodeEditorPanel = lazy(() => import('../panels/CodeEditorPanel'));
 const PropertyPanel = lazy(() => import('../panels/PropertyPanel'));
-const NotePanel = lazy(() => import('../panels/NotePanel'));
 const EffectPanel = lazy(() => import('../panels/EffectPanel'));
 const QuestPanel = lazy(() => import('../panels/QuestPanel'));
 const ProjectilePanel = lazy(() => import('../panels/ProjectilePanel'));
@@ -33,8 +32,6 @@ export function MainContent() {
         return <CodeEditorPanel />;
       case 'property':
         return <PropertyPanel />;
-      case 'note':
-        return <NotePanel />;
       case 'effect':
         return <EffectPanel />;
       case 'quest':

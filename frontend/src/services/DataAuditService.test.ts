@@ -22,7 +22,12 @@ describe('DataAuditService', () => {
         elements: ['', '通常', '火炎'],
         weaponTypes: ['', '主炮', '副炮', 'SE', '人类通用武器', '猎人武器', '机械师武器', '战士武器', '摔跤手武器', '护士武器', '实验体改造人武器', '艺术家武器', '波奇武器'],
       }],
-      ['D:/Project/data/Actors.json', [null, { id: 1, name: '主角', effects: [] }]],
+      ['D:/Project/data/Actors.json', [null, {
+        id: 1,
+        name: '主角',
+        description: '第一行\n第二行',
+        effects: [],
+      }]],
       ['D:/Project/data/Classes.json', [null, {
         id: 1,
         name: '猎人',
@@ -43,6 +48,16 @@ describe('DataAuditService', () => {
           skillCosts: [
             { type: 'item', itemId: 2 },
           ],
+          skillEffectSpec: {
+            durabilityChange: {
+              mode: 'reduce',
+              value: 6,
+            },
+            skillDurability: {
+              baseLoss: 4,
+              halfBrokenRate: 35,
+            },
+          },
         },
       ]],
       ['D:/Project/data/States.json', [
@@ -156,6 +171,7 @@ describe('DataAuditService', () => {
     const actorPayload = writes.find((item) => item.filePath.endsWith('Actors.json'))?.data as unknown[];
     expect(actorPayload[1]).toMatchObject({
       id: 1,
+      description: ['第一行', '第二行'],
       projectileOffset: createDefaultThrowProjectileOffset(),
       ownerParams: createDefaultOwnerParams(3),
       passiveStates: [],
@@ -205,12 +221,11 @@ describe('DataAuditService', () => {
           },
         },
         durabilityChange: {
-          mode: 'none',
-          value: 0,
+          mode: 'reduce',
+          value: 6,
         },
         skillDurability: {
-          baseLoss: 1,
-          halfBrokenRate: 50,
+          halfBrokenSkipRate: 35,
         },
       },
     });
@@ -228,6 +243,11 @@ describe('DataAuditService', () => {
     expect(skillPayload[1]).not.toHaveProperty('params');
     expect(skillPayload[1]).not.toHaveProperty('floatParams');
     expect(skillPayload[1]).not.toHaveProperty('extraParams');
+    const normalizedSkillDurability = (skillPayload[1] as {
+      skillEffectSpec: { skillDurability: Record<string, unknown> };
+    }).skillEffectSpec.skillDurability;
+    expect(normalizedSkillDurability).not.toHaveProperty('baseLoss');
+    expect(normalizedSkillDurability).not.toHaveProperty('halfBrokenRate');
 
     const statePayload = writes.find((item) => item.filePath.endsWith('States.json'))?.data as unknown[];
     expect(statePayload[1]).toMatchObject({
@@ -288,8 +308,7 @@ describe('DataAuditService', () => {
           value: 0,
         },
         skillDurability: {
-          baseLoss: 1,
-          halfBrokenRate: 50,
+          halfBrokenSkipRate: 50,
         },
       },
     });
@@ -493,8 +512,7 @@ describe('DataAuditService', () => {
                 value: 0,
               },
               skillDurability: {
-                baseLoss: 1,
-                halfBrokenRate: 50,
+                halfBrokenSkipRate: 50,
               },
             },
           }];
@@ -527,8 +545,7 @@ describe('DataAuditService', () => {
                 value: 0,
               },
               skillDurability: {
-                baseLoss: 1,
-                halfBrokenRate: 50,
+                halfBrokenSkipRate: 50,
               },
             },
             targetCamp: 1,

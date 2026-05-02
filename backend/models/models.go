@@ -153,7 +153,6 @@ type EditorMode string
 const (
 	ModeScript     EditorMode = "script"
 	ModeProperty   EditorMode = "property"
-	ModeNote       EditorMode = "note"
 	ModeEffect     EditorMode = "effect"
 	ModeProjectile EditorMode = "projectile"
 	ModeQuest      EditorMode = "quest"

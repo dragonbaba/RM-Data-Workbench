@@ -4,7 +4,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { ensureItemMeta, extractMetadataFromNote, isMetadataEqual } from '../../services/NoteMetadataService';
 
-export function NotePanel() {
+interface NotePanelProps {
+  embedded?: boolean;
+}
+
+export function NotePanel({ embedded = false }: NotePanelProps) {
   const currentItem = useEditorStore((state) => state.currentItem);
   const currentItemIndex = useEditorStore((state) => state.currentItemIndex);
   const currentData = useEditorStore((state) => state.currentData);
@@ -87,7 +91,7 @@ export function NotePanel() {
       const generatedMeta = extractMetadataFromNote(note);
       const currentMeta = sourceItem.meta && typeof sourceItem.meta === 'object' ? sourceItem.meta : {};
       const needRegenerateMeta = !isMetadataEqual(currentMeta, generatedMeta);
-      const nextDescription = description.split('\n').filter((line) => line.trim() !== '');
+      const nextDescription = description.split('\n');
 
       const updatedItem = {
         ...sourceItem,
@@ -127,62 +131,42 @@ export function NotePanel() {
     );
   }
 
-  return (
-    <div className="flex-1 flex flex-col p-4 bg-dark-900">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold" style={{ color: 'var(--color-accent)' }}>
-          备注编辑
-        </h2>
-        <span className="text-xs text-gray-500">自动记录变更并标记脏文件</span>
-      </div>
-
-      <div className="flex-1 min-h-0 grid grid-cols-3 gap-4">
-        {/* 左侧：描述输入 */}
-        <Card
-          className="h-full"
-          bodyStyle={{
-            height: '100%',
-            padding: '16px',
-            backgroundColor: '#1a1f2e',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
+  const content = (
+    <Card
+      title="文本与备注"
+      className={embedded ? 'mb-4' : 'h-full'}
+      headStyle={{
+        backgroundColor: '#252b3d',
+        borderBottom: '1px solid var(--color-border)',
+        color: 'var(--color-accent)',
+      }}
+      bodyStyle={{ backgroundColor: '#1a1f2e', padding: embedded ? '12px' : '16px' }}
+    >
+      <div className="grid grid-cols-3 gap-3">
+        <div className="min-h-0">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-gray-400 flex items-center">
+            <span className="text-xs text-gray-400 flex items-center">
               <FileTextOutlined className="mr-2" />
               附加描述
-              {hasDescriptionChanges && (
-                <Badge dot color="orange" className="ml-2" />
-              )}
+              {hasDescriptionChanges && <Badge dot color="orange" className="ml-2" />}
             </span>
           </div>
           <Input.TextArea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="输入描述内容...&#10;每行将作为 description 数组的一个元素"
-            className="flex-1 resize-none"
+            placeholder="每行保存为 description 数组的一项"
+            rows={embedded ? 6 : 10}
+            className="resize-none"
             style={{
               backgroundColor: '#0f1419',
               borderColor: hasDescriptionChanges ? 'var(--color-warning)' : '#2a3f5f',
-              minHeight: '200px',
             }}
           />
-        </Card>
+        </div>
 
-        {/* 中间：备注输入 */}
-        <Card
-          className="h-full"
-          bodyStyle={{
-            height: '100%',
-            padding: '16px',
-            backgroundColor: '#1a1f2e',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
+        <div className="min-h-0">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-gray-400 flex items-center">
+            <span className="text-xs text-gray-400 flex items-center">
               <MessageOutlined className="mr-2" />
               备注内容
               {hasNoteChanges && <Badge dot color="orange" className="ml-2" />}
@@ -191,52 +175,42 @@ export function NotePanel() {
           <Input.TextArea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="请输入备注内容...&#10;支持 RPG Meta 标签，例如 <weaponImageId:19>、<boss>"
-            className="flex-1 resize-none"
+            placeholder="支持 <weaponImageId:19>、<boss> 等 Meta 标签"
+            rows={embedded ? 6 : 10}
+            className="resize-none"
             style={{
               backgroundColor: '#0f1419',
               borderColor: hasNoteChanges ? 'var(--color-warning)' : '#2a3f5f',
-              minHeight: '200px',
             }}
           />
-        </Card>
+        </div>
 
-        {/* 右侧：元数据预览 */}
-        <Card
-          className="h-full"
-          bodyStyle={{
-            height: '100%',
-            padding: '16px',
-            backgroundColor: '#1a1f2e',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
+        <div className="min-h-0">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-gray-400 flex items-center">
+            <span className="text-xs text-gray-400 flex items-center">
               <DatabaseOutlined className="mr-2" />
               元数据预览
               {shouldRegenerateMeta && <Badge dot color="orange" className="ml-2" />}
             </span>
             <Tag color={shouldRegenerateMeta ? 'orange' : 'green'}>
-              {shouldRegenerateMeta ? '自动同步后更新' : '无需更新'}
+              {shouldRegenerateMeta ? '将更新' : '同步'}
             </Tag>
           </div>
 
-          <div className="text-xs text-gray-500 mb-3">
-            备注中的 Meta 标签会按旧项目规则解析并与当前元数据对比。
-          </div>
-
           <div
-            className="flex-1 overflow-y-auto rounded border p-2"
-            style={{ borderColor: '#2a3f5f', backgroundColor: '#0f1419' }}
+            className="overflow-y-auto rounded border p-2"
+            style={{
+              borderColor: '#2a3f5f',
+              backgroundColor: '#0f1419',
+              height: embedded ? 160 : 280,
+            }}
           >
             {metadataEntries.length === 0 ? (
-              <p className="text-gray-500 text-sm">未检测到可解析的 Meta 标签</p>
+              <p className="text-gray-500 text-xs">未检测到 Meta 标签</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {metadataEntries.map(([key, value]) => (
-                  <div key={key} className="text-sm">
+                  <div key={key} className="text-xs">
                     <span className="text-cyan-300">{key}</span>
                     <span className="text-gray-400">: </span>
                     <span className="text-gray-200">{formatMetadataValue(value)}</span>
@@ -245,8 +219,18 @@ export function NotePanel() {
               </div>
             )}
           </div>
-        </Card>
+        </div>
       </div>
+    </Card>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <div className="flex-1 flex flex-col p-4 bg-dark-900">
+      {content}
     </div>
   );
 }

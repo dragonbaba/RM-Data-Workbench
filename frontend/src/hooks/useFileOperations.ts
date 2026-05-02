@@ -21,7 +21,7 @@ import { appendEditorFailureLog, buildSaveFailureLog, formatSaveFailureError } f
 import { ScriptCacheManager } from '../services/ScriptCacheManager';
 import { copyScript, createScript, deleteAllScripts, deleteScript, renameScript, saveAllScripts, saveCurrentScript, saveScript } from '../services/ScriptOperations';
 import { ScriptPathManager } from '../services/ScriptPathManager';
-import { EQUIP_EXTENSIONS_FILE_NAME, previewEquipExtensionsNormalization } from '../services/EquipExtensionsService';
+import { EQUIP_EXTENSIONS_FILE_NAME } from '../services/EquipExtensionsService';
 import { ExternalDataChangeQueue } from '../services/ExternalDataChangeQueue';
 
 interface WorkspacePayload {
@@ -686,47 +686,9 @@ export function useFileOperations() {
           writeJson: async (filePath, data) => WriteJSON(filePath, prepareDataForWrite(filePath, data)),
         });
 
-        const equipExtensionsPath = joinPath(dataPath, EQUIP_EXTENSIONS_FILE_NAME);
-        const equipExtensionsExists = await FileExists(equipExtensionsPath);
-        let repairedEquipExtensions = false;
-        if (equipExtensionsExists) {
-          const [actorsRaw, weaponsRaw, equipExtensionsRaw] = await Promise.all([
-            ReadJSON(joinPath(dataPath, ACTORS_FILE_NAME)),
-            ReadJSON(joinPath(dataPath, WEAPONS_FILE_NAME)),
-            ReadJSON(equipExtensionsPath),
-          ]);
-          const actorsData = normalizeStandardDataForEditor(ACTORS_FILE_NAME, actorsRaw);
-          const weaponsData = normalizeStandardDataForEditor(WEAPONS_FILE_NAME, weaponsRaw);
-          const actorCount = Array.isArray(actorsData) ? actorsData.length : 1;
-          const weaponCount = Array.isArray(weaponsData) ? weaponsData.length : 1;
-          const preview = previewEquipExtensionsNormalization(equipExtensionsRaw, actorCount, weaponCount);
-          if (preview.changed) {
-            const confirmedNormalize = await InputDialog.confirm({
-              title: '检测到装备扩展需要修复',
-              content: preview.summary,
-              confirmText: '确认写入',
-              cancelText: '跳过',
-              type: 'warning',
-            });
-            if (confirmedNormalize) {
-              await WriteJSON(equipExtensionsPath, prepareDataForWrite(equipExtensionsPath, preview.data));
-              DataLoaderService.cacheFileData(equipExtensionsPath, EQUIP_EXTENSIONS_FILE_NAME, preview.data);
-              await DataLoaderService.reloadFile(equipExtensionsPath, { emitEvent: true });
-              useEditorStore.getState().markFileClean(equipExtensionsPath);
-              repairedEquipExtensions = true;
-            }
-          }
-        }
-
         const changedFileEntries = summary.results
           .filter((result) => result.changed && isAuditTargetFile(result.fileName))
           .map((result) => ({ fileName: result.fileName, filePath: result.filePath }));
-        if (repairedEquipExtensions) {
-          changedFileEntries.push({
-            fileName: EQUIP_EXTENSIONS_FILE_NAME,
-            filePath: equipExtensionsPath,
-          });
-        }
 
         const latestState = useEditorStore.getState();
         if (changedFileEntries.length === 0) {
@@ -852,12 +814,13 @@ export function useFileOperations() {
     };
 
     const disposeModeChange = EventsOn('mode:change', async (mode: string) => {
-      const canChangeMode = await ensureSavedBeforeModeChange(mode);
+      const nextMode = mode === 'note' ? 'property' : mode;
+      const canChangeMode = await ensureSavedBeforeModeChange(nextMode);
       if (!canChangeMode) {
         return;
       }
 
-      if (mode === 'effect') {
+      if (nextMode === 'effect') {
         const state = useEditorStore.getState();
         const dataPath = state.config.dataPath;
         if (!dataPath) {
@@ -875,7 +838,7 @@ export function useFileOperations() {
         return;
       }
 
-      if (mode === 'drop') {
+      if (nextMode === 'drop') {
         const state = useEditorStore.getState();
         const dataPath = state.config.dataPath;
         if (!dataPath) {
@@ -896,8 +859,8 @@ export function useFileOperations() {
         return;
       }
 
-      if (mode !== 'equip') {
-        useEditorStore.getState().setMode(mode as any);
+      if (nextMode !== 'equip') {
+        useEditorStore.getState().setMode(nextMode as any);
         return;
       }
 

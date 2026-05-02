@@ -32,8 +32,7 @@ const defaultSkillEffectSpec: SkillEffectSpec = {
     value: 0,
   },
   skillDurability: {
-    baseLoss: 1,
-    halfBrokenRate: 50,
+    halfBrokenSkipRate: 50,
   },
 };
 
@@ -60,8 +59,7 @@ describe('SkillPropertyService', () => {
           value: 9,
         },
         skillDurability: {
-          baseLoss: 4,
-          halfBrokenRate: 25,
+          halfBrokenSkipRate: 25,
         },
       },
       meta: {
@@ -97,11 +95,43 @@ describe('SkillPropertyService', () => {
           value: 9,
         },
         skillDurability: {
-          baseLoss: 4,
-          halfBrokenRate: 25,
+          halfBrokenSkipRate: 25,
         },
       },
     });
+  });
+
+  it('会把旧技能耐久字段迁移为低耐久跳过概率', () => {
+    const normalized = normalizeSkillDataEntry({
+      id: 2,
+      name: '旧耐久技能',
+      skillEffectSpec: {
+        durabilityChange: {
+          mode: 'recover',
+          value: 8,
+        },
+        skillDurability: {
+          baseLoss: 5,
+          halfBrokenRate: 45,
+        },
+      },
+    });
+
+    expect(normalized).toMatchObject({
+      skillEffectSpec: {
+        durabilityChange: {
+          mode: 'recover',
+          value: 8,
+        },
+        skillDurability: {
+          halfBrokenSkipRate: 45,
+        },
+      },
+    });
+    expect(normalized).not.toBeNull();
+    const skillDurability = normalized?.skillEffectSpec?.skillDurability;
+    expect(skillDurability).not.toHaveProperty('baseLoss');
+    expect(skillDurability).not.toHaveProperty('halfBrokenRate');
   });
 
   it('缺少结构化字段时不会再从旧 damage 字段回填普通编辑值', () => {
@@ -455,8 +485,7 @@ describe('SkillPropertyService', () => {
             value: 6,
           },
           skillDurability: {
-            baseLoss: 3,
-            halfBrokenRate: 40,
+            halfBrokenSkipRate: 40,
           },
         },
       },
@@ -501,8 +530,7 @@ describe('SkillPropertyService', () => {
           value: 6,
         },
         skillDurability: {
-          baseLoss: 3,
-          halfBrokenRate: 40,
+          halfBrokenSkipRate: 40,
         },
       },
     });

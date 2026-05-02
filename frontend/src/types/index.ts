@@ -160,8 +160,7 @@ export interface SkillDurabilityChangeSpec {
 }
 
 export interface SkillDurabilitySpec {
-  baseLoss: number;
-  halfBrokenRate: number;
+  halfBrokenSkipRate: number;
 }
 
 export interface SkillEffectSpec {
@@ -546,7 +545,7 @@ export interface RPGMap {
   [key: string]: unknown;
 }
 
-export type EditorMode = 'script' | 'property' | 'note' | 'effect' | 'projectile' | 'quest' | 'map' | 'equip' | 'drop';
+export type EditorMode = 'script' | 'property' | 'effect' | 'projectile' | 'quest' | 'map' | 'equip' | 'drop';
 
 export type FileType = 'data' | 'quest' | 'projectile' | 'map';
 

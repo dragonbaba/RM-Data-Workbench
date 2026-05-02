@@ -50,6 +50,7 @@ import {
 } from '../../services/PassiveStatePropertyService';
 import { buildRequiredOwnerParamsSaveData } from '../../services/OwnerParamsPropertyService';
 import { EnemyActionOverridesCard } from './EnemyActionOverridesCard';
+import { NotePanel } from './NotePanel';
 import {
   EXTRA_PARAM_FIELDS,
   normalizeArmorElementRateFloats,
@@ -3005,6 +3006,8 @@ export function PropertyPanel() {
           )}
         </Card>
 
+        <NotePanel embedded />
+
         {supportsProjectileConfig ? (
           <Card
             title="技能 / 物品弹道 / 迎击配置"
@@ -3187,15 +3190,8 @@ export function PropertyPanel() {
                 <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
               </Form.Item>
               <Form.Item
-                name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'skillDurability', 'baseLoss']}
-                label={<span className="text-xs text-gray-400">技能耐久基础损失</span>}
-                className="mb-0"
-              >
-                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
-              </Form.Item>
-              <Form.Item
-                name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'skillDurability', 'halfBrokenRate']}
-                label={<span className="text-xs text-gray-400">半耐久跳过概率</span>}
+                name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'skillDurability', 'halfBrokenSkipRate']}
+                label={<span className="text-xs text-gray-400">低耐久跳过概率</span>}
                 className="mb-0"
               >
                 <InputNumber min={0} max={100} step={1} className="w-full" style={{ width: '100%' }} />

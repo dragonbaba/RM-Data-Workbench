@@ -82,6 +82,7 @@ const OWNER_PROBABILITY_EXTRA_PARAM_KEYS = new Set([
 ]);
 const CLASS_PARAM_COUNT = 8;
 const CLASS_PARAM_LEVEL_COUNT = 100;
+const DESCRIPTION_LINE_SPLIT_REGEX = /\r?\n/;
 
 export interface DataAuditFileResult {
   fileName: string;
@@ -190,6 +191,10 @@ const sanitizeEntryByFileContract = (
   const nextEntry = fileName === CLASSES_FILE_NAME
     ? normalizeClassParamMatrix(record)
     : { ...record };
+
+  if (hasOwnKey(nextEntry, 'description') && !Array.isArray(nextEntry.description) && typeof nextEntry.description === 'string') {
+    nextEntry.description = nextEntry.description.split(DESCRIPTION_LINE_SPLIT_REGEX);
+  }
 
   if (fileName !== CLASSES_FILE_NAME && !FLAT_PARAM_HOST_FILE_NAMES.has(fileName) && hasOwnKey(nextEntry, 'params')) {
     nextEntry.params = undefined;

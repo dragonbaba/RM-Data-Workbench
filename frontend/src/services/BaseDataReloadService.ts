@@ -128,7 +128,7 @@ export const resolveDataChangeImpact = (
 
   const currentFileName = normalizeFileName(extractFileName(snapshot.currentFilePath));
   const propertyDependencies = PROPERTY_DEPENDENCY_FILES.get(currentFileName);
-  if ((snapshot.uiMode === 'property' || snapshot.uiMode === 'note') && propertyDependencies?.has(fileName)) {
+  if (snapshot.uiMode === 'property' && propertyDependencies?.has(fileName)) {
     return { shouldReload: true, shouldConfirm: true, target: 'dependency' };
   }
 
