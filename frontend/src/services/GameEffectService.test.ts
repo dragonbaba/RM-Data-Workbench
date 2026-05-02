@@ -71,6 +71,10 @@ describe('GameEffectService', () => {
 
     expect(equipCountDefinition.selectorMode).toBe('equip');
     expect(equipCountDefinition.selectorFields).toEqual(['etypeIds', 'wtypeIds', 'atypeIds']);
+    expect(equipCountDefinition.allowedGroups.map((entry) => entry.group)).toEqual([
+      'extraParams',
+      'vehicleParams',
+    ]);
     expect(equipSetDefinition.argsFields).toEqual(['weaponIds', 'armorIds', 'ops']);
     expect(equipSetDefinition.allowedGroups.map((entry) => entry.group)).toEqual([
       'baseParams',

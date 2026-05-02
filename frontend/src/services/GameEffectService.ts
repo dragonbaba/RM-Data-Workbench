@@ -154,10 +154,8 @@ const OWNER_STATIC_GROUPS: GameEffectAllowedGroupDefinition[] = [
   { group: 'baseParamRate', keys: [...PARAM_RATE_KEYS] },
 ];
 const EQUIP_EFFECT_GROUPS: GameEffectAllowedGroupDefinition[] = [
-  { group: 'baseParams', keys: [...PARAM_RATE_KEYS] },
   { group: 'extraParams', keys: [...EXTRA_PARAM_KEYS] },
   { group: 'vehicleParams', keys: [...EQUIP_VEHICLE_PARAM_KEYS] },
-  { group: 'baseParamRate', keys: [...PARAM_RATE_KEYS] },
 ];
 const ENGINE_OWNER_GROUPS: GameEffectAllowedGroupDefinition[] = [
   { group: 'baseParams', keys: [...PARAM_RATE_KEYS] },
@@ -168,10 +166,8 @@ const ACTION_REPEAT_GROUPS: GameEffectAllowedGroupDefinition[] = [
   { group: 'vehicleParams', keys: [...ACTION_REPEAT_KEYS] },
 ];
 const PAIR_SAME_CUNIT_EQUIP_GROUPS: GameEffectAllowedGroupDefinition[] = [
-  { group: 'baseParams', keys: [...PARAM_RATE_KEYS] },
   { group: 'extraParams', keys: [...EXTRA_PARAM_KEYS] },
   { group: 'vehicleParams', keys: [...PAIR_CUNIT_EQUIP_VEHICLE_PARAM_KEYS] },
-  { group: 'baseParamRate', keys: [...PARAM_RATE_KEYS] },
 ];
 const SCALAR_GROUPS: GameEffectAllowedGroupDefinition[] = [{ group: 'scalar', keys: [...SCALAR_KEYS] }];
 const OWNER_EXTENDED_GROUPS: GameEffectAllowedGroupDefinition[] = [
