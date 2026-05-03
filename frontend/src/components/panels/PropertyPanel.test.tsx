@@ -1,10 +1,12 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import PropertyPanel from './PropertyPanel';
 import { useEditorStore } from '../../stores/editorStore';
 import { DataLoaderService } from '../../services/DataLoaderService';
+import type { RPGItem } from '../../types';
 
 const WEAPONS_FILE_PATH = 'D:/Project/data/Weapons.json';
+const SKILLS_FILE_PATH = 'D:/Project/data/Skills.json';
 
 const createWeapon = (overrides: Record<string, unknown> = {}) => ({
   id: 132,
@@ -41,6 +43,38 @@ const createWeapon = (overrides: Record<string, unknown> = {}) => ({
   customParams: {},
   ...overrides,
 });
+
+const createSkill = (id: number, overrides: Record<string, unknown> = {}): RPGItem => ({
+  id,
+  name: `测试技能${id}`,
+  targetType: 0,
+  limits: -1,
+  needTargetSelect: false,
+  needWeaponSelect: false,
+  projectileId: 0,
+  skillProjectileTag: 0,
+  reactionSuccessRate: 0,
+  reactionPriority: 0,
+  targetCamp: 1,
+  targetLifeState: 1,
+  selectMode: 1,
+  areaMode: 1,
+  actionSequenceType: 1,
+  actionSequenceScriptKey: '',
+  skillCosts: [],
+  skillEffectSpec: {
+    damage: {
+      damageType: 'none',
+      damageElementId: 0,
+      allowCritical: true,
+      damageScatter: 20,
+      formula: { mode: 'basic', scriptKey: '' },
+    },
+    durabilityChange: { mode: 'none', value: 0 },
+    skillDurability: { halfBrokenSkipRate: 0 },
+  },
+  ...overrides,
+} as unknown as RPGItem);
 
 describe('PropertyPanel range initialization', () => {
   beforeEach(() => {
@@ -99,5 +133,27 @@ describe('PropertyPanel range initialization', () => {
       };
       expect(currentWeapon.weaponImageId).toBe(5);
     });
+  });
+
+  it('技能属性初始化和切换条目不会触发递归更新', async () => {
+    useEditorStore.getState().loadData([
+      null,
+      createSkill(1),
+      createSkill(2, { targetType: 2, limits: 3, needTargetSelect: true, needWeaponSelect: true }),
+    ], SKILLS_FILE_PATH, 'data');
+
+    render(<PropertyPanel />);
+
+    await screen.findByText('技能伤害 / 耐久协议');
+    expect(screen.getByText('作用目标类型')).toBeInTheDocument();
+
+    act(() => {
+      useEditorStore.getState().selectItem(2);
+    });
+
+    await waitFor(() => {
+      expect(useEditorStore.getState().currentItemIndex).toBe(2);
+    });
+    expect(screen.getByText('技能伤害 / 耐久协议')).toBeInTheDocument();
   });
 });

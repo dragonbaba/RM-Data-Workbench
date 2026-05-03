@@ -15,6 +15,9 @@ export const ACTION_SEQUENCE_TYPE_ITEM = 3;
 export const ACTION_SEQUENCE_TYPE_SELF = 4;
 export const DAMAGE_FORMULA_EXPORT_NAME = 'damageFormula';
 const TARGET_CAMP_ENEMY = 1;
+const TARGET_TYPE_ANY = 0;
+const TARGET_TYPE_HUMAN = 1;
+const TARGET_TYPE_TANK = 2;
 const TARGET_LIFE_STATE_ALIVE = 1;
 const SELECT_MODE_SINGLE = 1;
 const AREA_MODE_SINGLE = 1;
@@ -60,10 +63,14 @@ export const KNOWN_SKILL_PROPERTY_KEYS = [
   'reactionPriority',
   'targetCamp',
   'targetLifeState',
+  'targetType',
   'selectMode',
   'areaMode',
   'actionSequenceType',
   'actionSequenceScriptKey',
+  'limits',
+  'needTargetSelect',
+  'needWeaponSelect',
   'skillCosts',
   'skillEffectSpec',
 ] as const;
@@ -87,10 +94,14 @@ export interface SkillEditorValues {
   reactionPriority: number;
   targetCamp: number;
   targetLifeState: number;
+  targetType: number;
   selectMode: number;
   areaMode: number;
   actionSequenceType: number;
   actionSequenceScriptKey: string;
+  limits: number;
+  needTargetSelect: boolean;
+  needWeaponSelect: boolean;
   skillCosts: SkillCostEntry[];
   skillEffectSpec: SkillEffectSpec;
 }
@@ -102,10 +113,14 @@ export interface SkillEditorInput {
   reactionPriority?: unknown;
   targetCamp?: unknown;
   targetLifeState?: unknown;
+  targetType?: unknown;
   selectMode?: unknown;
   areaMode?: unknown;
   actionSequenceType?: unknown;
   actionSequenceScriptKey?: unknown;
+  limits?: unknown;
+  needTargetSelect?: unknown;
+  needWeaponSelect?: unknown;
   skillCosts?: unknown;
   skillEffectSpec?: unknown;
 }
@@ -118,12 +133,32 @@ const isRecord = (value: unknown): value is Record<string, unknown> => {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 };
 
-const hasOwn = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key);
-
 const toIntOrZero = (value: unknown): number => {
   const numeric = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(numeric)) return 0;
   return Math.trunc(numeric);
+};
+
+const normalizeTargetType = (value: unknown): number => {
+  const numeric = toIntOrZero(value);
+  if (numeric === TARGET_TYPE_HUMAN || numeric === TARGET_TYPE_TANK) {
+    return numeric;
+  }
+  return TARGET_TYPE_ANY;
+};
+
+const normalizeSkillLimit = (value: unknown, meta: Record<string, unknown>): number => {
+  const source = value !== undefined && value !== null && value !== ''
+    ? value
+    : (meta.limits !== undefined ? meta.limits : meta.lilmits);
+  if (source === undefined || source === null || source === '') return -1;
+  const numeric = toIntOrZero(source);
+  return numeric < 0 ? -1 : numeric;
+};
+
+const normalizeSkillBoolean = (value: unknown, meta: Record<string, unknown>, key: string): boolean => {
+  const source = value !== undefined ? value : meta[key];
+  return source === true || source === 'true';
 };
 
 const clampPercent = (value: unknown): number => {
@@ -460,9 +495,26 @@ const extractSkillMeta = (skill: unknown): Record<string, unknown> => {
   return isRecord(skill.meta) ? skill.meta : {};
 };
 
+const cleanMigratedSkillMeta = (meta: Record<string, unknown>): Record<string, unknown> => {
+  const cleaned = { ...meta };
+  delete cleaned.limits;
+  delete cleaned.lilmits;
+  delete cleaned.needTargetSelect;
+  delete cleaned.needWeaponSelect;
+  return cleaned;
+};
+
+const cleanMigratedSkillNote = (note: unknown): unknown => {
+  if (typeof note !== 'string') return note;
+  return note
+    .split(/\r?\n/)
+    .filter((line) => !/^<\s*(?:limits|lilmits|needTargetSelect|needWeaponSelect)\s*:/i.test(line.trim()))
+    .join('\n');
+};
+
 const buildMetaPatch = (skill: unknown, meta: Record<string, unknown>) => {
   if (!isRecord(skill)) return {};
-  if (hasOwn(skill, 'meta') || Object.keys(meta).length > 0) {
+  if (Object.keys(meta).length > 0) {
     return { meta };
   }
   return {};
@@ -489,10 +541,14 @@ export function normalizeSkillEditorValues(
       reactionPriority: 0,
       targetCamp: TARGET_CAMP_ENEMY,
       targetLifeState: TARGET_LIFE_STATE_ALIVE,
+      targetType: TARGET_TYPE_ANY,
       selectMode: SELECT_MODE_SINGLE,
       areaMode: AREA_MODE_SINGLE,
       actionSequenceType: getDefaultActionSequenceType(0, options),
       actionSequenceScriptKey: '',
+      limits: -1,
+      needTargetSelect: false,
+      needWeaponSelect: false,
       skillCosts: [],
       skillEffectSpec: {
         damage: {
@@ -518,6 +574,7 @@ export function normalizeSkillEditorValues(
 
   const projectileId = normalizeProjectileId(skill.projectileId);
   const targeting = normalizeSkillTargetingValues(skill);
+  const meta = extractSkillMeta(skill);
   const legacyActionSequenceType = getLegacyActionSequenceType(skill);
   const defaultActionSequenceType = legacyActionSequenceType ?? getDefaultActionSequenceType(projectileId, options);
   const actionSequenceType = normalizeActionSequenceType(skill.actionSequenceType, defaultActionSequenceType);
@@ -529,10 +586,14 @@ export function normalizeSkillEditorValues(
     reactionPriority: clampPercent(skill.reactionPriority),
     targetCamp: targeting.targetCamp,
     targetLifeState: targeting.targetLifeState,
+    targetType: normalizeTargetType(skill.targetType),
     selectMode: targeting.selectMode,
     areaMode: targeting.areaMode,
     actionSequenceType,
     actionSequenceScriptKey: getDefaultActionSequenceScriptKey(skill, actionSequenceType),
+    limits: normalizeSkillLimit(skill.limits, meta),
+    needTargetSelect: normalizeSkillBoolean(skill.needTargetSelect, meta, 'needTargetSelect'),
+    needWeaponSelect: normalizeSkillBoolean(skill.needWeaponSelect, meta, 'needWeaponSelect'),
     skillCosts: normalizeSkillCosts(skill.skillCosts),
     skillEffectSpec: normalizeSkillEffectSpecFromSource(skill, options),
   };
@@ -544,10 +605,17 @@ export function normalizeSkillDataEntry(
 ): RPGItem | null {
   if (!isRecord(skill)) return null;
   const normalized = normalizeSkillEditorValues(skill, options);
-  const currentMeta = extractSkillMeta(skill);
+  const currentMeta = cleanMigratedSkillMeta(extractSkillMeta(skill));
   const restSkill = { ...skill };
+  delete restSkill.meta;
   delete restSkill.isUsedForProjectile;
   delete restSkill.damage;
+  const cleanedNote = cleanMigratedSkillNote(restSkill.note);
+  if (cleanedNote === undefined) {
+    delete restSkill.note;
+  } else {
+    restSkill.note = cleanedNote;
+  }
 
   return {
     ...(restSkill as unknown as RPGItem),
@@ -556,6 +624,7 @@ export function normalizeSkillDataEntry(
     skillProjectileTag: normalized.skillProjectileTag,
     reactionSuccessRate: normalized.reactionSuccessRate,
     reactionPriority: normalized.reactionPriority,
+    targetType: normalized.targetType,
     skillCosts: normalized.skillCosts,
     skillEffectSpec: normalized.skillEffectSpec,
     targetCamp: normalized.targetCamp,
@@ -564,6 +633,11 @@ export function normalizeSkillDataEntry(
     areaMode: normalized.areaMode,
     actionSequenceType: normalized.actionSequenceType,
     actionSequenceScriptKey: normalized.actionSequenceScriptKey,
+    ...(options.isItem === true ? {} : {
+      limits: normalized.limits,
+      needTargetSelect: normalized.needTargetSelect,
+      needWeaponSelect: normalized.needWeaponSelect,
+    }),
   };
 }
 
@@ -580,12 +654,16 @@ export function hasSkillEditorChanges(
     || currentValues.skillProjectileTag !== normalizeProjectileTag(nextValues.skillProjectileTag)
     || currentValues.reactionSuccessRate !== clampPercent(nextValues.reactionSuccessRate)
     || currentValues.reactionPriority !== clampPercent(nextValues.reactionPriority)
+    || currentValues.targetType !== normalizeTargetType(nextValues.targetType)
     || currentValues.targetCamp !== nextTargeting.targetCamp
     || currentValues.targetLifeState !== nextTargeting.targetLifeState
     || currentValues.selectMode !== nextTargeting.selectMode
     || currentValues.areaMode !== nextTargeting.areaMode
     || currentValues.actionSequenceType !== normalizeActionSequenceType(nextValues.actionSequenceType, currentValues.actionSequenceType)
     || currentValues.actionSequenceScriptKey !== normalizeActionSequenceScriptKey(nextValues.actionSequenceScriptKey)
+    || (options.isItem !== true && currentValues.limits !== normalizeSkillLimit(nextValues.limits, {}))
+    || (options.isItem !== true && currentValues.needTargetSelect !== normalizeSkillBoolean(nextValues.needTargetSelect, {}, 'needTargetSelect'))
+    || (options.isItem !== true && currentValues.needWeaponSelect !== normalizeSkillBoolean(nextValues.needWeaponSelect, {}, 'needWeaponSelect'))
     || !areSkillCostsEqual(currentValues.skillCosts, normalizeSkillCosts(nextValues.skillCosts))
     || !areSkillEffectSpecEqual(currentValues.skillEffectSpec, nextSkillEffectSpec);
 }
@@ -595,10 +673,17 @@ export function buildSkillSaveData(
   nextValues: SkillEditorInput,
   options: SkillNormalizationOptions = {},
 ): RPGItem {
-  const currentMeta = extractSkillMeta(sourceItem);
+  const currentMeta = cleanMigratedSkillMeta(extractSkillMeta(sourceItem));
   const restItem = { ...(sourceItem as unknown as Record<string, unknown>) };
+  delete restItem.meta;
   delete restItem.isUsedForProjectile;
   delete restItem.damage;
+  const cleanedNote = cleanMigratedSkillNote(restItem.note);
+  if (cleanedNote === undefined) {
+    delete restItem.note;
+  } else {
+    restItem.note = cleanedNote;
+  }
   const targeting = normalizeSkillTargetingValues(nextValues as Record<string, unknown>);
   const nextSkillEffectSpec = normalizeSkillEffectSpecValue(nextValues.skillEffectSpec);
   const nextProjectileId = normalizeProjectileId(nextValues.projectileId);
@@ -612,6 +697,7 @@ export function buildSkillSaveData(
     skillProjectileTag: normalizeProjectileTag(nextValues.skillProjectileTag),
     reactionSuccessRate: clampPercent(nextValues.reactionSuccessRate),
     reactionPriority: clampPercent(nextValues.reactionPriority),
+    targetType: normalizeTargetType(nextValues.targetType),
     targetCamp: targeting.targetCamp,
     targetLifeState: targeting.targetLifeState,
     selectMode: targeting.selectMode,
@@ -622,5 +708,10 @@ export function buildSkillSaveData(
       : '',
     skillCosts: normalizeSkillCosts(nextValues.skillCosts),
     skillEffectSpec: nextSkillEffectSpec,
+    ...(options.isItem === true ? {} : {
+      limits: normalizeSkillLimit(nextValues.limits, {}),
+      needTargetSelect: normalizeSkillBoolean(nextValues.needTargetSelect, {}, 'needTargetSelect'),
+      needWeaponSelect: normalizeSkillBoolean(nextValues.needWeaponSelect, {}, 'needWeaponSelect'),
+    }),
   };
 }

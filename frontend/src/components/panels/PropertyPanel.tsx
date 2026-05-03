@@ -375,6 +375,7 @@ const QUALITY_LOCK_FIELD_KEY = 'qualityLock';
 const UPGRADE_COSTS_FIELD_KEY = 'upgradeCosts';
 const TARGET_CAMP_FIELD_KEY = 'targetCamp';
 const TARGET_LIFE_STATE_FIELD_KEY = 'targetLifeState';
+const TARGET_TYPE_FIELD_KEY = 'targetType';
 const SELECT_MODE_FIELD_KEY = 'selectMode';
 const AREA_MODE_FIELD_KEY = 'areaMode';
 const SHAPE_TYPE_FIELD_KEY = 'shapeType';
@@ -412,6 +413,9 @@ const SKILL_REACTION_SUCCESS_RATE_FIELD_KEY = 'skillReactionSuccessRate';
 const SKILL_REACTION_PRIORITY_FIELD_KEY = 'skillReactionPriority';
 const ACTION_SEQUENCE_TYPE_FIELD_KEY = 'actionSequenceType';
 const ACTION_SEQUENCE_SCRIPT_KEY_FIELD_KEY = 'actionSequenceScriptKey';
+const SKILL_LIMITS_FIELD_KEY = 'limits';
+const SKILL_NEED_TARGET_SELECT_FIELD_KEY = 'needTargetSelect';
+const SKILL_NEED_WEAPON_SELECT_FIELD_KEY = 'needWeaponSelect';
 const SKILL_COSTS_FIELD_KEY = 'skillCosts';
 const SKILL_EFFECT_SPEC_FIELD_KEY = 'skillEffectSpec';
 const ENEMY_CLASS_ID_FIELD_KEY = 'enemyClassId';
@@ -450,6 +454,12 @@ const TARGET_LIFE_STATE_OPTIONS = [
   { value: 1, label: '1 : 存活' },
   { value: 2, label: '2 : 死亡' },
   { value: 3, label: '3 : 全状态' },
+];
+
+const TARGET_TYPE_OPTIONS = [
+  { value: 0, label: '0 : 均可' },
+  { value: 1, label: '1 : 人' },
+  { value: 2, label: '2 : 车' },
 ];
 
 const SELECT_MODE_OPTIONS = [
@@ -1235,8 +1245,12 @@ export function PropertyPanel() {
         baseFormValues[SKILL_REACTION_PRIORITY_FIELD_KEY] = skillValues.reactionPriority;
         baseFormValues[ACTION_SEQUENCE_TYPE_FIELD_KEY] = skillValues.actionSequenceType;
         baseFormValues[ACTION_SEQUENCE_SCRIPT_KEY_FIELD_KEY] = skillValues.actionSequenceScriptKey;
+        baseFormValues[TARGET_TYPE_FIELD_KEY] = skillValues.targetType;
         baseFormValues[SKILL_EFFECT_SPEC_FIELD_KEY] = skillValues.skillEffectSpec;
         if (isSkillFile) {
+          baseFormValues[SKILL_LIMITS_FIELD_KEY] = skillValues.limits;
+          baseFormValues[SKILL_NEED_TARGET_SELECT_FIELD_KEY] = skillValues.needTargetSelect;
+          baseFormValues[SKILL_NEED_WEAPON_SELECT_FIELD_KEY] = skillValues.needWeaponSelect;
           baseFormValues[SKILL_COSTS_FIELD_KEY] = skillValues.skillCosts;
         }
       }
@@ -1558,10 +1572,14 @@ export function PropertyPanel() {
           reactionPriority: values[SKILL_REACTION_PRIORITY_FIELD_KEY],
           actionSequenceType: values[ACTION_SEQUENCE_TYPE_FIELD_KEY],
           actionSequenceScriptKey: values[ACTION_SEQUENCE_SCRIPT_KEY_FIELD_KEY],
+          targetType: values[TARGET_TYPE_FIELD_KEY],
           targetCamp: values[TARGET_CAMP_FIELD_KEY],
           targetLifeState: values[TARGET_LIFE_STATE_FIELD_KEY],
           selectMode: values[SELECT_MODE_FIELD_KEY],
           areaMode: values[AREA_MODE_FIELD_KEY],
+          limits: isSkillFile ? values[SKILL_LIMITS_FIELD_KEY] : undefined,
+          needTargetSelect: isSkillFile ? values[SKILL_NEED_TARGET_SELECT_FIELD_KEY] : undefined,
+          needWeaponSelect: isSkillFile ? values[SKILL_NEED_WEAPON_SELECT_FIELD_KEY] : undefined,
           skillCosts: isSkillFile ? values[SKILL_COSTS_FIELD_KEY] : undefined,
           skillEffectSpec: values[SKILL_EFFECT_SPEC_FIELD_KEY],
         }
@@ -3119,6 +3137,33 @@ export function PropertyPanel() {
             <div className="text-xs text-gray-500 mb-4">
               这里维护{isItemFile ? '物品' : '技能'}真实战斗语义的单一顶层协议 `skillEffectSpec`。伤害元素已纳入新协议，不再读取旧 `damage.elementId`。`formula` 支持基础通用公式与当前{isItemFile ? '物品' : '技能'}脚本两种来源，脚本模式仅列出当前{isItemFile ? '物品' : '技能'}脚本中导出 `damageFormula` 的键。
             </div>
+            {isSkillFile ? (
+              <div className="grid grid-cols-4 gap-x-4 gap-y-4 mb-4">
+                <Form.Item
+                  name={SKILL_LIMITS_FIELD_KEY}
+                  label={<span className="text-xs text-gray-400">使用次数上限</span>}
+                  className="mb-0"
+                >
+                  <InputNumber min={-1} step={1} className="w-full" style={{ width: '100%' }} />
+                </Form.Item>
+                <Form.Item
+                  name={SKILL_NEED_TARGET_SELECT_FIELD_KEY}
+                  label={<span className="text-xs text-gray-400">需要目标选择</span>}
+                  className="mb-0"
+                  valuePropName="checked"
+                >
+                  <Switch checkedChildren="需要" unCheckedChildren="不需要" />
+                </Form.Item>
+                <Form.Item
+                  name={SKILL_NEED_WEAPON_SELECT_FIELD_KEY}
+                  label={<span className="text-xs text-gray-400">需要武器选择</span>}
+                  className="mb-0"
+                  valuePropName="checked"
+                >
+                  <Switch checkedChildren="需要" unCheckedChildren="不需要" />
+                </Form.Item>
+              </div>
+            ) : null}
             <div className="grid grid-cols-4 gap-x-4 gap-y-4">
               <Form.Item
                 name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'damage', 'damageType']}
@@ -3592,6 +3637,13 @@ export function PropertyPanel() {
                 className="mb-0"
               >
                 <Select options={TARGET_LIFE_STATE_OPTIONS} className="w-full" />
+              </Form.Item>
+              <Form.Item
+                name={TARGET_TYPE_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">作用目标类型</span>}
+                className="mb-0"
+              >
+                <Select options={TARGET_TYPE_OPTIONS} className="w-full" />
               </Form.Item>
               <Form.Item
                 name={SELECT_MODE_FIELD_KEY}

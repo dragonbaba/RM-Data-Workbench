@@ -78,10 +78,15 @@ export function ensureItemMeta<T = Record<string, unknown>>(item: unknown): Ensu
   }
 
   const note = typeof item.note === 'string' ? item.note : '';
+  const meta = extractMetadataFromNote(note);
+  if (Object.keys(meta).length === 0) {
+    return { item: item as T, changed: false };
+  }
+
   return {
     item: {
       ...item,
-      meta: extractMetadataFromNote(note),
+      meta,
     } as T,
     changed: true,
   };

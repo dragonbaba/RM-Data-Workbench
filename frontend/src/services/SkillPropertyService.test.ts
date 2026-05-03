@@ -74,10 +74,14 @@ describe('SkillPropertyService', () => {
       reactionPriority: 30,
       actionSequenceType: ACTION_SEQUENCE_TYPE_PROJECTILE,
       actionSequenceScriptKey: '',
+      targetType: 0,
       targetCamp: 1,
       targetLifeState: 1,
       selectMode: 1,
       areaMode: 1,
+      limits: -1,
+      needTargetSelect: false,
+      needWeaponSelect: false,
       skillCosts: [],
       skillEffectSpec: {
         damage: {
@@ -99,6 +103,35 @@ describe('SkillPropertyService', () => {
         },
       },
     });
+  });
+
+  it('会把旧 meta 技能次数和选择字段迁移到顶级字段', () => {
+    const normalized = normalizeSkillDataEntry({
+      id: 33,
+      name: '极限射击',
+      note: '<needTargetSelect:true>\n<needWeaponSelect:true>\n<lilmits:3>\n<actionSequence:actionSequence>',
+      meta: {
+        needTargetSelect: true,
+        needWeaponSelect: true,
+        lilmits: 3,
+        actionSequence: 'actionSequence',
+      },
+    });
+
+    expect(normalized).toMatchObject({
+      targetType: 0,
+      limits: 3,
+      needTargetSelect: true,
+      needWeaponSelect: true,
+      meta: {
+        actionSequence: 'actionSequence',
+      },
+    });
+    expect(normalized?.note).toBe('<actionSequence:actionSequence>');
+    expect(normalized?.meta).not.toHaveProperty('lilmits');
+    expect(normalized?.meta).not.toHaveProperty('limits');
+    expect(normalized?.meta).not.toHaveProperty('needTargetSelect');
+    expect(normalized?.meta).not.toHaveProperty('needWeaponSelect');
   });
 
   it('会把旧技能耐久字段迁移为低耐久跳过概率', () => {

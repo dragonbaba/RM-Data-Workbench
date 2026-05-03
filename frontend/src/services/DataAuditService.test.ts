@@ -45,6 +45,12 @@ describe('DataAuditService', () => {
           extraParams: [{ value: 1 }],
           projectileId: 7,
           skillProjectileTag: 1,
+          meta: {
+            lilmits: 3,
+            needTargetSelect: true,
+            needWeaponSelect: true,
+          },
+          note: '<lilmits:3>\n<needTargetSelect:true>\n<needWeaponSelect:true>',
           skillCosts: [
             { type: 'item', itemId: 2 },
           ],
@@ -203,6 +209,7 @@ describe('DataAuditService', () => {
       reactionPriority: 0,
       actionSequenceType: 1,
       actionSequenceScriptKey: '',
+      targetType: 0,
       targetCamp: 1,
       targetLifeState: 1,
       selectMode: 1,
@@ -228,7 +235,12 @@ describe('DataAuditService', () => {
           halfBrokenSkipRate: 35,
         },
       },
+      limits: 3,
+      needTargetSelect: true,
+      needWeaponSelect: true,
     });
+    expect((skillPayload[1] as any).note).toBe('');
+    expect((skillPayload[1] as any).meta).toBeUndefined();
     expect((skillPayload[1] as any).skillCosts[0]).toEqual({
       type: 'item',
       value: 0,
@@ -284,6 +296,7 @@ describe('DataAuditService', () => {
       reactionPriority: 0,
       actionSequenceType: 2,
       actionSequenceScriptKey: '',
+      targetType: 0,
       targetCamp: 2,
       targetLifeState: 1,
       selectMode: 1,
@@ -483,6 +496,7 @@ describe('DataAuditService', () => {
             reactionPriority: 0,
             actionSequenceType: 3,
             actionSequenceScriptKey: '',
+            targetType: 0,
             targetCamp: 2,
             targetLifeState: 1,
             selectMode: 1,
@@ -521,13 +535,16 @@ describe('DataAuditService', () => {
           return [null, {
             id: 1,
             name: '已规范',
-            meta: {},
             projectileId: 0,
             skillProjectileTag: -1,
             reactionSuccessRate: 0,
             reactionPriority: 0,
             actionSequenceType: 0,
             actionSequenceScriptKey: '',
+            targetType: 0,
+            limits: -1,
+            needTargetSelect: false,
+            needWeaponSelect: false,
             skillCosts: [],
             skillEffectSpec: {
               damage: {

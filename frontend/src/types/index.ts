@@ -250,6 +250,7 @@ export interface RPGItem {
   weaponImageId?: number;
   targetCamp?: number;
   targetLifeState?: number;
+  targetType?: number;
   selectMode?: number;
   areaMode?: number;
   shapeType?: number;
@@ -265,6 +266,9 @@ export interface RPGItem {
   skillProjectileTag?: number;
   reactionSuccessRate?: number;
   reactionPriority?: number;
+  limits?: number;
+  needTargetSelect?: boolean;
+  needWeaponSelect?: boolean;
   skillCosts?: SkillCostEntry[];
   skillEffectSpec?: SkillEffectSpec;
   weaknessStateEffects?: StateWeaknessEffects;

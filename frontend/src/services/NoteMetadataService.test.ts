@@ -68,6 +68,17 @@ describe('NoteMetadataService', () => {
     });
   });
 
+  it('条目缺少 meta 但 note 没有标签时保持原样', () => {
+    const source = {
+      id: 1,
+      note: '',
+    };
+    const result = ensureItemMeta(source);
+
+    expect(result.changed).toBe(false);
+    expect(result.item).toBe(source);
+  });
+
   it('条目已有 meta 属性时保持原样', () => {
     const source = {
       id: 1,
