@@ -280,7 +280,7 @@ export function EnemyActionOverridesCard({
       bodyStyle={{ backgroundColor: '#1a1f2e' }}
     >
       <div className="text-xs text-gray-500 mb-4">
-        左侧来自敌人 `actions[]`，这里只读。右侧写入 `actionOverrides[skillId]`，相同 skillId 的多条行动共用同一套目标、范围和连续次数。
+        左侧来自敌人 `actions[]`，这里只读。右侧写入 `actionOverrides[skillId]`，相同 skillId 的多条行动共用同一套目标、范围、重复次数和行动内连发。
       </div>
       {actions.length === 0 ? (
         <div className="rounded border border-dashed border-gray-600 px-4 py-6 text-sm text-gray-500 text-center">
@@ -323,11 +323,11 @@ export function EnemyActionOverridesCard({
               <div>
                 <div className="text-sm text-gray-200">{selectedSkillId} : {selectedSkillName}</div>
                 <div className="text-xs text-gray-500">
-                  当前连续 {normalizedSelectedOverride?.repeatTime ?? 1} 次，重复行动 {normalizedSelectedOverride?.actionRepeat ?? 1} 次
+                  当前重复 {normalizedSelectedOverride?.repeatTime ?? 1} 次，浮动 {normalizedSelectedOverride?.repeatTimeFloat ?? 0}，行动内连发 {normalizedSelectedOverride?.actionRepeat ?? 1} 次
                 </div>
               </div>
               <div className="flex items-center gap-2 text-xs text-gray-400">
-                <span>覆盖技能范围</span>
+                <span>覆盖技能配置</span>
                 <Switch
                   size="small"
                   checked={isOverrideEnabled}
@@ -399,24 +399,36 @@ export function EnemyActionOverridesCard({
               ) : null}
               <Form.Item
                 name={[fieldKey, selectedKey, 'repeatTime']}
-                label={<span className="text-xs text-gray-400">连续次数</span>}
+                label={<span className="text-xs text-gray-400">重复次数</span>}
                 className="mb-0"
               >
                 <InputNumber min={1} step={1} className="w-full" style={{ width: '100%' }} disabled={!isOverrideEnabled} />
               </Form.Item>
               <Form.Item
                 name={[fieldKey, selectedKey, 'repeatTimeFloat']}
-                label={<span className="text-xs text-gray-400">连续浮动</span>}
+                label={<span className="text-xs text-gray-400">重复浮动</span>}
                 className="mb-0"
               >
                 <InputNumber min={0} step={0.01} className="w-full" style={{ width: '100%' }} disabled={!isOverrideEnabled} />
               </Form.Item>
               <Form.Item
                 name={[fieldKey, selectedKey, 'actionRepeat']}
-                label={<span className="text-xs text-gray-400">重复行动</span>}
+                label={<span className="text-xs text-gray-400">行动内连发</span>}
                 className="mb-0"
               >
                 <InputNumber min={1} step={1} className="w-full" style={{ width: '100%' }} disabled={!isOverrideEnabled} />
+              </Form.Item>
+              <Form.Item
+                name={[fieldKey, selectedKey, 'allowSkillBreak']}
+                label={<span className="text-xs text-gray-400">允许破坏</span>}
+                className="mb-0"
+                valuePropName="checked"
+              >
+                <Switch
+                  disabled={!isOverrideEnabled}
+                  checkedChildren="允许"
+                  unCheckedChildren="保护"
+                />
               </Form.Item>
             </div>
 
