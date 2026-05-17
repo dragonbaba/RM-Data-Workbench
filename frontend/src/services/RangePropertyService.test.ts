@@ -88,6 +88,49 @@ describe('RangePropertyService', () => {
     });
   });
 
+  it('会保留武器受控线形范围', () => {
+    const values = normalizeWeaponRangeValues({
+      areaOverride: 1,
+      areaMode: 2,
+      shapeType: 3,
+      areaTargetCount: 3,
+      repeatTime: 2,
+    });
+
+    expect(values).toMatchObject({
+      areaOverride: 1,
+      areaMode: 2,
+      shapeType: 3,
+      areaTargetCount: 3,
+      repeatTime: 2,
+      repeatTimeFloat: 0,
+    });
+  });
+
+  it('会保留武器原始贯穿与全体范围模式', () => {
+    expect(normalizeWeaponRangeValues({
+      areaOverride: 1,
+      areaMode: 3,
+      shapeType: 3,
+      areaTargetCount: 0,
+    })).toMatchObject({
+      areaMode: 3,
+      shapeType: 3,
+      areaTargetCount: 0,
+    });
+
+    expect(normalizeWeaponRangeValues({
+      areaOverride: 1,
+      areaMode: 4,
+      shapeType: 0,
+      areaTargetCount: 0,
+    })).toMatchObject({
+      areaMode: 4,
+      shapeType: 0,
+      areaTargetCount: 0,
+    });
+  });
+
   it('会把缺失的 shapeParams 视为默认协议结构', () => {
     expect(areShapeParamsEqual(undefined, {
       '1': { radius: 120 },

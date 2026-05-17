@@ -32,6 +32,7 @@ describe('EquipDataService', () => {
       systemWeaponEquipTypes: [1, '2' as unknown as number, 2, 0, -1, null as unknown as number, 3.5 as unknown as number, 'abc' as unknown as number],
       actorEquipSlots: [null],
       actorEquips: [null],
+      actorRefitRules: [null],
     });
 
     expect(result).toEqual([1, 2]);

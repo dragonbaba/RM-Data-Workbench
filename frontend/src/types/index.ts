@@ -262,6 +262,17 @@ export interface RPGItem {
   orderEffects?: BattleOrderEffects;
   actionSequenceType?: number;
   actionSequenceScriptKey?: string;
+  weaponAction?: {
+    mode?: 'none' | 'selected' | 'all';
+    countMin?: number;
+    countMax?: number;
+    maxCount?: number;
+    ammoLimited?: boolean;
+    requireCanLaunch?: boolean;
+    durabilityLossMin?: number;
+    durabilityLossMax?: number;
+    friendStateId?: number;
+  };
   projectileId?: number;
   skillProjectileTag?: number;
   reactionSuccessRate?: number;
@@ -344,6 +355,7 @@ export interface EnemyActionOverride {
   repeatTime: number;
   repeatTimeFloat: number;
   actionRepeat: number;
+  allowSkillBreak: boolean;
 }
 
 export type EnemyActionOverrides = Record<string, EnemyActionOverride>;
@@ -538,6 +550,7 @@ export interface RPGMap {
   scrollType?: number;
   disableDashing?: boolean;
   inRoom?: boolean;
+  fixedWeather?: string;
   encounterStep?: number;
   note?: string;
   autoplayBgm?: boolean;
@@ -549,7 +562,7 @@ export interface RPGMap {
   [key: string]: unknown;
 }
 
-export type EditorMode = 'script' | 'property' | 'effect' | 'projectile' | 'quest' | 'map' | 'equip' | 'drop';
+export type EditorMode = 'script' | 'property' | 'effect' | 'projectile' | 'quest' | 'map' | 'equip' | 'refit' | 'drop';
 
 export type FileType = 'data' | 'quest' | 'projectile' | 'map';
 

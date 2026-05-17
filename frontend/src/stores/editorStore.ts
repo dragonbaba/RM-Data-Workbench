@@ -183,6 +183,14 @@ export const useEditorStore = create<EditorStore>()(
                   : fileType === 'projectile'
                     ? 'projectile'
                     : 'property'
+              : state.uiMode === 'refit'
+                ? normalizedFileName === 'actors.json' && fileType === 'data'
+                  ? 'refit'
+                  : fileType === 'quest'
+                    ? 'quest'
+                    : fileType === 'projectile'
+                      ? 'projectile'
+                      : 'property'
               : state.uiMode === 'drop'
                 ? normalizedFileName === 'enemies.json' && fileType === 'data'
                   ? 'drop'
@@ -272,11 +280,26 @@ export const useEditorStore = create<EditorStore>()(
           DataLoaderService.cacheFileData(normalizedPath, fileName, mapData);
         }
 
-        set({
-          currentMapData: mapData,
-          currentItem: mapData,
-          currentMapId,
+        let shouldEmitDirty = false;
+        set((state) => {
+          const nextState: Partial<EditorStore> = {
+            currentMapData: mapData,
+            currentItem: mapData,
+            currentMapId,
+          };
+
+          if (normalizedPath && !state.dirtyFiles[normalizedPath]) {
+            const newDirtyFiles = { ...state.dirtyFiles, [normalizedPath]: true };
+            saveDirtyFiles(newDirtyFiles);
+            nextState.dirtyFiles = newDirtyFiles;
+            shouldEmitDirty = true;
+          }
+
+          return nextState;
         }, false);
+        if (shouldEmitDirty) {
+          EventSystem.emit('file:dirty', normalizedPath);
+        }
         EventSystem.emit('item:updated', mapData);
       },
 

@@ -140,7 +140,7 @@ export const resolveDataChangeImpact = (
     return { shouldReload: true, shouldConfirm: true, target: 'dependency' };
   }
 
-  if (snapshot.uiMode === 'equip' && EQUIP_DEPENDENCY_FILES.has(fileName)) {
+  if ((snapshot.uiMode === 'equip' || snapshot.uiMode === 'refit') && EQUIP_DEPENDENCY_FILES.has(fileName)) {
     return { shouldReload: true, shouldConfirm: true, target: 'dependency' };
   }
 

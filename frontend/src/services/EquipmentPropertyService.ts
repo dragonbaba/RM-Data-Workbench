@@ -7,6 +7,7 @@ import type {
   RPGItem,
 } from '../types';
 import { extractSystemRecord } from './DataFileFormatService';
+import { normalizeWeaponRangeValues } from './RangePropertyService';
 import {
   EQUIP_EXTRA_PARAM_KEYS,
   EQUIP_UPGRADE_PARAM_KEYS,
@@ -25,8 +26,6 @@ interface EquipmentNormalizationOptions {
   systemData?: unknown;
 }
 
-type ShapeParams = Record<string, Record<string, number>>;
-
 const DEFAULT_FLOAT_PARAM_LENGTH = 8;
 const TANK_HIDDEN_ATTACK_SKILL_EQUIP_TYPES = new Set([8, 9]);
 
@@ -44,12 +43,6 @@ const EMPTY_UPGRADE_COST_ENTRY: EquipUpgradeCostEntry = Object.freeze({
   requiredItemAmount: 0,
   protectItemId: 0,
   protectItemAmount: 0,
-});
-
-const DEFAULT_SHAPE_PARAMS: ShapeParams = Object.freeze({
-  1: Object.freeze({ radius: 120 }),
-  2: Object.freeze({ angleDeg: 60, radius: 180 }),
-  3: Object.freeze({ length: 240, width: 80 }),
 });
 
 export const EXTRA_PARAM_FIELDS: FixedParamFieldDefinition[] = [
@@ -182,13 +175,6 @@ const normalizeParamGroup = <T extends ParamTemplate[]>(
   return normalized as T;
 };
 
-const normalizeShapeParams = (value: unknown): ShapeParams => {
-  if (!isRecord(value)) {
-    return DEFAULT_SHAPE_PARAMS;
-  }
-  return value as ShapeParams;
-};
-
 const shouldUseHiddenAttackSkillField = (item: Record<string, unknown>): boolean => {
   return TANK_HIDDEN_ATTACK_SKILL_EQUIP_TYPES.has(Math.max(0, toIntOrZero(item.etypeId)));
 };
@@ -235,38 +221,6 @@ const normalizeFloatParams = (value: unknown): number[] => {
   return new Array<number>(DEFAULT_FLOAT_PARAM_LENGTH)
     .fill(0)
     .map((_, index) => toFloatOrZero(source[index]));
-};
-
-const normalizeWeaponRangeValues = (raw: Record<string, unknown>) => {
-  const areaOverride = Math.max(0, toIntOrZero(raw.areaOverride));
-  let areaMode = Math.max(1, toIntOrZero(raw.areaMode || 1));
-  let shapeType = Math.max(0, toIntOrZero(raw.shapeType));
-  let areaTargetCount = Math.max(0, toIntOrZero(raw.areaTargetCount));
-
-  if (areaOverride === 0) {
-    areaMode = 1;
-    shapeType = 0;
-    areaTargetCount = 0;
-  } else if (areaMode === 1 || areaMode === 4) {
-    shapeType = 0;
-    areaTargetCount = 0;
-  } else if (areaMode === 3) {
-    shapeType = 3;
-    areaTargetCount = 0;
-  } else {
-    if (shapeType !== 1 && shapeType !== 2) shapeType = 1;
-    areaTargetCount = Math.max(1, areaTargetCount || 1);
-  }
-
-  return {
-    areaOverride: Math.min(1, areaOverride),
-    areaMode: Math.min(4, areaMode),
-    shapeType: Math.min(3, shapeType),
-    areaTargetCount,
-    shapeParams: normalizeShapeParams(raw.shapeParams),
-    repeatTime: Math.max(1, toIntOrZero(raw.repeatTime || 1)),
-    repeatTimeFloat: Math.max(0, toFloatOrZero(raw.repeatTimeFloat)),
-  };
 };
 
 export function normalizeEquipmentDataEntry(

@@ -5,6 +5,7 @@ import {
   ACTION_SEQUENCE_TYPE_PROJECTILE,
   ACTION_SEQUENCE_TYPE_SELF,
   ACTION_SEQUENCE_TYPE_THROW_PROJECTILE,
+  ACTION_SEQUENCE_TYPE_WEAPON_ACTION,
   buildSkillSaveData,
   hasDamageFormulaExport,
   hasSkillEditorChanges,
@@ -82,6 +83,17 @@ describe('SkillPropertyService', () => {
       limits: -1,
       needTargetSelect: false,
       needWeaponSelect: false,
+      weaponAction: {
+        mode: 'none',
+        countMin: 1,
+        countMax: 1,
+        maxCount: 8,
+        ammoLimited: false,
+        requireCanLaunch: false,
+        durabilityLossMin: 0,
+        durabilityLossMax: 0,
+        friendStateId: 0,
+      },
       skillCosts: [],
       skillEffectSpec: {
         damage: {
@@ -102,6 +114,56 @@ describe('SkillPropertyService', () => {
           halfBrokenSkipRate: 25,
         },
       },
+    });
+  });
+
+  it('会保存武器动作序列配置并限制次数上限', () => {
+    const source = {
+      id: 34,
+      name: '电光石火',
+      actionSequenceType: ACTION_SEQUENCE_TYPE_WEAPON_ACTION,
+      weaponAction: {
+        mode: 'selected',
+        countMin: 2,
+        countMax: 12,
+        maxCount: 99,
+        ammoLimited: true,
+        requireCanLaunch: true,
+        durabilityLossMin: 0,
+        durabilityLossMax: 0,
+        friendStateId: 0,
+      },
+    };
+    const values = normalizeSkillEditorValues(source);
+
+    expect(values.actionSequenceType).toBe(ACTION_SEQUENCE_TYPE_WEAPON_ACTION);
+    expect(values.weaponAction).toEqual({
+      mode: 'selected',
+      countMin: 2,
+      countMax: 8,
+      maxCount: 8,
+      ammoLimited: true,
+      requireCanLaunch: true,
+      durabilityLossMin: 0,
+      durabilityLossMax: 0,
+      friendStateId: 0,
+    });
+
+    const saved = buildSkillSaveData(source as any, {
+      ...values,
+      weaponAction: {
+        ...values.weaponAction,
+        durabilityLossMin: 1,
+        durabilityLossMax: 3,
+      },
+    });
+
+    expect(saved.actionSequenceType).toBe(ACTION_SEQUENCE_TYPE_WEAPON_ACTION);
+    expect(saved.actionSequenceScriptKey).toBe('');
+    expect(saved.weaponAction).toMatchObject({
+      mode: 'selected',
+      durabilityLossMin: 1,
+      durabilityLossMax: 3,
     });
   });
 

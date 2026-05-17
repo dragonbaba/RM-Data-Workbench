@@ -35,6 +35,9 @@ const AREA_MODE_SINGLE = 1;
 const AREA_MODE_AREA = 2;
 const AREA_MODE_PENETRATE = 3;
 const AREA_MODE_ALL = 4;
+const SHAPE_TYPE_CIRCLE = 1;
+const SHAPE_TYPE_SECTOR = 2;
+const SHAPE_TYPE_LINE = 3;
 
 export const DEFAULT_SHAPE_PARAMS: ShapeParams = Object.freeze({
   '1': Object.freeze({ radius: 120 }),
@@ -142,18 +145,24 @@ export const normalizeWeaponRangeValues = (raw: Record<string, unknown>): Weapon
     shapeType = 0;
     areaTargetCount = 0;
   } else if (areaMode === AREA_MODE_PENETRATE) {
-    shapeType = 3;
+    shapeType = SHAPE_TYPE_LINE;
     areaTargetCount = 0;
   } else {
     areaMode = AREA_MODE_AREA;
-    if (shapeType !== 1 && shapeType !== 2) shapeType = 1;
+    if (
+      shapeType !== SHAPE_TYPE_CIRCLE
+      && shapeType !== SHAPE_TYPE_SECTOR
+      && shapeType !== SHAPE_TYPE_LINE
+    ) {
+      shapeType = SHAPE_TYPE_CIRCLE;
+    }
     areaTargetCount = Math.max(1, areaTargetCount || 1);
   }
 
   return {
     areaOverride: Math.min(1, areaOverride),
     areaMode: Math.min(AREA_MODE_ALL, areaMode),
-    shapeType: Math.min(3, shapeType),
+    shapeType,
     areaTargetCount,
     shapeParams: normalizeShapeParams(raw.shapeParams),
     repeatTime: Math.max(1, readIntWithDefault(raw.repeatTime, 1)),

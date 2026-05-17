@@ -11,6 +11,7 @@ const QuestPanel = lazy(() => import('../panels/QuestPanel'));
 const ProjectilePanel = lazy(() => import('../panels/ProjectilePanel'));
 const MapPanel = lazy(() => import('../panels/MapPanel'));
 const EquipPanel = lazy(() => import('../panels/EquipPanel'));
+const RefitPanel = lazy(() => import('../panels/RefitPanel'));
 const DropPanel = lazy(() => import('../panels/DropPanel'));
 
 const PanelFallback = () => (
@@ -42,6 +43,8 @@ export function MainContent() {
         return <MapPanel />;
       case 'equip':
         return <EquipPanel />;
+      case 'refit':
+        return <RefitPanel />;
       case 'drop':
         return <DropPanel />;
       default:

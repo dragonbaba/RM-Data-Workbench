@@ -102,6 +102,38 @@ describe('EquipmentPropertyService', () => {
     expect(normalized?.upgradeParams?.[0]).toEqual({ value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 });
   });
 
+  it('会在装备修复中保留武器受控线形范围', () => {
+    const normalized = normalizeEquipmentDataEntry(
+      {
+        id: 12,
+        name: '远程T型炮',
+        areaOverride: 1,
+        areaMode: 2,
+        shapeType: 3,
+        areaTargetCount: 3,
+        shapeParams: {
+          1: { radius: 360 },
+          2: { radius: 520, angleDeg: 42 },
+          3: { length: 820, width: 104 },
+        },
+        repeatTime: 1,
+      },
+      {
+        isWeapon: true,
+      },
+    );
+
+    expect(normalized).toMatchObject({
+      areaOverride: 1,
+      areaMode: 2,
+      shapeType: 3,
+      areaTargetCount: 3,
+      shapeParams: {
+        3: { length: 820, width: 104 },
+      },
+    });
+  });
+
   it('会标准化逐级强化耗材配置', () => {
     expect(normalizeEquipUpgradeCosts([
       {

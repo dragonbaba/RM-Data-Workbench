@@ -41,7 +41,7 @@ export function LeftPanel() {
   
   // 检查当前文件是否有未保存的更改
   const activeDirtyFilePaths = useMemo(() => {
-    if (uiMode === 'equip') {
+    if (uiMode === 'equip' || uiMode === 'refit') {
       return [
         DataLoaderService.getFilePathByName(EQUIP_EXTENSIONS_FILE_NAME) || joinPath(config.dataPath, EQUIP_EXTENSIONS_FILE_NAME),
       ];
@@ -176,7 +176,7 @@ export function LeftPanel() {
       <div className="px-4 py-3 border-b border-[#30384d]">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold" style={{ color: 'var(--color-accent)' }}>
-            {isMapListActive ? '地图列表' : uiMode === 'drop' ? '敌人列表' : uiMode === 'effect' ? '效果列表' : '项目列表'}
+            {isMapListActive ? '地图列表' : uiMode === 'drop' ? '敌人列表' : uiMode === 'effect' ? '效果列表' : uiMode === 'refit' ? '角色列表' : '项目列表'}
           </h2>
           {isCurrentFileDirty && (
             <Badge 

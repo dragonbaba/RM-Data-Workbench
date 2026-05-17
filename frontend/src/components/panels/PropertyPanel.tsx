@@ -22,6 +22,7 @@ import {
   ACTION_SEQUENCE_TYPE_PROJECTILE,
   ACTION_SEQUENCE_TYPE_SELF,
   ACTION_SEQUENCE_TYPE_THROW_PROJECTILE,
+  ACTION_SEQUENCE_TYPE_WEAPON_ACTION,
   DAMAGE_FORMULA_EXPORT_NAME,
   hasSkillEditorChanges,
   hasDamageFormulaExport,
@@ -413,6 +414,7 @@ const SKILL_REACTION_SUCCESS_RATE_FIELD_KEY = 'skillReactionSuccessRate';
 const SKILL_REACTION_PRIORITY_FIELD_KEY = 'skillReactionPriority';
 const ACTION_SEQUENCE_TYPE_FIELD_KEY = 'actionSequenceType';
 const ACTION_SEQUENCE_SCRIPT_KEY_FIELD_KEY = 'actionSequenceScriptKey';
+const SKILL_WEAPON_ACTION_FIELD_KEY = 'weaponAction';
 const SKILL_LIMITS_FIELD_KEY = 'limits';
 const SKILL_NEED_TARGET_SELECT_FIELD_KEY = 'needTargetSelect';
 const SKILL_NEED_WEAPON_SELECT_FIELD_KEY = 'needWeaponSelect';
@@ -496,6 +498,13 @@ const ACTION_SEQUENCE_TYPE_OPTIONS = [
   { value: ACTION_SEQUENCE_TYPE_THROW_PROJECTILE, label: '2 : 投掷物动作序列' },
   { value: ACTION_SEQUENCE_TYPE_ITEM, label: '3 : 通常物品动作序列' },
   { value: ACTION_SEQUENCE_TYPE_SELF, label: '4 : 技能/物品自身动作序列' },
+  { value: ACTION_SEQUENCE_TYPE_WEAPON_ACTION, label: '5 : 武器动作序列' },
+];
+
+const SKILL_WEAPON_ACTION_MODE_OPTIONS = [
+  { value: 'none', label: '不触发武器' },
+  { value: 'selected', label: '选中武器' },
+  { value: 'all', label: '全部武器' },
 ];
 
 const SKILL_COST_TYPE_OPTIONS: Array<{ value: SkillCostType; label: string }> = [
@@ -1251,6 +1260,7 @@ export function PropertyPanel() {
           baseFormValues[SKILL_LIMITS_FIELD_KEY] = skillValues.limits;
           baseFormValues[SKILL_NEED_TARGET_SELECT_FIELD_KEY] = skillValues.needTargetSelect;
           baseFormValues[SKILL_NEED_WEAPON_SELECT_FIELD_KEY] = skillValues.needWeaponSelect;
+          baseFormValues[SKILL_WEAPON_ACTION_FIELD_KEY] = skillValues.weaponAction;
           baseFormValues[SKILL_COSTS_FIELD_KEY] = skillValues.skillCosts;
         }
       }
@@ -1580,6 +1590,7 @@ export function PropertyPanel() {
           limits: isSkillFile ? values[SKILL_LIMITS_FIELD_KEY] : undefined,
           needTargetSelect: isSkillFile ? values[SKILL_NEED_TARGET_SELECT_FIELD_KEY] : undefined,
           needWeaponSelect: isSkillFile ? values[SKILL_NEED_WEAPON_SELECT_FIELD_KEY] : undefined,
+          weaponAction: isSkillFile ? values[SKILL_WEAPON_ACTION_FIELD_KEY] : undefined,
           skillCosts: isSkillFile ? values[SKILL_COSTS_FIELD_KEY] : undefined,
           skillEffectSpec: values[SKILL_EFFECT_SPEC_FIELD_KEY],
         }
@@ -3118,6 +3129,91 @@ export function PropertyPanel() {
                   style={{ width: '100%' }}
                   disabled={watchedSkillProjectileTag !== SKILL_PROJECTILE_TAG_INTERCEPTOR}
                 />
+              </Form.Item>
+            </div>
+          </Card>
+        ) : null}
+
+        {isSkillFile && watchedActionSequenceType === ACTION_SEQUENCE_TYPE_WEAPON_ACTION ? (
+          <Card
+            title="技能武器动作配置"
+            className="mb-4"
+            headStyle={{
+              backgroundColor: '#252b3d',
+              borderBottom: '1px solid var(--color-border)',
+              color: 'var(--color-accent)',
+            }}
+            bodyStyle={{ backgroundColor: '#1a1f2e' }}
+          >
+            <div className="grid grid-cols-4 gap-x-4 gap-y-4">
+              <Form.Item
+                name={[SKILL_WEAPON_ACTION_FIELD_KEY, 'mode']}
+                label={<span className="text-xs text-gray-400">武器触发</span>}
+                className="mb-0"
+              >
+                <Select
+                  options={SKILL_WEAPON_ACTION_MODE_OPTIONS}
+                  className="w-full"
+                  placeholder="选择触发方式"
+                />
+              </Form.Item>
+              <Form.Item
+                name={[SKILL_WEAPON_ACTION_FIELD_KEY, 'countMin']}
+                label={<span className="text-xs text-gray-400">最少次数</span>}
+                className="mb-0"
+              >
+                <InputNumber min={1} max={8} step={1} className="w-full" style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                name={[SKILL_WEAPON_ACTION_FIELD_KEY, 'countMax']}
+                label={<span className="text-xs text-gray-400">最多次数</span>}
+                className="mb-0"
+              >
+                <InputNumber min={1} max={8} step={1} className="w-full" style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                name={[SKILL_WEAPON_ACTION_FIELD_KEY, 'maxCount']}
+                label={<span className="text-xs text-gray-400">硬上限</span>}
+                className="mb-0"
+              >
+                <InputNumber min={1} max={8} step={1} className="w-full" style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                name={[SKILL_WEAPON_ACTION_FIELD_KEY, 'ammoLimited']}
+                label={<span className="text-xs text-gray-400">按弹药截断</span>}
+                valuePropName="checked"
+                className="mb-0"
+              >
+                <Switch />
+              </Form.Item>
+              <Form.Item
+                name={[SKILL_WEAPON_ACTION_FIELD_KEY, 'requireCanLaunch']}
+                label={<span className="text-xs text-gray-400">要求可发射</span>}
+                valuePropName="checked"
+                className="mb-0"
+              >
+                <Switch />
+              </Form.Item>
+              <Form.Item
+                name={[SKILL_WEAPON_ACTION_FIELD_KEY, 'durabilityLossMin']}
+                label={<span className="text-xs text-gray-400">耐久降低最小</span>}
+                className="mb-0"
+              >
+                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                name={[SKILL_WEAPON_ACTION_FIELD_KEY, 'durabilityLossMax']}
+                label={<span className="text-xs text-gray-400">耐久降低最大</span>}
+                className="mb-0"
+              >
+                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                name={[SKILL_WEAPON_ACTION_FIELD_KEY, 'friendStateId']}
+                label={<span className="text-xs text-gray-400">全员状态</span>}
+                className="mb-0"
+              >
+                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
               </Form.Item>
             </div>
           </Card>

@@ -194,6 +194,9 @@ func (a *App) setupMenu() {
 	modeMenu.AddText("装备模式", keys.Key("f7"), func(cd *menu.CallbackData) {
 		runtime.EventsEmit(a.ctx, "mode:change", "equip")
 	})
+	modeMenu.AddText("改造模式", keys.Key("f10"), func(cd *menu.CallbackData) {
+		runtime.EventsEmit(a.ctx, "mode:change", "refit")
+	})
 	modeMenu.AddText("效果模式", keys.Key("f8"), func(cd *menu.CallbackData) {
 		runtime.EventsEmit(a.ctx, "mode:change", "effect")
 	})

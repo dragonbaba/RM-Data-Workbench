@@ -37,8 +37,7 @@ const asRecord = (value: unknown): RecordLike | null => {
 };
 
 const asInt = (value: unknown): number => {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : 0;
 };
 
 const normalizeNumberArray = (value: unknown): number[] => {

@@ -8,6 +8,7 @@ import { normalizeCommonRangeDataEntry } from './RangePropertyService';
 import { normalizeSkillDataEntry } from './SkillPropertyService';
 import { normalizeStateDataEntry } from './StateChargePropertyService';
 import { normalizeStandardDataForEditor } from './DataFileFormatService';
+import { EQUIP_EXTENSIONS_FILE_NAME, normalizeEquipExtensions } from './EquipExtensionsService';
 import {
   OWNER_EXTRA_PARAM_KEYS,
   OWNER_SCALAR_KEYS,
@@ -27,6 +28,7 @@ export const AUDIT_TARGET_FILE_NAMES = [
   'Weapons.json',
   'Armors.json',
   'Projectiles.json',
+  EQUIP_EXTENSIONS_FILE_NAME,
   EFFECTS_FILE_NAME,
 ] as const;
 
@@ -672,6 +674,12 @@ export async function auditAndRepairDataFiles(
 ): Promise<DataAuditSummary> {
   const systemPath = joinPath(dataPath, SYSTEM_FILE_NAME);
   const systemData = await deps.readJson(systemPath);
+  const actorsPath = joinPath(dataPath, ACTORS_FILE_NAME);
+  const rawActorsData = await deps.readJson(actorsPath);
+  const normalizedActorsData = normalizeFilePayload(ACTORS_FILE_NAME, rawActorsData);
+  const weaponsPath = joinPath(dataPath, 'Weapons.json');
+  const rawWeaponsData = await deps.readJson(weaponsPath);
+  const normalizedWeaponsData = normalizeFilePayload('Weapons.json', rawWeaponsData);
   const skillsPath = joinPath(dataPath, SKILLS_FILE_NAME);
   const rawSkillsData = await deps.readJson(skillsPath);
   const normalizedSkillsData = normalizeFilePayload(SKILLS_FILE_NAME, rawSkillsData).map((entry) => {
@@ -690,9 +698,29 @@ export async function auditAndRepairDataFiles(
     const filePath = joinPath(dataPath, fileName);
     const rawData = fileName === EFFECTS_FILE_NAME
       ? rawEffectsData
+      : fileName === ACTORS_FILE_NAME
+        ? rawActorsData
       : fileName === SKILLS_FILE_NAME
         ? rawSkillsData
+        : fileName === 'Weapons.json'
+          ? rawWeaponsData
         : await deps.readJson(filePath);
+
+    if (fileName === EQUIP_EXTENSIONS_FILE_NAME) {
+      const normalized = normalizeEquipExtensions(rawData, normalizedActorsData.length, normalizedWeaponsData.length);
+      if (normalized.changed) {
+        await deps.writeJson(filePath, normalized.data);
+      }
+      results.push({
+        fileName,
+        filePath,
+        checkedEntries: 1,
+        repairedEntries: normalized.changed ? 1 : 0,
+        changed: normalized.changed,
+      });
+      continue;
+    }
+
     const currentData = normalizeFilePayload(fileName, rawData);
     const nextData = [...currentData];
     let repairedEntries = 0;

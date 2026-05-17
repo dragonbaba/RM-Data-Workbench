@@ -5,3 +5,4 @@ export { NotePanel } from './NotePanel';
 export { EffectPanel } from './EffectPanel';
 export { CodeEditorPanel } from './CodeEditorPanel';
 export { DropPanel } from './DropPanel';
+export { RefitPanel } from './RefitPanel';

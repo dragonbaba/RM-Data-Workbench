@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createDefaultEquipExtensions,
   getActorEquipStateFromExtensions,
+  getActorRefitSlotsFromExtensions,
   getWeaponEquipTypeAtIndex,
   normalizeEquipExtensions,
   previewEquipExtensionsNormalization,
@@ -16,15 +17,16 @@ describe('EquipExtensionsService', () => {
       systemWeaponEquipTypes: [],
       actorEquipSlots: [null, [], [], []],
       actorEquips: [null, [], [], []],
+      actorRefitRules: [null, { slots: [] }, { slots: [] }, { slots: [] }],
     });
   });
 
   it('normalizes malformed extension data to actor and weapon counts', () => {
     const result = normalizeEquipExtensions({
-      weaponEquipTypes: [999, '10', -1, 'abc'],
-      systemWeaponEquipTypes: [10, '11', 11, 0, -1],
-      actorEquipSlots: [999, [10, '11'], 'bad'],
-      actorEquips: [999, [1, '2'], [3]],
+      weaponEquipTypes: [999, 10, -1, 'abc'],
+      systemWeaponEquipTypes: [10, 11, 11, 0, -1],
+      actorEquipSlots: [999, [10, 11], 'bad'],
+      actorEquips: [999, [1, 2], [3]],
     }, 4, 3);
 
     expect(result.changed).toBe(true);
@@ -33,7 +35,101 @@ describe('EquipExtensionsService', () => {
       systemWeaponEquipTypes: [10, 11],
       actorEquipSlots: [null, [10, 11], [], []],
       actorEquips: [null, [1, 2], [3], []],
+      actorRefitRules: [null, { slots: [] }, { slots: [] }, { slots: [] }],
     });
+  });
+
+  it('normalizes actor refit rules with transitions and conditions', () => {
+    const result = normalizeEquipExtensions({
+      weaponEquipTypes: [null],
+      systemWeaponEquipTypes: [],
+      actorEquipSlots: [null, [10]],
+      actorEquips: [null, [1]],
+      actorRefitRules: [null, {
+        slots: [{
+          slotIndex: 0,
+          fromEquipTypeId: 10,
+          transitions: [{
+            fromEquipTypeId: 10,
+            toEquipTypeId: 11,
+            goldCost: 1200,
+            conditions: [
+              { kind: 'none' },
+              { kind: 'switch', switchId: 98, value: true },
+              { kind: 'variable', variableId: 5, op: '>=', value: 3 },
+            ],
+          }, {
+            toEquipTypeId: 0,
+            goldCost: 10,
+          }],
+        }],
+      }],
+    }, 2, 1);
+
+    expect(result.data.actorRefitRules[1]).toEqual({
+      slots: [{
+        slotIndex: 0,
+        fromEquipTypeId: 10,
+        transitions: [{
+          fromEquipTypeId: 10,
+          toEquipTypeId: 11,
+          goldCost: 1200,
+          conditions: [
+            { kind: 'none' },
+            { kind: 'switch', switchId: 98, value: true },
+            { kind: 'variable', variableId: 5, op: '>=', value: 3 },
+          ],
+        }, {
+          fromEquipTypeId: 11,
+          toEquipTypeId: 10,
+          goldCost: 1200,
+          conditions: [
+            { kind: 'none' },
+            { kind: 'switch', switchId: 98, value: true },
+            { kind: 'variable', variableId: 5, op: '>=', value: 3 },
+          ],
+        }],
+      }],
+    });
+  });
+
+  it('completes positive refit type transitions in the same slot', () => {
+    const result = normalizeEquipExtensions({
+      weaponEquipTypes: [null],
+      systemWeaponEquipTypes: [],
+      actorEquipSlots: [null, [0]],
+      actorEquips: [null, [0]],
+      actorRefitRules: [null, {
+        slots: [{
+          slotIndex: 0,
+          fromEquipTypeId: 0,
+          transitions: [{
+            fromEquipTypeId: 0,
+            toEquipTypeId: 10,
+            goldCost: 1000,
+            conditions: [{ kind: 'none' }],
+          }, {
+            fromEquipTypeId: 0,
+            toEquipTypeId: 11,
+            goldCost: 800,
+            conditions: [{ kind: 'switch', switchId: 5, value: true }],
+          }, {
+            fromEquipTypeId: 0,
+            toEquipTypeId: 12,
+            goldCost: 1500,
+            conditions: [{ kind: 'variable', variableId: 2, op: '>=', value: 1 }],
+          }],
+        }],
+      }],
+    }, 2, 1);
+
+    const transitions = result.data.actorRefitRules[1]?.slots[0].transitions || [];
+    expect(transitions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ fromEquipTypeId: 10, toEquipTypeId: 11, goldCost: 800 }),
+      expect.objectContaining({ fromEquipTypeId: 10, toEquipTypeId: 12, goldCost: 1500 }),
+      expect.objectContaining({ fromEquipTypeId: 11, toEquipTypeId: 10, goldCost: 1000 }),
+      expect.objectContaining({ fromEquipTypeId: 12, toEquipTypeId: 10, goldCost: 1000 }),
+    ]));
   });
 
   it('uses actor equips length as the display baseline and pads missing slots with 0', () => {
@@ -42,6 +138,7 @@ describe('EquipExtensionsService', () => {
       systemWeaponEquipTypes: [],
       actorEquipSlots: [null, [10]],
       actorEquips: [null, [3, 4, 5]],
+      actorRefitRules: [null, { slots: [] }],
     }, 1);
 
     expect(state).toEqual({
@@ -56,20 +153,67 @@ describe('EquipExtensionsService', () => {
       systemWeaponEquipTypes: [],
       actorEquipSlots: [null],
       actorEquips: [null],
+      actorRefitRules: [null],
     }, 2)).toBe(11);
+  });
+
+  it('aligns actor refit slots to current equip slots', () => {
+    const slots = getActorRefitSlotsFromExtensions({
+      weaponEquipTypes: [null],
+      systemWeaponEquipTypes: [],
+      actorEquipSlots: [null, [10, 11]],
+      actorEquips: [null, [1, 2]],
+      actorRefitRules: [null, {
+        slots: [{
+          slotIndex: 1,
+          fromEquipTypeId: 11,
+          transitions: [{
+            fromEquipTypeId: 11,
+            toEquipTypeId: 12,
+            goldCost: 500,
+            conditions: [],
+          }, {
+            fromEquipTypeId: 12,
+            toEquipTypeId: 11,
+            goldCost: 600,
+            conditions: [{ kind: 'none' }],
+          }],
+        }],
+      }],
+    }, 1, [10, 11]);
+
+    expect(slots).toEqual([
+      { slotIndex: 0, fromEquipTypeId: 10, transitions: [] },
+      {
+        slotIndex: 1,
+        fromEquipTypeId: 11,
+        transitions: [{
+          fromEquipTypeId: 11,
+          toEquipTypeId: 12,
+          goldCost: 500,
+          conditions: [],
+        }, {
+          fromEquipTypeId: 12,
+          toEquipTypeId: 11,
+          goldCost: 600,
+          conditions: [{ kind: 'none' }],
+        }],
+      },
+    ]);
   });
 
   it('builds normalization preview summary for changed sections', () => {
     const result = previewEquipExtensionsNormalization({
-      weaponEquipTypes: [999, '10', -1, 'abc'],
-      systemWeaponEquipTypes: [10, '11', 11, 0, -1],
-      actorEquipSlots: [999, [10, '11'], 'bad'],
-      actorEquips: [999, [1, '2'], [3]],
+      weaponEquipTypes: [999, 10, -1, 'abc'],
+      systemWeaponEquipTypes: [10, 11, 11, 0, -1],
+      actorEquipSlots: [999, [10, 11], 'bad'],
+      actorEquips: [999, [1, 2], [3]],
     }, 4, 3);
 
     expect(result.changed).toBe(true);
     expect(result.changedSections).toEqual([
       'systemWeaponEquipTypes：将整理为 [10, 11]',
+      'actorRefitRules：改造规则结构将被规范化',
     ]);
     expect(result.summary).toContain('检测到 EquipExtensions.json 需要规范化。');
     expect(result.summary).toContain('确认后才会写入 EquipExtensions.json。');

@@ -1,7 +1,5 @@
-import { Button, Card, Descriptions, Empty, Form, Input, InputNumber, Space, Switch } from 'antd';
-import { SaveOutlined } from '@ant-design/icons';
+import { Card, Descriptions, Empty, Form, Input, InputNumber, Select, Space, Switch } from 'antd';
 import { useEffect } from 'react';
-import { ToastManager } from '../common/ToastManager';
 import { useEditorStore } from '../../stores/editorStore';
 import type { RPGMap } from '../../types';
 
@@ -15,12 +13,20 @@ const countTileEntries = (mapData: RPGMap | null): number => {
   return mapData.data.length;
 };
 
+const fixedWeatherOptions = [
+  { value: '', label: '不固定' },
+  { value: 'none', label: '晴天 (none)' },
+  { value: 'rain', label: '雨天 (rain)' },
+  { value: 'snow', label: '雪天 (snow)' },
+  { value: 'wind', label: '风沙 (wind)' },
+  { value: 'bubble', label: '水下 (bubble)' },
+  { value: 'blood_rain', label: '血雨 (blood_rain)' },
+];
+
 export default function MapPanel() {
   const currentMapData = useEditorStore((state) => state.currentMapData);
   const currentMapId = useEditorStore((state) => state.currentMapId);
-  const currentFilePath = useEditorStore((state) => state.currentFilePath);
   const updateCurrentMapData = useEditorStore((state) => state.updateCurrentMapData);
-  const markFileDirty = useEditorStore((state) => state.markFileDirty);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -37,33 +43,35 @@ export default function MapPanel() {
       encounterStep: currentMapData.encounterStep ?? 30,
       disableDashing: !!currentMapData.disableDashing,
       inRoom: currentMapData.inRoom === true,
+      fixedWeather: currentMapData.fixedWeather || '',
       autoplayBgm: !!currentMapData.autoplayBgm,
       autoplayBgs: !!currentMapData.autoplayBgs,
     });
   }, [currentMapData, form]);
 
-  const handleSave = () => {
-    if (!currentMapData) return;
+  const buildMapDataFromValues = (values: Record<string, unknown>): RPGMap | null => {
+    if (!currentMapData) return null;
 
-    const values = form.getFieldsValue();
-    const nextMapData: RPGMap = {
+    return {
       ...currentMapData,
-      displayName: values.displayName || '',
-      note: values.note || '',
+      displayName: String(values.displayName || ''),
+      note: String(values.note || ''),
       tilesetId: Number(values.tilesetId || 0),
       scrollType: Number(values.scrollType || 0),
       encounterStep: Number(values.encounterStep || 0),
       disableDashing: !!values.disableDashing,
       inRoom: values.inRoom ? true : undefined,
+      fixedWeather: values.fixedWeather ? String(values.fixedWeather) : undefined,
       autoplayBgm: !!values.autoplayBgm,
       autoplayBgs: !!values.autoplayBgs,
     };
+  };
+
+  const handleValuesChange = (_changedValues: Record<string, unknown>, allValues: Record<string, unknown>) => {
+    const nextMapData = buildMapDataFromValues(allValues);
+    if (!nextMapData) return;
 
     updateCurrentMapData(nextMapData);
-    if (currentFilePath) {
-      markFileDirty(currentFilePath);
-    }
-    ToastManager.success('地图数据已更新');
   };
 
   if (!currentMapData) {
@@ -87,11 +95,6 @@ export default function MapPanel() {
       <Space direction="vertical" size={16} className="w-full">
         <Card
           title={`地图 #${currentMapId || 0}`}
-          extra={(
-            <Button type="primary" icon={<SaveOutlined />} onClick={handleSave}>
-              保存地图信息
-            </Button>
-          )}
         >
           <Descriptions column={4} size="small" bordered>
             <Descriptions.Item label="宽度">{currentMapData.width ?? 0}</Descriptions.Item>
@@ -102,7 +105,7 @@ export default function MapPanel() {
         </Card>
 
         <Card title="基础信息">
-          <Form form={form} layout="vertical">
+          <Form form={form} layout="vertical" onValuesChange={handleValuesChange}>
             <Form.Item label="显示名称" name="displayName">
               <Input placeholder="地图显示名称" />
             </Form.Item>
@@ -124,6 +127,10 @@ export default function MapPanel() {
                 <InputNumber min={0} className="w-full" />
               </Form.Item>
             </div>
+
+            <Form.Item label="固定天气" name="fixedWeather">
+              <Select options={fixedWeatherOptions} />
+            </Form.Item>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Form.Item label="禁止奔跑" name="disableDashing" valuePropName="checked">

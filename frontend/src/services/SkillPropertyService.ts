@@ -13,6 +13,7 @@ export const ACTION_SEQUENCE_TYPE_PROJECTILE = 1;
 export const ACTION_SEQUENCE_TYPE_THROW_PROJECTILE = 2;
 export const ACTION_SEQUENCE_TYPE_ITEM = 3;
 export const ACTION_SEQUENCE_TYPE_SELF = 4;
+export const ACTION_SEQUENCE_TYPE_WEAPON_ACTION = 5;
 export const DAMAGE_FORMULA_EXPORT_NAME = 'damageFormula';
 const TARGET_CAMP_ENEMY = 1;
 const TARGET_TYPE_ANY = 0;
@@ -27,6 +28,7 @@ const DEFAULT_HALF_BROKEN_SKIP_RATE = 50;
 export type SkillDamageType = 'none' | 'hp' | 'heal';
 export type SkillDamageFormulaMode = 'basic' | 'script';
 export type SkillDurabilityChangeMode = 'none' | 'reduce' | 'recover';
+export type SkillWeaponActionMode = 'none' | 'selected' | 'all';
 
 export interface SkillDamageFormulaSpec {
   mode: SkillDamageFormulaMode;
@@ -56,6 +58,18 @@ export interface SkillEffectSpec {
   skillDurability: SkillDurabilitySpec;
 }
 
+export interface SkillWeaponAction {
+  mode: SkillWeaponActionMode;
+  countMin: number;
+  countMax: number;
+  maxCount: number;
+  ammoLimited: boolean;
+  requireCanLaunch: boolean;
+  durabilityLossMin: number;
+  durabilityLossMax: number;
+  friendStateId: number;
+}
+
 export const KNOWN_SKILL_PROPERTY_KEYS = [
   'projectileId',
   'skillProjectileTag',
@@ -71,6 +85,7 @@ export const KNOWN_SKILL_PROPERTY_KEYS = [
   'limits',
   'needTargetSelect',
   'needWeaponSelect',
+  'weaponAction',
   'skillCosts',
   'skillEffectSpec',
 ] as const;
@@ -102,6 +117,7 @@ export interface SkillEditorValues {
   limits: number;
   needTargetSelect: boolean;
   needWeaponSelect: boolean;
+  weaponAction: SkillWeaponAction;
   skillCosts: SkillCostEntry[];
   skillEffectSpec: SkillEffectSpec;
 }
@@ -121,6 +137,7 @@ export interface SkillEditorInput {
   limits?: unknown;
   needTargetSelect?: unknown;
   needWeaponSelect?: unknown;
+  weaponAction?: unknown;
   skillCosts?: unknown;
   skillEffectSpec?: unknown;
 }
@@ -194,6 +211,7 @@ const normalizeActionSequenceType = (value: unknown, fallback: number): number =
     || numeric === ACTION_SEQUENCE_TYPE_THROW_PROJECTILE
     || numeric === ACTION_SEQUENCE_TYPE_ITEM
     || numeric === ACTION_SEQUENCE_TYPE_SELF
+    || numeric === ACTION_SEQUENCE_TYPE_WEAPON_ACTION
   ) {
     return numeric;
   }
@@ -202,6 +220,38 @@ const normalizeActionSequenceType = (value: unknown, fallback: number): number =
 
 const normalizeActionSequenceScriptKey = (value: unknown): string => {
   return typeof value === 'string' ? value.trim() : '';
+};
+
+const normalizeWeaponActionMode = (value: unknown): SkillWeaponActionMode => {
+  return value === 'selected' || value === 'all' ? value : 'none';
+};
+
+const normalizeWeaponActionCount = (value: unknown, fallback: number): number => {
+  const numeric = toIntOrZero(value);
+  return Math.max(1, Math.min(8, numeric || fallback));
+};
+
+const normalizeWeaponActionLoss = (value: unknown): number => {
+  return Math.max(0, toIntOrZero(value));
+};
+
+const normalizeWeaponActionValue = (value: unknown): SkillWeaponAction => {
+  const source = isRecord(value) ? value : {};
+  const countMin = normalizeWeaponActionCount(source.countMin, 1);
+  const countMax = Math.max(countMin, normalizeWeaponActionCount(source.countMax, countMin));
+  const durabilityLossMin = normalizeWeaponActionLoss(source.durabilityLossMin);
+  const durabilityLossMax = Math.max(durabilityLossMin, normalizeWeaponActionLoss(source.durabilityLossMax));
+  return {
+    mode: normalizeWeaponActionMode(source.mode),
+    countMin,
+    countMax,
+    maxCount: normalizeWeaponActionCount(source.maxCount, 8),
+    ammoLimited: source.ammoLimited === true,
+    requireCanLaunch: source.requireCanLaunch === true,
+    durabilityLossMin,
+    durabilityLossMax,
+    friendStateId: Math.max(0, toIntOrZero(source.friendStateId)),
+  };
 };
 
 const getDefaultActionSequenceType = (projectileId: number, options: SkillNormalizationOptions): number => {
@@ -473,6 +523,18 @@ const areSkillEffectSpecEqual = (left: SkillEffectSpec, right: SkillEffectSpec):
     && areSkillDurabilityEqual(left.skillDurability, right.skillDurability);
 };
 
+const areSkillWeaponActionsEqual = (left: SkillWeaponAction, right: SkillWeaponAction): boolean => {
+  return left.mode === right.mode
+    && left.countMin === right.countMin
+    && left.countMax === right.countMax
+    && left.maxCount === right.maxCount
+    && left.ammoLimited === right.ammoLimited
+    && left.requireCanLaunch === right.requireCanLaunch
+    && left.durabilityLossMin === right.durabilityLossMin
+    && left.durabilityLossMax === right.durabilityLossMax
+    && left.friendStateId === right.friendStateId;
+};
+
 interface SkillTargetingValues {
   targetCamp: number;
   targetLifeState: number;
@@ -549,6 +611,7 @@ export function normalizeSkillEditorValues(
       limits: -1,
       needTargetSelect: false,
       needWeaponSelect: false,
+      weaponAction: normalizeWeaponActionValue(undefined),
       skillCosts: [],
       skillEffectSpec: {
         damage: {
@@ -594,6 +657,7 @@ export function normalizeSkillEditorValues(
     limits: normalizeSkillLimit(skill.limits, meta),
     needTargetSelect: normalizeSkillBoolean(skill.needTargetSelect, meta, 'needTargetSelect'),
     needWeaponSelect: normalizeSkillBoolean(skill.needWeaponSelect, meta, 'needWeaponSelect'),
+    weaponAction: normalizeWeaponActionValue(skill.weaponAction),
     skillCosts: normalizeSkillCosts(skill.skillCosts),
     skillEffectSpec: normalizeSkillEffectSpecFromSource(skill, options),
   };
@@ -637,6 +701,7 @@ export function normalizeSkillDataEntry(
       limits: normalized.limits,
       needTargetSelect: normalized.needTargetSelect,
       needWeaponSelect: normalized.needWeaponSelect,
+      weaponAction: normalized.weaponAction,
     }),
   };
 }
@@ -664,6 +729,7 @@ export function hasSkillEditorChanges(
     || (options.isItem !== true && currentValues.limits !== normalizeSkillLimit(nextValues.limits, {}))
     || (options.isItem !== true && currentValues.needTargetSelect !== normalizeSkillBoolean(nextValues.needTargetSelect, {}, 'needTargetSelect'))
     || (options.isItem !== true && currentValues.needWeaponSelect !== normalizeSkillBoolean(nextValues.needWeaponSelect, {}, 'needWeaponSelect'))
+    || (options.isItem !== true && !areSkillWeaponActionsEqual(currentValues.weaponAction, normalizeWeaponActionValue(nextValues.weaponAction)))
     || !areSkillCostsEqual(currentValues.skillCosts, normalizeSkillCosts(nextValues.skillCosts))
     || !areSkillEffectSpecEqual(currentValues.skillEffectSpec, nextSkillEffectSpec);
 }
@@ -712,6 +778,7 @@ export function buildSkillSaveData(
       limits: normalizeSkillLimit(nextValues.limits, {}),
       needTargetSelect: normalizeSkillBoolean(nextValues.needTargetSelect, {}, 'needTargetSelect'),
       needWeaponSelect: normalizeSkillBoolean(nextValues.needWeaponSelect, {}, 'needWeaponSelect'),
+      weaponAction: normalizeWeaponActionValue(nextValues.weaponAction),
     }),
   };
 }

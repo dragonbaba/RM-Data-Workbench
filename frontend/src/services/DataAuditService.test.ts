@@ -120,6 +120,24 @@ describe('DataAuditService', () => {
         null,
         { id: 1, name: '主炮' },
       ]],
+      ['D:/Project/data/EquipExtensions.json', {
+        weaponEquipTypes: [null, 'bad'],
+        systemWeaponEquipTypes: [10, 10],
+        actorEquipSlots: [null, [10]],
+        actorEquips: [null, [1]],
+        actorRefitRules: [null, {
+          slots: [{
+            slotIndex: 0,
+            fromEquipTypeId: 10,
+            transitions: [{
+              fromEquipTypeId: 10,
+              toEquipTypeId: 11,
+              goldCost: 100,
+              conditions: [{ kind: 'none' }],
+            }],
+          }],
+        }],
+      }],
       ['D:/Project/data/Armors.json', [
         null,
         { id: 1, name: '测试C装', etypeId: 8, hiddenAttackSkillId: 17, effects: [1] },
@@ -169,10 +187,10 @@ describe('DataAuditService', () => {
       }),
     });
 
-    expect(summary.checkedFiles).toBe(10);
-    expect(summary.repairedFiles).toBe(10);
-    expect(summary.repairedEntries).toBe(12);
-    expect(writes).toHaveLength(10);
+    expect(summary.checkedFiles).toBe(11);
+    expect(summary.repairedFiles).toBe(11);
+    expect(summary.repairedEntries).toBe(13);
+    expect(writes).toHaveLength(11);
 
     const actorPayload = writes.find((item) => item.filePath.endsWith('Actors.json'))?.data as unknown[];
     expect(actorPayload[1]).toMatchObject({
@@ -200,6 +218,25 @@ describe('DataAuditService', () => {
       new Array(100).fill(7),
     ]);
     expect(classPayload[1]).not.toHaveProperty('floatParams');
+
+    const equipExtensionsPayload = writes.find((item) => item.filePath.endsWith('EquipExtensions.json'))?.data as any;
+    expect(equipExtensionsPayload.actorRefitRules[1]).toEqual({
+      slots: [{
+        slotIndex: 0,
+        fromEquipTypeId: 10,
+        transitions: [{
+          fromEquipTypeId: 10,
+          toEquipTypeId: 11,
+          goldCost: 100,
+          conditions: [{ kind: 'none' }],
+        }, {
+          fromEquipTypeId: 11,
+          toEquipTypeId: 10,
+          goldCost: 100,
+          conditions: [{ kind: 'none' }],
+        }],
+      }],
+    });
 
     const skillPayload = writes.find((item) => item.filePath.endsWith('Skills.json'))?.data as unknown[];
     expect(skillPayload[1]).toMatchObject({
@@ -348,6 +385,7 @@ describe('DataAuditService', () => {
           repeatTime: 1,
           repeatTimeFloat: 0,
           actionRepeat: 1,
+          allowSkillBreak: true,
         },
       },
     });
@@ -496,6 +534,17 @@ describe('DataAuditService', () => {
             reactionPriority: 0,
             actionSequenceType: 3,
             actionSequenceScriptKey: '',
+            weaponAction: {
+              mode: 'none',
+              countMin: 1,
+              countMax: 1,
+              maxCount: 8,
+              ammoLimited: false,
+              requireCanLaunch: false,
+              durabilityLossMin: 0,
+              durabilityLossMax: 0,
+              friendStateId: 0,
+            },
             targetType: 0,
             targetCamp: 2,
             targetLifeState: 1,
@@ -545,6 +594,17 @@ describe('DataAuditService', () => {
             limits: -1,
             needTargetSelect: false,
             needWeaponSelect: false,
+            weaponAction: {
+              mode: 'none',
+              countMin: 1,
+              countMax: 1,
+              maxCount: 8,
+              ammoLimited: false,
+              requireCanLaunch: false,
+              durabilityLossMin: 0,
+              durabilityLossMax: 0,
+              friendStateId: 0,
+            },
             skillCosts: [],
             skillEffectSpec: {
               damage: {
@@ -620,6 +680,15 @@ describe('DataAuditService', () => {
         if (filePath.endsWith('Weapons.json')) {
           return [null];
         }
+        if (filePath.endsWith('EquipExtensions.json')) {
+          return {
+            weaponEquipTypes: [null],
+            systemWeaponEquipTypes: [],
+            actorEquipSlots: [null, []],
+            actorEquips: [null, []],
+            actorRefitRules: [null, { slots: [] }],
+          };
+        }
         if (filePath.endsWith('Armors.json')) {
           return [null];
         }
@@ -631,6 +700,106 @@ describe('DataAuditService', () => {
     expect(summary.repairedFiles).toBe(0);
     expect(summary.repairedEntries).toBe(0);
     expect(writeJson).not.toHaveBeenCalled();
+  });
+
+  it('修复 Weapons.json 时不会破坏受控线形范围', async () => {
+    const writes: Array<{ filePath: string; data: unknown }> = [];
+
+    await auditAndRepairDataFiles('D:/Project/data', {
+      readJson: vi.fn(async (filePath: string) => {
+        if (filePath.endsWith('System.json')) {
+          return {
+            elements: ['', '通常'],
+            weaponTypes: ['', '主炮', '副炮', 'SE'],
+          };
+        }
+        if (filePath.endsWith('Weapons.json')) {
+          return [null, {
+            id: 12,
+            name: '远程T型炮',
+            areaOverride: 1,
+            areaMode: 2,
+            shapeType: 3,
+            areaTargetCount: 3,
+            shapeParams: {
+              1: { radius: 360 },
+              2: { radius: 520, angleDeg: 42 },
+              3: { length: 820, width: 104 },
+            },
+            repeatTime: 1,
+          }];
+        }
+        return [null];
+      }),
+      writeJson: vi.fn(async (filePath: string, data: unknown) => {
+        writes.push({ filePath, data: JSON.parse(JSON.stringify(data)) });
+        return null;
+      }),
+    });
+
+    const weaponPayload = writes.find((item) => item.filePath.endsWith('Weapons.json'))?.data as unknown[];
+    expect(weaponPayload[1]).toMatchObject({
+      areaOverride: 1,
+      areaMode: 2,
+      shapeType: 3,
+      areaTargetCount: 3,
+      shapeParams: {
+        3: { length: 820, width: 104 },
+      },
+    });
+  });
+
+  it('修复 Weapons.json 时会保留贯穿和全体范围模式', async () => {
+    const writes: Array<{ filePath: string; data: unknown }> = [];
+
+    await auditAndRepairDataFiles('D:/Project/data', {
+      readJson: vi.fn(async (filePath: string) => {
+        if (filePath.endsWith('System.json')) {
+          return {
+            elements: ['', '通常'],
+            weaponTypes: ['', '主炮', '副炮', 'SE'],
+          };
+        }
+        if (filePath.endsWith('Weapons.json')) {
+          return [null, {
+            id: 28,
+            name: '重型火箭炮',
+            areaOverride: 1,
+            areaMode: 3,
+            shapeType: 3,
+            areaTargetCount: 0,
+            repeatTime: 3,
+          }, {
+            id: 113,
+            name: '乌尔巴纳',
+            areaOverride: 1,
+            areaMode: 4,
+            shapeType: 0,
+            areaTargetCount: 0,
+            repeatTime: 1,
+          }];
+        }
+        return [null];
+      }),
+      writeJson: vi.fn(async (filePath: string, data: unknown) => {
+        writes.push({ filePath, data: JSON.parse(JSON.stringify(data)) });
+        return null;
+      }),
+    });
+
+    const weaponPayload = writes.find((item) => item.filePath.endsWith('Weapons.json'))?.data as unknown[];
+    expect(weaponPayload[1]).toMatchObject({
+      areaMode: 3,
+      shapeType: 3,
+      areaTargetCount: 0,
+      repeatTime: 3,
+    });
+    expect(weaponPayload[2]).toMatchObject({
+      areaMode: 4,
+      shapeType: 0,
+      areaTargetCount: 0,
+      repeatTime: 1,
+    });
   });
 
   it('会把 ownerParams 概率字段修复到 0-100 区间，同时保留 0-1 兼容值', async () => {

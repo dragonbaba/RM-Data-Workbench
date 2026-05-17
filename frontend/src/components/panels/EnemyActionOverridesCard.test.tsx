@@ -35,6 +35,7 @@ const createOverrideValues = () => ({
       repeatTime: 1,
       repeatTimeFloat: 0,
       actionRepeat: 1,
+      allowSkillBreak: true,
       shapeParams: {
         1: { radius: 120 },
         2: { radius: 900, angleDeg: 20 },

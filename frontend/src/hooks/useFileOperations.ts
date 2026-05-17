@@ -171,7 +171,7 @@ const collectCurrentDataSaveTargets = (
     saveTargets.add(currentFilePath);
   }
 
-  if (uiMode === 'equip') {
+  if (uiMode === 'equip' || uiMode === 'refit') {
     const systemPath = DataLoaderService.getFilePathByName(SYSTEM_FILE_NAME);
     const extensionsPath = DataLoaderService.getFilePathByName(EQUIP_EXTENSIONS_FILE_NAME);
     if (systemPath && (!dirtyOnly || state.isFileDirty(systemPath))) {
@@ -859,7 +859,7 @@ export function useFileOperations() {
         return;
       }
 
-      if (nextMode !== 'equip') {
+      if (nextMode !== 'equip' && nextMode !== 'refit') {
         useEditorStore.getState().setMode(nextMode as any);
         return;
       }
@@ -885,7 +885,7 @@ export function useFileOperations() {
         return;
       }
 
-      useEditorStore.getState().setMode('equip');
+      useEditorStore.getState().setMode(nextMode as any);
     });
 
     const disposeScriptCreate = EventsOn('script:create', () => {

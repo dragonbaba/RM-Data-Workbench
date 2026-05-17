@@ -5,12 +5,54 @@ export interface EquipExtensionsData {
   systemWeaponEquipTypes: number[];
   actorEquipSlots: Array<number[] | null>;
   actorEquips: Array<number[] | null>;
+  actorRefitRules: IndexedActorRefitRuleSets;
 }
 
 export interface ActorExtensionEquipState {
   equipSlots: number[];
   equips: number[];
 }
+
+export type RefitConditionKind = 'none' | 'switch' | 'variable';
+export type RefitVariableOperator = '>=' | '<=' | '>' | '<' | '==' | '!=';
+
+export interface RefitNoCondition {
+  kind: 'none';
+}
+
+export interface RefitSwitchCondition {
+  kind: 'switch';
+  switchId: number;
+  value: boolean;
+}
+
+export interface RefitVariableCondition {
+  kind: 'variable';
+  variableId: number;
+  op: RefitVariableOperator;
+  value: number;
+}
+
+export type RefitCondition = RefitNoCondition | RefitSwitchCondition | RefitVariableCondition;
+
+export interface RefitTransitionRule {
+  fromEquipTypeId: number;
+  toEquipTypeId: number;
+  goldCost: number;
+  conditions: RefitCondition[];
+}
+
+export interface ActorRefitSlotRule {
+  slotIndex: number;
+  fromEquipTypeId: number;
+  transitions: RefitTransitionRule[];
+}
+
+export interface ActorRefitRuleSet {
+  slots: ActorRefitSlotRule[];
+}
+
+export type IndexedActorRefitRuleSets = [null, ...ActorRefitRuleSet[]];
 
 export interface NormalizedEquipExtensionsResult {
   data: EquipExtensionsData;
@@ -32,8 +74,18 @@ const asRecord = (value: unknown): Record<string, unknown> | null => {
 };
 
 const asInt = (value: unknown): number => {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : 0;
+};
+
+const asJsonInt = asInt;
+
+const asJsonBoolean = (value: unknown): boolean => value === true;
+
+const normalizeVariableOperator = (value: unknown): RefitVariableOperator => {
+  if (value === '>=' || value === '<=' || value === '>' || value === '<' || value === '==' || value === '!=') {
+    return value;
+  }
+  return '>=';
 };
 
 const normalizeNumberArray = (value: unknown): number[] => {
@@ -65,11 +117,166 @@ const normalizeIndexedNumberLists = (value: unknown, expectedLength: number): Ar
   return result;
 };
 
+const normalizeRefitCondition = (value: unknown): RefitCondition | null => {
+  const source = asRecord(value);
+  if (!source) return null;
+
+  if (source.kind === 'none') {
+    return { kind: 'none' };
+  }
+
+  if (source.kind === 'variable') {
+    return {
+      kind: 'variable',
+      variableId: asJsonInt(source.variableId),
+      op: normalizeVariableOperator(source.op),
+      value: asJsonInt(source.value),
+    };
+  }
+
+  return {
+    kind: 'switch',
+    switchId: asJsonInt(source.switchId),
+    value: asJsonBoolean(source.value),
+  };
+};
+
+const normalizeRefitConditions = (value: unknown): RefitCondition[] => {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const condition = normalizeRefitCondition(entry);
+    return condition ? [condition] : [];
+  });
+};
+
+const normalizeRefitTransitionRule = (value: unknown, fallbackFromTypeId: number): RefitTransitionRule | null => {
+  const source = asRecord(value);
+  if (!source) return null;
+  const toEquipTypeId = asJsonInt(source.toEquipTypeId);
+  if (toEquipTypeId <= 0) return null;
+
+  return {
+    fromEquipTypeId: asJsonInt(source.fromEquipTypeId) || fallbackFromTypeId,
+    toEquipTypeId,
+    goldCost: asJsonInt(source.goldCost),
+    conditions: normalizeRefitConditions(source.conditions),
+  };
+};
+
+const normalizeRefitSlotRule = (value: unknown, fallbackSlotIndex: number): ActorRefitSlotRule | null => {
+  const source = asRecord(value);
+  if (!source) return null;
+
+  const slotIndex = asJsonInt(source.slotIndex);
+  const fromEquipTypeId = asJsonInt(source.fromEquipTypeId);
+  const rawTransitions = Array.isArray(source.transitions) ? source.transitions : [];
+  const transitions = rawTransitions.flatMap((entry) => {
+    const transition = normalizeRefitTransitionRule(entry, fromEquipTypeId);
+    return transition ? [transition] : [];
+  });
+
+  return {
+    slotIndex: Number.isInteger(slotIndex) ? slotIndex : fallbackSlotIndex,
+    fromEquipTypeId,
+    transitions,
+  };
+};
+
+const cloneRefitCondition = (condition: RefitCondition): RefitCondition => ({ ...condition });
+
+const cloneRefitTransition = (
+  transition: RefitTransitionRule,
+  fromEquipTypeId: number,
+  toEquipTypeId: number,
+): RefitTransitionRule => ({
+  fromEquipTypeId,
+  toEquipTypeId,
+  goldCost: transition.goldCost,
+  conditions: transition.conditions.map(cloneRefitCondition),
+});
+
+const collectRefitSlotTypes = (slot: ActorRefitSlotRule): number[] => {
+  const types: number[] = [];
+  const addType = (typeId: number) => {
+    if (typeId > 0 && !types.includes(typeId)) {
+      types.push(typeId);
+    }
+  };
+
+  addType(slot.fromEquipTypeId);
+  slot.transitions.forEach((transition) => {
+    addType(transition.fromEquipTypeId);
+    addType(transition.toEquipTypeId);
+  });
+
+  return types;
+};
+
+const findRefitTargetTemplate = (
+  transitions: RefitTransitionRule[],
+  targetTypeId: number,
+): RefitTransitionRule | null => {
+  const byTarget = transitions.find((transition) => transition.toEquipTypeId === targetTypeId);
+  if (byTarget) return byTarget;
+  return transitions.find((transition) => transition.fromEquipTypeId === targetTypeId) || null;
+};
+
+const completeRefitSlotTransitions = (slot: ActorRefitSlotRule): ActorRefitSlotRule => {
+  const types = collectRefitSlotTypes(slot);
+  if (types.length <= 1) return slot;
+
+  const transitions = slot.transitions.map((transition) => ({
+    ...transition,
+    conditions: transition.conditions.map(cloneRefitCondition),
+  }));
+  const transitionKeys = new Set(transitions.map((transition) => `${transition.fromEquipTypeId}:${transition.toEquipTypeId}`));
+
+  types.forEach((fromEquipTypeId) => {
+    types.forEach((toEquipTypeId) => {
+      if (fromEquipTypeId === toEquipTypeId) return;
+      const key = `${fromEquipTypeId}:${toEquipTypeId}`;
+      if (transitionKeys.has(key)) return;
+      const template = findRefitTargetTemplate(transitions, toEquipTypeId);
+      if (!template) return;
+      transitions.push(cloneRefitTransition(template, fromEquipTypeId, toEquipTypeId));
+      transitionKeys.add(key);
+    });
+  });
+
+  return {
+    ...slot,
+    transitions,
+  };
+};
+
+const normalizeActorRefitRuleSet = (value: unknown): ActorRefitRuleSet => {
+  const source = asRecord(value);
+  const rawSlots = Array.isArray(source?.slots) ? source.slots : [];
+  const slots = rawSlots.flatMap((entry, index) => {
+    const slot = normalizeRefitSlotRule(entry, index);
+    return slot ? [completeRefitSlotTransitions(slot)] : [];
+  });
+  return { slots };
+};
+
+const normalizeIndexedActorRefitRules = (value: unknown, expectedLength: number): IndexedActorRefitRuleSets => {
+  const source = Array.isArray(value) ? value : [];
+  const result: Array<ActorRefitRuleSet | null> = new Array(expectedLength).fill(null);
+  result[0] = null;
+
+  for (let index = 1; index < expectedLength; index++) {
+    result[index] = normalizeActorRefitRuleSet(source[index]);
+  }
+
+  return result as IndexedActorRefitRuleSets;
+};
+
 export const createDefaultEquipExtensions = (actorCount: number, weaponCount: number): EquipExtensionsData => ({
   weaponEquipTypes: normalizeIndexedNumbers([], weaponCount),
   systemWeaponEquipTypes: [],
   actorEquipSlots: normalizeIndexedNumberLists([], actorCount),
   actorEquips: normalizeIndexedNumberLists([], actorCount),
+  actorRefitRules: normalizeIndexedActorRefitRules([], actorCount),
 });
 
 export const normalizeEquipExtensions = (
@@ -92,6 +299,7 @@ export const normalizeEquipExtensions = (
     systemWeaponEquipTypes: Array.from(new Set(normalizeNumberArray(source.systemWeaponEquipTypes).filter((item) => item > 0))),
     actorEquipSlots: normalizeIndexedNumberLists(source.actorEquipSlots, actorCount),
     actorEquips: normalizeIndexedNumberLists(source.actorEquips, actorCount),
+    actorRefitRules: normalizeIndexedActorRefitRules(source.actorRefitRules, actorCount),
   };
 
   const changed = JSON.stringify(data) !== JSON.stringify(source);
@@ -184,6 +392,10 @@ export const previewEquipExtensionsNormalization = (
     changedSections.push(`actorEquips：角色 ${formatChangedIndexes(actorEquipsIndexes)} 将被修正`);
   }
 
+  if (JSON.stringify(source.actorRefitRules) !== JSON.stringify(normalized.data.actorRefitRules)) {
+    changedSections.push('actorRefitRules：改造规则结构将被规范化');
+  }
+
   const summary = [
     '检测到 EquipExtensions.json 需要规范化。',
     ...changedSections.map((line) => `- ${line}`),
@@ -229,4 +441,43 @@ export const getWeaponEquipTypeAtIndex = (
     return 0;
   }
   return asInt(extensions.weaponEquipTypes[weaponIndex]);
+};
+
+export const createDefaultActorRefitSlotRule = (slotIndex: number, fromEquipTypeId: number): ActorRefitSlotRule => ({
+  slotIndex,
+  fromEquipTypeId: asInt(fromEquipTypeId),
+  transitions: [],
+});
+
+export const getActorRefitSlotsFromExtensions = (
+  extensions: EquipExtensionsData | null,
+  actorIndex: number,
+  equipSlots: number[],
+): ActorRefitSlotRule[] => {
+  if (!extensions || actorIndex <= 0) {
+    return equipSlots.map((fromTypeId, slotIndex) => createDefaultActorRefitSlotRule(slotIndex, fromTypeId));
+  }
+
+  const ruleSet = extensions.actorRefitRules[actorIndex] as ActorRefitRuleSet;
+  const slotRules = ruleSet.slots;
+  const ruleBySlotIndex = new Map<number, ActorRefitSlotRule>();
+  slotRules.forEach((rule) => {
+    ruleBySlotIndex.set(rule.slotIndex, rule);
+  });
+
+  return equipSlots.map((fromTypeId, slotIndex) => {
+    const existing = ruleBySlotIndex.get(slotIndex);
+    if (!existing) {
+      return createDefaultActorRefitSlotRule(slotIndex, fromTypeId);
+    }
+
+    return {
+      slotIndex,
+      fromEquipTypeId: asJsonInt(fromTypeId),
+      transitions: existing.transitions.map((transition) => ({
+        ...transition,
+        conditions: transition.conditions.map((condition) => ({ ...condition })),
+      })),
+    };
+  });
 };

@@ -150,6 +150,7 @@ describe('EnemyPropertyService', () => {
           repeatTime: 2,
           repeatTimeFloat: 0,
           actionRepeat: 1,
+          allowSkillBreak: true,
         },
       },
     });
@@ -182,6 +183,7 @@ describe('EnemyPropertyService', () => {
             areaTargetCount: 4,
             repeatTime: 3,
             actionRepeat: 2,
+            allowSkillBreak: false,
           },
         },
       },
@@ -214,6 +216,7 @@ describe('EnemyPropertyService', () => {
         repeatTime: 3,
         repeatTimeFloat: 0,
         actionRepeat: 2,
+        allowSkillBreak: false,
       },
     });
     expect(Object.keys(saved.actionOverrides ?? {})).toEqual(['2']);

@@ -83,6 +83,13 @@ const normalizeActionRepeat = (value: unknown): number => {
   return Math.max(1, numeric || 1);
 };
 
+const normalizeAllowSkillBreak = (value: unknown): boolean => {
+  if (value === false || value === 'false') {
+    return false;
+  }
+  return true;
+};
+
 const getSkillDataById = (skillsData: unknown[] | null | undefined, skillId: number): Record<string, unknown> => {
   if (!Array.isArray(skillsData) || skillId <= 0) {
     return {};
@@ -122,6 +129,7 @@ export const normalizeEnemyActionOverride = (
   return {
     ...rangeValues,
     actionRepeat: normalizeActionRepeat(source.actionRepeat),
+    allowSkillBreak: normalizeAllowSkillBreak(source.allowSkillBreak),
   };
 };
 
