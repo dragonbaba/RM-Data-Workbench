@@ -73,7 +73,6 @@ describe('GameEffectService', () => {
     expect(equipCountDefinition.selectorFields).toEqual(['etypeIds', 'wtypeIds', 'atypeIds']);
     expect(equipCountDefinition.allowedGroups.map((entry) => entry.group)).toEqual([
       'extraParams',
-      'vehicleParams',
     ]);
     expect(equipSetDefinition.argsFields).toEqual(['weaponIds', 'armorIds', 'ops']);
     expect(equipSetDefinition.allowedGroups.map((entry) => entry.group)).toEqual([
@@ -98,7 +97,7 @@ describe('GameEffectService', () => {
           requiredCount: 2,
           weaponIds: [],
           armorIds: [],
-          ops: [{ group: 'vehicleParams', key: 'repeat', op: 'add', value: 1 }],
+          ops: [{ group: 'extraParams', key: 'hitRate', op: 'add', value: 1 }],
         },
       },
     });
@@ -139,7 +138,7 @@ describe('GameEffectService', () => {
       isStatic: true,
       config: {
         selector: { slotIndexes: [0, 1], etypeIds: [10], wtypeIds: [], atypeIds: [] },
-        args: { requiredCount: 2, ops: [{ group: 'vehicleParams', key: 'repeat', op: 'add', value: 1 }] },
+        args: { requiredCount: 2, ops: [{ group: 'extraParams', key: 'hitRate', op: 'add', value: 1 }] },
       },
     })).toMatchObject({
       effectType: 'equip_count_bonus',
@@ -231,7 +230,7 @@ describe('GameEffectService', () => {
     expect(validateGameEffectConfig('equip_count_bonus', {
       selector: { etypeIds: [], wtypeIds: [], atypeIds: [] },
       args: {
-        ops: [{ group: 'vehicleParams', key: 'repeat', op: 'add', value: 1 }],
+        ops: [{ group: 'extraParams', key: 'hitRate', op: 'add', value: 1 }],
         requiredCount: 2,
         weaponIds: [],
         armorIds: [],
@@ -274,7 +273,7 @@ describe('GameEffectService', () => {
       config: {
         selector: { slotIndexes: [0], etypeIds: [], wtypeIds: [], atypeIds: [] },
         args: {
-          ops: [{ group: 'vehicleParams', key: 'repeat', op: 'add', value: 1 }],
+          ops: [{ group: 'extraParams', key: 'hitRate', op: 'add', value: 1 }],
           requiredCount: 2,
           weaponIds: [],
           armorIds: [],
@@ -322,7 +321,7 @@ describe('GameEffectService', () => {
       description: '',
       effectType: 'equip_count_bonus',
       isStatic: false,
-      config: { selector: { etypeIds: [], wtypeIds: [], atypeIds: [] }, args: { requiredCount: 2, ops: [{ group: 'vehicleParams', key: 'repeat', op: 'add', value: 1 }] } },
+      config: { selector: { etypeIds: [], wtypeIds: [], atypeIds: [] }, args: { requiredCount: 2, ops: [{ group: 'extraParams', key: 'hitRate', op: 'add', value: 1 }] } },
     })).toEqual({ valid: false, message: '模板 equip_count_bonus 的 isStatic 必须为 true' });
   });
 

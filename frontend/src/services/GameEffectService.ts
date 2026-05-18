@@ -61,8 +61,7 @@ export const EFFECTS_FILE_NAME = 'Effects.json';
 const PARAM_RATE_KEYS = ['mhp', 'mmp', 'atk', 'def', 'mat', 'mdf', 'agi', 'luk'] as const;
 const EXTRA_PARAM_KEYS = ['hitRate', 'critRate', 'critDamage', 'evadeRate', 'interceptRate', 'finalDamage'] as const;
 const OWNER_VEHICLE_PARAM_KEYS = ['loadValue', 'carryValue'] as const;
-const EQUIP_VEHICLE_PARAM_KEYS = ['repeat'] as const;
-const PAIR_CUNIT_EQUIP_VEHICLE_PARAM_KEYS = ['repeat', 'actionRepeat'] as const;
+const PAIR_CUNIT_EQUIP_VEHICLE_PARAM_KEYS = ['actionRepeat'] as const;
 const ACTION_REPEAT_KEYS = ['actionRepeat'] as const;
 const SCALAR_KEYS = ['expRate'] as const;
 const SPECIAL_PARAM_KEYS = ['tgr', 'grd', 'rec', 'pha', 'pdr', 'hrg'] as const;
@@ -140,7 +139,7 @@ const SPECIAL_PARAM_LABELS: Record<string, string> = {
 const DEFAULT_KEY_BY_GROUP: Record<GameEffectOpGroup, string> = {
   baseParams: 'mhp',
   extraParams: 'hitRate',
-  vehicleParams: 'repeat',
+  vehicleParams: 'loadValue',
   scalar: 'expRate',
   specialParams: 'tgr',
   baseParamRate: 'mhp',
@@ -155,7 +154,6 @@ const OWNER_STATIC_GROUPS: GameEffectAllowedGroupDefinition[] = [
 ];
 const EQUIP_EFFECT_GROUPS: GameEffectAllowedGroupDefinition[] = [
   { group: 'extraParams', keys: [...EXTRA_PARAM_KEYS] },
-  { group: 'vehicleParams', keys: [...EQUIP_VEHICLE_PARAM_KEYS] },
 ];
 const ENGINE_OWNER_GROUPS: GameEffectAllowedGroupDefinition[] = [
   { group: 'baseParams', keys: [...PARAM_RATE_KEYS] },
@@ -363,7 +361,7 @@ const GAME_EFFECT_TYPE_DEFINITIONS: GameEffectTypeDefinition[] = [
     exampleName: '双件套奖励',
     exampleDescription: '同一角色身上命中的装备类型数量达到阈值时应用属性',
     selectorTemplate: { ...TYPE_EQUIP_SELECTOR_TEMPLATE, etypeIds: [10] },
-    argsTemplate: { requiredCount: 2, ops: [{ group: 'vehicleParams', key: 'repeat', op: 'add', value: 1 }] },
+    argsTemplate: { requiredCount: 2, ops: [{ group: 'extraParams', key: 'hitRate', op: 'add', value: 1 }] },
     allowedGroups: EQUIP_EFFECT_GROUPS,
   }),
   createTypeDefinition({
