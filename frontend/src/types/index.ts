@@ -356,6 +356,7 @@ export interface EnemyActionOverride {
   repeatTimeFloat: number;
   actionRepeat: number;
   allowSkillBreak: boolean;
+  skillDurability?: number;
 }
 
 export type EnemyActionOverrides = Record<string, EnemyActionOverride>;

@@ -430,6 +430,13 @@ export function EnemyActionOverridesCard({
                   unCheckedChildren="保护"
                 />
               </Form.Item>
+              <Form.Item
+                name={[fieldKey, selectedKey, 'skillDurability']}
+                label={<span className="text-xs text-gray-400">技能耐久度</span>}
+                className="mb-0"
+              >
+                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} disabled={!isOverrideEnabled} />
+              </Form.Item>
             </div>
 
             {shouldShowShapeSection ? (

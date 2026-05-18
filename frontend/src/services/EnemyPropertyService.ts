@@ -90,6 +90,15 @@ const normalizeAllowSkillBreak = (value: unknown): boolean => {
   return true;
 };
 
+const normalizeSkillDurability = (value: unknown): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, value | 0);
+  if (value !== undefined && value !== null) {
+    const n = Number(value);
+    if (Number.isFinite(n)) return Math.max(0, n | 0);
+  }
+  return 100;
+};
+
 const getSkillDataById = (skillsData: unknown[] | null | undefined, skillId: number): Record<string, unknown> => {
   if (!Array.isArray(skillsData) || skillId <= 0) {
     return {};
@@ -130,6 +139,7 @@ export const normalizeEnemyActionOverride = (
     ...rangeValues,
     actionRepeat: normalizeActionRepeat(source.actionRepeat),
     allowSkillBreak: normalizeAllowSkillBreak(source.allowSkillBreak),
+    skillDurability: normalizeSkillDurability(source.skillDurability),
   };
 };
 
