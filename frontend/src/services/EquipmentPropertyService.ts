@@ -28,6 +28,8 @@ interface EquipmentNormalizationOptions {
 
 const DEFAULT_FLOAT_PARAM_LENGTH = 8;
 const TANK_HIDDEN_ATTACK_SKILL_EQUIP_TYPES = new Set([8, 9]);
+const AMMO_CAPACITY_FIELD_INDEX = 4;
+const TANK_SECONDARY_WEAPON_TYPE_ID = 2;
 
 const EMPTY_PARAM_TEMPLATE: ParamTemplate = Object.freeze({
   value: 0,
@@ -109,6 +111,21 @@ const normalizeParamTemplate = (value: unknown): ParamTemplate => {
     upgradeValue: toFloatOrZero(value.upgradeValue),
     upgradeFloatValue: toFloatOrZero(value.upgradeFloatValue),
   };
+};
+
+const hasParamGroupField = (
+  value: unknown,
+  fields: FixedParamFieldDefinition[],
+  fieldIndex: number,
+): boolean => {
+  const field = fields[fieldIndex];
+  if (!field) return false;
+  if (Array.isArray(value)) return isRecord(value[fieldIndex]);
+  return isRecord(value) && hasOwn(value, field.key);
+};
+
+const shouldDefaultMissingAmmoCapacityToInfinite = (item: Record<string, unknown>): boolean => {
+  return toIntOrZero(item.wtypeId) === TANK_SECONDARY_WEAPON_TYPE_ID;
 };
 
 const getDefaultUpgradeSuccessRate = (index: number): number => {
@@ -235,11 +252,19 @@ export function normalizeEquipmentDataEntry(
   };
 
   if (options.isWeapon || options.isArmor) {
+    const hasAmmoCapacity = hasParamGroupField(
+      item.vehicleParams,
+      COMPLETE_VEHICLE_PARAM_FIELDS,
+      AMMO_CAPACITY_FIELD_INDEX,
+    );
     normalized.extraParams = normalizeParamGroup<EquipExtraParamMap>(item.extraParams, EXTRA_PARAM_FIELDS);
     normalized.vehicleParams = normalizeParamGroup<EquipVehicleParamMap>(
       item.vehicleParams,
       COMPLETE_VEHICLE_PARAM_FIELDS,
     );
+    if (options.isWeapon && !hasAmmoCapacity && shouldDefaultMissingAmmoCapacityToInfinite(item)) {
+      normalized.vehicleParams[AMMO_CAPACITY_FIELD_INDEX].value = -1;
+    }
     normalized.upgradeParams = normalizeParamGroup<EquipUpgradeParamMap>(item.upgradeParams, UPGRADE_PARAM_FIELDS);
     normalized.upgradeCosts = normalizeEquipUpgradeCosts(item.upgradeCosts);
     normalized.qualityLock = item.qualityLock === true;

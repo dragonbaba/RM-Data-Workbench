@@ -49,6 +49,47 @@ describe('EquipmentPropertyService', () => {
     });
   });
 
+  it('会把缺失弹舱字段的副炮修复为无限弹药', () => {
+    const normalized = normalizeEquipmentDataEntry(
+      {
+        id: 281,
+        name: '生锈机枪',
+        wtypeId: 2,
+        vehicleParams: {
+          repeat: { value: 1 },
+        },
+      },
+      {
+        isWeapon: true,
+      },
+    );
+
+    expect(normalized?.vehicleParams?.[4]).toEqual({
+      value: -1,
+      floatValue: 0,
+      upgradeValue: 0,
+      upgradeFloatValue: 0,
+    });
+  });
+
+  it('会保留显式配置的弹舱值', () => {
+    const normalized = normalizeEquipmentDataEntry(
+      {
+        id: 72,
+        name: '7mm机枪',
+        wtypeId: 2,
+        vehicleParams: {
+          ammoCapacity: { value: -1 },
+        },
+      },
+      {
+        isWeapon: true,
+      },
+    );
+
+    expect(normalized?.vehicleParams?.[4]?.value).toBe(-1);
+  });
+
   it('会按系统元素数量补齐防具元素字段', () => {
     const systemData = {
       elements: ['', '通常', '火炎', '冷气'],
