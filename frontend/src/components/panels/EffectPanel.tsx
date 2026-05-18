@@ -46,8 +46,7 @@ const stringifyDescription = (value: string[]): string => value.join('\n');
 const parseDescription = (value: string): string[] =>
   value
     .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+    .map((line) => line.trim());
 
 const getNumberArg = (effect: GameEffectEntry, key: string): number | null => {
   const value = effect.config.args[key as keyof typeof effect.config.args];
@@ -132,6 +131,7 @@ export function EffectPanel() {
     descriptionText: string;
     opRows: EffectOpRow[];
   } | null>(null);
+  const autoSaveSkipRef = useRef(0);
 
   useEffect(() => {
     const refreshReferences = (payload?: unknown) => {
@@ -207,8 +207,12 @@ export function EffectPanel() {
     const nextRows = parseEffectOpRows(normalized);
     setEffect(normalized);
     setOriginalEffect(normalized);
-    setDescriptionText(stringifyDescription(normalized.description));
-    setOriginalDescriptionText(stringifyDescription(normalized.description));
+    if (autoSaveSkipRef.current > 0) {
+      autoSaveSkipRef.current--;
+    } else {
+      setDescriptionText(stringifyDescription(normalized.description));
+      setOriginalDescriptionText(stringifyDescription(normalized.description));
+    }
     setOpRows(nextRows);
     setOriginalOpRows(nextRows);
   }, [currentItem, currentItemIndex, isEffectsFile, systemData]);
@@ -351,6 +355,9 @@ export function EffectPanel() {
     normalized.id = effect.id || currentItemIndex;
     const nextData = [...currentData];
     nextData[currentItemIndex] = normalized as any;
+    if (silent) {
+      autoSaveSkipRef.current++;
+    }
     loadData(nextData as any[], currentFilePath || '', currentFileType);
     if (currentFilePath) {
       markFileDirty(currentFilePath);
@@ -359,8 +366,10 @@ export function EffectPanel() {
     const nextRows = parseEffectOpRows(normalized);
     setEffect(normalized);
     setOriginalEffect(normalized);
-    setDescriptionText(stringifyDescription(normalized.description));
-    setOriginalDescriptionText(stringifyDescription(normalized.description));
+    if (!silent) {
+      setDescriptionText(stringifyDescription(normalized.description));
+      setOriginalDescriptionText(stringifyDescription(normalized.description));
+    }
     setOpRows(nextRows);
     setOriginalOpRows(nextRows);
     lastAutoSaveFailedDraftRef.current = null;

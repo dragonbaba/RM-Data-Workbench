@@ -217,17 +217,16 @@ const normalizeDescriptionLines = (value: unknown): string[] | undefined => {
   if (Array.isArray(value)) {
     const lines = value
       .filter((entry): entry is string => typeof entry === 'string')
-      .map((entry) => entry.trim())
-      .filter((entry) => entry.length > 0);
-    return lines;
+      .map((entry) => entry.trim());
+    return lines.length > 0 ? lines : undefined;
   }
   if (typeof value !== 'string') {
     return undefined;
   }
-  return value
+  const lines = value
     .split(/\r?\n|，|,/)
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
+    .map((entry) => entry.trim());
+  return lines.length > 0 ? lines : undefined;
 };
 
 const getSystemRecord = (systemData: unknown): Record<string, unknown> | null =>
@@ -710,8 +709,8 @@ export const normalizeGameEffectEntry = (
   const template = createGameEffectTemplate(effectType, systemData);
   return {
     id: isFiniteNumber(record.id) ? (record.id | 0) : undefined,
-    name: asString(record.name) || template.name,
-    description: normalizeDescriptionLines(record.description) || template.description,
+    name: 'name' in record ? asString(record.name) : template.name,
+    description: 'description' in record ? (normalizeDescriptionLines(record.description) ?? template.description) : template.description,
     effectType,
     isStatic: definition.allowIsStaticToggle
       ? ('isStatic' in record ? asBoolean(record.isStatic) : template.isStatic)
