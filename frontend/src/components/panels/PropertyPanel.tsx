@@ -87,6 +87,7 @@ import type {
 } from '../../types';
 import { normalizeEffectIdList } from '../../services/GameEffectService';
 import { arePlainDataEqual } from '../../services/PlainDataCompare';
+import { BACKSLASH_REGEXP, PATH_SEPARATOR_REGEXP, TRAILING_PATH_SEPARATORS_REGEXP } from '../../constants/regexp';
 import {
   areShapeParamsEqual,
   normalizeCommonRangeValues,
@@ -423,6 +424,7 @@ const SKILL_EFFECT_SPEC_FIELD_KEY = 'skillEffectSpec';
 const ENEMY_CLASS_ID_FIELD_KEY = 'enemyClassId';
 const ENEMY_LEVEL_FIELD_KEY = 'enemyLevel';
 const ENEMY_LEVEL_SCOPE_FIELD_KEY = 'enemyLevelScope';
+const ENEMY_LEVEL_SCOPE_UP_FIELD_KEY = 'enemyLevelScopeUp';
 const ENEMY_IS_BOSS_FIELD_KEY = 'enemyIsBoss';
 const ENEMY_ALLOW_BREAK_FIELD_KEY = 'enemyAllowBreak';
 const ENEMY_CAN_REACTION_FIELD_KEY = 'enemyCanReaction';
@@ -565,11 +567,11 @@ const getNextEffectReferenceId = (
 
 const joinPath = (basePath: string, fileName: string) => {
   if (!basePath) return fileName;
-  return `${basePath.replace(/[\\/]+$/, '')}/${fileName}`;
+  return `${basePath.replace(TRAILING_PATH_SEPARATORS_REGEXP, '')}/${fileName}`;
 };
 
 const getDirectoryPath = (filePath: string) => {
-  const normalized = (filePath || '').replace(/\\/g, '/');
+  const normalized = (filePath || '').replace(BACKSLASH_REGEXP, '/');
   const lastSlash = normalized.lastIndexOf('/');
   return lastSlash === -1 ? '' : normalized.slice(0, lastSlash);
 };
@@ -903,7 +905,8 @@ export function PropertyPanel() {
   const [damageFormulaScriptWarning, setDamageFormulaScriptWarning] = useState('');
   const [referenceRevision, setReferenceRevision] = useState(0);
   const pendingDraftRef = useRef<PendingDraftState | null>(null);
-  const currentFileName = currentFilePath.split(/[\\/]/).pop()?.toLowerCase() || '';
+  const savingRef = useRef(false);
+  const currentFileName = currentFilePath.split(PATH_SEPARATOR_REGEXP).pop()?.toLowerCase() || '';
   const isItemFile = currentFileName === ITEMS_FILE_NAME.toLowerCase();
   const isActorFile = currentFileName === ACTORS_FILE_NAME.toLowerCase();
   const isClassFile = currentFileName === CLASSES_FILE_NAME.toLowerCase();
@@ -1275,6 +1278,7 @@ export function PropertyPanel() {
         baseFormValues[ENEMY_CLASS_ID_FIELD_KEY] = enemyValues.classId;
         baseFormValues[ENEMY_LEVEL_FIELD_KEY] = enemyValues.level;
         baseFormValues[ENEMY_LEVEL_SCOPE_FIELD_KEY] = enemyValues.levelScope;
+        baseFormValues[ENEMY_LEVEL_SCOPE_UP_FIELD_KEY] = enemyValues.levelScopeUp;
         baseFormValues[ENEMY_IS_BOSS_FIELD_KEY] = enemyValues.isBoss;
         baseFormValues[ENEMY_ALLOW_BREAK_FIELD_KEY] = enemyValues.allowBreak;
         baseFormValues[ENEMY_CAN_REACTION_FIELD_KEY] = enemyValues.canReaction;
@@ -1342,7 +1346,11 @@ export function PropertyPanel() {
       const savedEffectIds = normalizeEffectIdList(item.effects);
       const nextEffectIds = pendingDraft?.effectIds ?? savedEffectIds;
 
-      form.setFieldsValue(nextBaseValues);
+      if (savingRef.current) {
+        savingRef.current = false;
+      } else {
+        form.setFieldsValue(nextBaseValues);
+      }
       setCustomFields(nextCustomFields);
       setEffectIds(nextEffectIds);
       setOriginalEffectIds(savedEffectIds);
@@ -1499,6 +1507,7 @@ export function PropertyPanel() {
           hasCustomChanges,
         }
       : null;
+    savingRef.current = true;
     updateCurrentItem({
       ...sourceItem,
       effects: normalizedEffectIds,
@@ -1600,6 +1609,7 @@ export function PropertyPanel() {
           classId: values[ENEMY_CLASS_ID_FIELD_KEY],
           level: values[ENEMY_LEVEL_FIELD_KEY],
           levelScope: values[ENEMY_LEVEL_SCOPE_FIELD_KEY],
+          levelScopeUp: values[ENEMY_LEVEL_SCOPE_UP_FIELD_KEY],
           isBoss: values[ENEMY_IS_BOSS_FIELD_KEY],
           allowBreak: values[ENEMY_ALLOW_BREAK_FIELD_KEY],
           canReaction: values[ENEMY_CAN_REACTION_FIELD_KEY],
@@ -1776,6 +1786,7 @@ export function PropertyPanel() {
         nextItem = buildEnemySaveData(nextItem as RPGEnemy, nextEnemyValues, skillsData);
       }
 
+      savingRef.current = true;
       updateCurrentItem(
         nextItem,
       );
@@ -1913,6 +1924,7 @@ export function PropertyPanel() {
         }
       : null;
 
+    savingRef.current = true;
     updateCurrentItem({
       ...sourceItem,
       customParams: buildCustomParams(),
@@ -2843,6 +2855,8 @@ export function PropertyPanel() {
             ]}
             className="w-full"
             placeholder="选择队列"
+            showSearch
+            optionFilterProp="label"
           />
         </Form.Item>
         <Form.Item
@@ -2957,6 +2971,8 @@ export function PropertyPanel() {
                     options={skillOptions}
                     className="w-full"
                     placeholder="选择攻击技能"
+                    showSearch
+                    optionFilterProp="label"
                   />
                 </Form.Item>
                 <Form.Item
@@ -2969,6 +2985,8 @@ export function PropertyPanel() {
                     options={elementOptions}
                     className="w-full"
                     placeholder="选择攻击元素"
+                    showSearch
+                    optionFilterProp="label"
                   />
                 </Form.Item>
                 <Form.Item
@@ -2996,6 +3014,8 @@ export function PropertyPanel() {
                     options={equipTypeOptions}
                     className="w-full"
                     placeholder="选择装备类型"
+                    showSearch
+                    optionFilterProp="label"
                   />
                 </Form.Item>
               </>
@@ -3011,6 +3031,8 @@ export function PropertyPanel() {
                   options={skillOptions}
                   className="w-full"
                   placeholder="选择隐藏攻击技能"
+                  showSearch
+                  optionFilterProp="label"
                 />
               </Form.Item>
             ) : null}
@@ -3063,6 +3085,8 @@ export function PropertyPanel() {
                   options={ACTION_SEQUENCE_TYPE_OPTIONS}
                   className="w-full"
                   placeholder="选择动作序列"
+                  showSearch
+                  optionFilterProp="label"
                 />
               </Form.Item>
               <Form.Item
@@ -3076,6 +3100,8 @@ export function PropertyPanel() {
                   placeholder="选择自身动作序列脚本"
                   disabled={watchedActionSequenceType !== ACTION_SEQUENCE_TYPE_SELF}
                   allowClear
+                  showSearch
+                  optionFilterProp="label"
                 />
               </Form.Item>
               <Form.Item
@@ -3100,6 +3126,8 @@ export function PropertyPanel() {
                   options={SKILL_PROJECTILE_TAG_OPTIONS}
                   className="w-full"
                   placeholder="选择迎击类型"
+                  showSearch
+                  optionFilterProp="label"
                 />
               </Form.Item>
               <Form.Item
@@ -3155,6 +3183,8 @@ export function PropertyPanel() {
                   options={SKILL_WEAPON_ACTION_MODE_OPTIONS}
                   className="w-full"
                   placeholder="选择触发方式"
+                  showSearch
+                  optionFilterProp="label"
                 />
               </Form.Item>
               <Form.Item
@@ -3266,7 +3296,12 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">伤害类型</span>}
                 className="mb-0"
               >
-                <Select options={SKILL_DAMAGE_TYPE_OPTIONS} className="w-full" />
+                <Select
+                  options={SKILL_DAMAGE_TYPE_OPTIONS}
+                  className="w-full"
+                  showSearch
+                  optionFilterProp="label"
+                />
               </Form.Item>
               <Form.Item
                 name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'damage', 'damageElementId']}
@@ -3300,7 +3335,12 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">伤害公式来源</span>}
                 className="mb-0"
               >
-                <Select options={SKILL_DAMAGE_FORMULA_MODE_OPTIONS} className="w-full" />
+                <Select
+                  options={SKILL_DAMAGE_FORMULA_MODE_OPTIONS}
+                  className="w-full"
+                  showSearch
+                  optionFilterProp="label"
+                />
               </Form.Item>
               <Form.Item
                 name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'damage', 'formula', 'scriptKey']}
@@ -3321,7 +3361,12 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">耐久度改变</span>}
                 className="mb-0"
               >
-                <Select options={SKILL_DURABILITY_CHANGE_MODE_OPTIONS} className="w-full" />
+                <Select
+                  options={SKILL_DURABILITY_CHANGE_MODE_OPTIONS}
+                  className="w-full"
+                  showSearch
+                  optionFilterProp="label"
+                />
               </Form.Item>
               <Form.Item
                 name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'durabilityChange', 'value']}
@@ -3405,6 +3450,8 @@ export function PropertyPanel() {
                               options={SKILL_COST_TYPE_OPTIONS}
                               className="w-full"
                               placeholder="选择消耗来源"
+                              showSearch
+                              optionFilterProp="label"
                             />
                           </Form.Item>
                           {renderSkillCostConfigFields(field)}
@@ -3464,7 +3511,14 @@ export function PropertyPanel() {
               </Form.Item>
               <Form.Item
                 name={ENEMY_LEVEL_SCOPE_FIELD_KEY}
-                label={<span className="text-xs text-gray-400">等级范围</span>}
+                label={<span className="text-xs text-gray-400">等级下浮</span>}
+                className="mb-0"
+              >
+                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                name={ENEMY_LEVEL_SCOPE_UP_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">等级上浮</span>}
                 className="mb-0"
               >
                 <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
@@ -3725,28 +3779,48 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">目标阵营</span>}
                 className="mb-0"
               >
-                <Select options={TARGET_CAMP_OPTIONS} className="w-full" />
+                <Select
+                  options={TARGET_CAMP_OPTIONS}
+                  className="w-full"
+                  showSearch
+                  optionFilterProp="label"
+                />
               </Form.Item>
               <Form.Item
                 name={TARGET_LIFE_STATE_FIELD_KEY}
                 label={<span className="text-xs text-gray-400">目标状态</span>}
                 className="mb-0"
               >
-                <Select options={TARGET_LIFE_STATE_OPTIONS} className="w-full" />
+                <Select
+                  options={TARGET_LIFE_STATE_OPTIONS}
+                  className="w-full"
+                  showSearch
+                  optionFilterProp="label"
+                />
               </Form.Item>
               <Form.Item
                 name={TARGET_TYPE_FIELD_KEY}
                 label={<span className="text-xs text-gray-400">作用目标类型</span>}
                 className="mb-0"
               >
-                <Select options={TARGET_TYPE_OPTIONS} className="w-full" />
+                <Select
+                  options={TARGET_TYPE_OPTIONS}
+                  className="w-full"
+                  showSearch
+                  optionFilterProp="label"
+                />
               </Form.Item>
               <Form.Item
                 name={SELECT_MODE_FIELD_KEY}
                 label={<span className="text-xs text-gray-400">选中方式</span>}
                 className="mb-0"
               >
-                <Select options={SELECT_MODE_OPTIONS} className="w-full" />
+                <Select
+                  options={SELECT_MODE_OPTIONS}
+                  className="w-full"
+                  showSearch
+                  optionFilterProp="label"
+                />
               </Form.Item>
               <Form.Item
                 name={AREA_MODE_FIELD_KEY}
@@ -3757,6 +3831,8 @@ export function PropertyPanel() {
                   options={AREA_MODE_OPTIONS}
                   className="w-full"
                   disabled={watchedTargetCamp === 3 || watchedTargetCamp === 4 || watchedSelectMode === 2}
+                  showSearch
+                  optionFilterProp="label"
                 />
               </Form.Item>
               {shouldShowCommonShapeSelect ? (
@@ -3765,7 +3841,12 @@ export function PropertyPanel() {
                   label={<span className="text-xs text-gray-400">形状类型</span>}
                   className="mb-0"
                 >
-                  <Select options={AREA_SHAPE_TYPE_OPTIONS} className="w-full" />
+                  <Select
+                    options={AREA_SHAPE_TYPE_OPTIONS}
+                    className="w-full"
+                    showSearch
+                    optionFilterProp="label"
+                  />
                 </Form.Item>
               ) : null}
               {shouldShowCommonTargetCount ? (
@@ -3817,7 +3898,12 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">覆盖技能范围</span>}
                 className="mb-0"
               >
-                <Select options={AREA_OVERRIDE_OPTIONS} className="w-full" />
+                <Select
+                  options={AREA_OVERRIDE_OPTIONS}
+                  className="w-full"
+                  showSearch
+                  optionFilterProp="label"
+                />
               </Form.Item>
               {shouldShowWeaponConfig ? (
                 <Form.Item
@@ -3825,7 +3911,12 @@ export function PropertyPanel() {
                   label={<span className="text-xs text-gray-400">武器范围模式</span>}
                   className="mb-0"
                 >
-                  <Select options={AREA_MODE_OPTIONS} className="w-full" />
+                  <Select
+                    options={AREA_MODE_OPTIONS}
+                    className="w-full"
+                    showSearch
+                    optionFilterProp="label"
+                  />
                 </Form.Item>
               ) : null}
               {shouldShowWeaponShapeSelect ? (
@@ -3834,7 +3925,12 @@ export function PropertyPanel() {
                   label={<span className="text-xs text-gray-400">武器形状</span>}
                   className="mb-0"
                 >
-                  <Select options={AREA_SHAPE_TYPE_OPTIONS} className="w-full" />
+                  <Select
+                    options={AREA_SHAPE_TYPE_OPTIONS}
+                    className="w-full"
+                    showSearch
+                    optionFilterProp="label"
+                  />
                 </Form.Item>
               ) : null}
               {shouldShowWeaponTargetCount ? (
