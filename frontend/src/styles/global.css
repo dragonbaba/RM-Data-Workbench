@@ -183,3 +183,60 @@ body {
   pointer-events: none;
   z-index: 1;
 }
+
+/* =============================================================================
+ * Performance: eliminate inline style={{ width: '100%' }} allocations
+ * ============================================================================= */
+
+/* Make InputNumber fill container width when className="w-full" is used */
+.ant-input-number.w-full { width: 100% !important; }
+
+/* Also handle when w-full is on a wrapper (Select already works with w-full) */
+.ant-select.w-full { width: 100% !important; }
+
+/* =============================================================================
+ * Shared panel title – eliminates 6+ duplicated inline styles
+ * ============================================================================= */
+
+.panel-title {
+  color: var(--color-accent);
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+/* =============================================================================
+ * Dark card theme – eliminates repeated headStyle/bodyStyle inline objects
+ * ============================================================================= */
+
+.card-dark .ant-card-head {
+  background-color: #252b3d;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-accent);
+}
+
+.card-dark .ant-card-body {
+  background-color: #1a1f2e;
+}
+
+/* Dark surface card variant */
+.card-dark-surface .ant-card-head {
+  background-color: #252b3d;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-accent);
+}
+
+.card-dark-surface .ant-card-body {
+  background-color: var(--color-surface);
+}
+
+/* =============================================================================
+ * Semantic color utilities – replaces inline style={{ color: 'var(--color-*)' }}
+ * ============================================================================= */
+
+.text-accent { color: var(--color-accent); }
+.text-muted { color: var(--color-text-muted); }
+.bg-surface { background-color: var(--color-surface); }
+.bg-background { background-color: var(--color-background); }
+.border-color { border-color: var(--color-border); }
+.border-b-color { border-bottom: 1px solid var(--color-border); }
+.border-r-color { border-right: 1px solid var(--color-border); }

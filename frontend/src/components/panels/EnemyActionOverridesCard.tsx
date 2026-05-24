@@ -272,12 +272,6 @@ export function EnemyActionOverridesCard({
     <Card
       title="敌人技能覆盖"
       className="mb-4"
-      headStyle={{
-        backgroundColor: '#252b3d',
-        borderBottom: '1px solid var(--color-border)',
-        color: 'var(--color-accent)',
-      }}
-      bodyStyle={{ backgroundColor: '#1a1f2e' }}
     >
       <div className="text-xs text-gray-500 mb-4">
         左侧来自敌人 `actions[]`，这里只读。右侧写入 `actionOverrides[skillId]`，相同 skillId 的多条行动共用同一套目标、范围、重复次数和行动内连发。
@@ -412,7 +406,7 @@ export function EnemyActionOverridesCard({
                   label={<span className="text-xs text-gray-400">范围目标数</span>}
                   className="mb-0"
                 >
-                  <InputNumber min={1} step={1} className="w-full" style={{ width: '100%' }} disabled={!isOverrideEnabled} />
+                  <InputNumber min={1} step={1} className="w-full w-full" disabled={!isOverrideEnabled} />
                 </Form.Item>
               ) : null}
               <Form.Item
@@ -420,21 +414,21 @@ export function EnemyActionOverridesCard({
                 label={<span className="text-xs text-gray-400">重复次数</span>}
                 className="mb-0"
               >
-                <InputNumber min={1} step={1} className="w-full" style={{ width: '100%' }} disabled={!isOverrideEnabled} />
+                <InputNumber min={1} step={1} className="w-full w-full" disabled={!isOverrideEnabled} />
               </Form.Item>
               <Form.Item
                 name={[fieldKey, selectedKey, 'repeatTimeFloat']}
                 label={<span className="text-xs text-gray-400">重复浮动</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={0.01} className="w-full" style={{ width: '100%' }} disabled={!isOverrideEnabled} />
+                <InputNumber min={0} step={0.01} className="w-full w-full" disabled={!isOverrideEnabled} />
               </Form.Item>
               <Form.Item
                 name={[fieldKey, selectedKey, 'actionRepeat']}
                 label={<span className="text-xs text-gray-400">行动内连发</span>}
                 className="mb-0"
               >
-                <InputNumber min={1} step={1} className="w-full" style={{ width: '100%' }} disabled={!isOverrideEnabled} />
+                <InputNumber min={1} step={1} className="w-full w-full" disabled={!isOverrideEnabled} />
               </Form.Item>
               <Form.Item
                 name={[fieldKey, selectedKey, 'allowSkillBreak']}
@@ -453,14 +447,14 @@ export function EnemyActionOverridesCard({
                 label={<span className="text-xs text-gray-400">技能使用次数上限</span>}
                 className="mb-0"
               >
-                <InputNumber min={-1} step={1} className="w-full" style={{ width: '100%' }} disabled={!isOverrideEnabled} />
+                <InputNumber min={-1} step={1} className="w-full w-full" disabled={!isOverrideEnabled} />
               </Form.Item>
               <Form.Item
                 name={[fieldKey, selectedKey, 'skillDurability']}
                 label={<span className="text-xs text-gray-400">技能耐久度</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} disabled={!isOverrideEnabled} />
+                <InputNumber min={0} step={1} className="w-full w-full" disabled={!isOverrideEnabled} />
               </Form.Item>
             </div>
 
@@ -472,7 +466,7 @@ export function EnemyActionOverridesCard({
                     label={<span className="text-xs text-gray-400">圆形半径</span>}
                     className="mb-0"
                   >
-                    <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} disabled={!isOverrideEnabled} />
+                    <InputNumber min={0} step={1} className="w-full w-full" disabled={!isOverrideEnabled} />
                   </Form.Item>
                 ) : null}
                 {activeShapeType === 2 ? (
@@ -482,14 +476,14 @@ export function EnemyActionOverridesCard({
                       label={<span className="text-xs text-gray-400">扇形半径</span>}
                       className="mb-0"
                     >
-                      <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} disabled={!isOverrideEnabled} />
+                      <InputNumber min={0} step={1} className="w-full w-full" disabled={!isOverrideEnabled} />
                     </Form.Item>
                     <Form.Item
                       name={[fieldKey, selectedKey, 'shapeParams', '2', 'angleDeg']}
                       label={<span className="text-xs text-gray-400">扇形角度</span>}
                       className="mb-0"
                     >
-                      <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} disabled={!isOverrideEnabled} />
+                      <InputNumber min={0} step={1} className="w-full w-full" disabled={!isOverrideEnabled} />
                     </Form.Item>
                   </>
                 ) : null}
@@ -500,14 +494,14 @@ export function EnemyActionOverridesCard({
                       label={<span className="text-xs text-gray-400">矩形宽度</span>}
                       className="mb-0"
                     >
-                      <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} disabled={!isOverrideEnabled} />
+                      <InputNumber min={0} step={1} className="w-full w-full" disabled={!isOverrideEnabled} />
                     </Form.Item>
                     <Form.Item
                       name={[fieldKey, selectedKey, 'shapeParams', '3', 'length']}
                       label={<span className="text-xs text-gray-400">矩形长度</span>}
                       className="mb-0"
                     >
-                      <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} disabled={!isOverrideEnabled} />
+                      <InputNumber min={0} step={1} className="w-full w-full" disabled={!isOverrideEnabled} />
                     </Form.Item>
                   </>
                 ) : null}

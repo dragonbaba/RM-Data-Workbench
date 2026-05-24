@@ -402,7 +402,7 @@ export function EffectPanel() {
     return (
       <div className="flex-1 flex flex-col overflow-y-auto p-4 bg-dark-900">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--color-accent)' }}>
+          <h2 className="panel-title">
             效果模式
           </h2>
           <Dropdown
@@ -416,12 +416,6 @@ export function EffectPanel() {
           </Dropdown>
         </div>
         <Card
-          headStyle={{
-            backgroundColor: '#252b3d',
-            borderBottom: '1px solid var(--color-border)',
-            color: 'var(--color-accent)',
-          }}
-          bodyStyle={{ backgroundColor: '#1a1f2e' }}
           title="效果条目"
         >
           <Empty description="请选择左侧效果，或点击上方“新建效果”创建一条新记录" />
@@ -436,7 +430,7 @@ export function EffectPanel() {
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-4 bg-dark-900">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold" style={{ color: 'var(--color-accent)' }}>
+        <h2 className="panel-title">
           效果模式 #{effect.id}
           {hasChanges ? <Badge dot color="orange" className="ml-2" /> : null}
         </h2>
@@ -462,12 +456,6 @@ export function EffectPanel() {
       </div>
 
       <Card
-        headStyle={{
-          backgroundColor: '#252b3d',
-          borderBottom: '1px solid var(--color-border)',
-          color: 'var(--color-accent)',
-        }}
-        bodyStyle={{ backgroundColor: '#1a1f2e' }}
         title="效果条目"
       >
         <div className="grid grid-cols-2 gap-4">

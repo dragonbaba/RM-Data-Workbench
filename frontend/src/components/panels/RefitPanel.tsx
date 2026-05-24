@@ -326,7 +326,7 @@ export function RefitPanel() {
     <div className="flex-1 overflow-y-auto p-4 bg-[#0a0e17]">
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--color-accent)' }}>改造模式</h2>
+          <h2 className="panel-title">改造模式</h2>
           <div className="text-xs text-gray-400 mt-1">
             当前角色:
             <Tag color="cyan" className="ml-2">{actorName}</Tag>

@@ -486,7 +486,7 @@ export function DropPanel() {
     <div className="flex-1 overflow-y-auto p-4 bg-[#0a0e17]">
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--color-accent)' }}>掉落模式</h2>
+          <h2 className="panel-title">掉落模式</h2>
           <div className="text-xs text-gray-400 mt-1">
             当前敌人:
             <Tag color="red" className="ml-2">{enemyName}</Tag>

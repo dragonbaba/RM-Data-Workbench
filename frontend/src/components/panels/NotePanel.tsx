@@ -135,11 +135,6 @@ export function NotePanel({ embedded = false }: NotePanelProps) {
     <Card
       title="文本与备注"
       className={embedded ? 'mb-4' : 'h-full'}
-      headStyle={{
-        backgroundColor: '#252b3d',
-        borderBottom: '1px solid var(--color-border)',
-        color: 'var(--color-accent)',
-      }}
       bodyStyle={{ backgroundColor: '#1a1f2e', padding: embedded ? '12px' : '16px' }}
     >
       <div className="grid grid-cols-3 gap-3">

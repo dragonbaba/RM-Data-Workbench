@@ -824,7 +824,7 @@ export function ProjectilePanel() {
     <div className="flex-1 overflow-y-auto p-4 bg-[#0a0e17]">
       {/* 头部 */}
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold" style={{ color: 'var(--color-accent)' }}>
+        <h2 className="panel-title">
           弹道编辑器
         </h2>
         <span className="text-xs text-gray-500">自动记录变更并标记脏文件</span>
@@ -861,7 +861,6 @@ export function ProjectilePanel() {
             <Card
               size="small"
               title={sourceType === 'actor' ? '当前我方发射偏移' : '当前敌方发射偏移'}
-              bodyStyle={{ backgroundColor: '#131825' }}
             >
               {sourceType === 'actor' ? (
                 <div className="space-y-3">
@@ -936,7 +935,7 @@ export function ProjectilePanel() {
                     { value: 'left', label: '左侧发射 / 右侧目标' },
                     { value: 'right', label: '右侧发射 / 左侧目标' },
                   ]}
-                  style={{ width: 180 }}
+                  className="w-[180px]"
                 showSearch
                 optionFilterProp="label"
                 />

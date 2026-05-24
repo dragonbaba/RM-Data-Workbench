@@ -521,7 +521,7 @@ export function QuestPanel() {
   return (
     <div className="flex-1 overflow-y-auto p-4 bg-[#0a0e17]">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold" style={{ color: 'var(--color-accent)' }}>
+        <h2 className="panel-title">
           任务编辑器
         </h2>
         <span className="text-xs text-gray-500">自动记录变更并标记脏文件</span>
@@ -626,7 +626,7 @@ export function QuestPanel() {
                     <Select
                       value={action.switchId || getDefaultOptionId(dataOptions.switches)}
                       onChange={(value) => updateSwitchAction('startSwitches', actionIndex, { switchId: value })}
-                      style={{ width: 220 }}
+                      className="w-[220px]"
                       options={switchSelectOptions}
                       placeholder="选择开关"
                     showSearch
@@ -635,7 +635,7 @@ export function QuestPanel() {
                     <Select
                       value={action.value ? 'true' : 'false'}
                       onChange={(value) => updateSwitchAction('startSwitches', actionIndex, { value: value === 'true' })}
-                      style={{ width: 100 }}
+                      className="w-[100px]"
                       options={[
                         { value: 'true', label: '开启' },
                         { value: 'false', label: '关闭' },
@@ -667,7 +667,7 @@ export function QuestPanel() {
                     <Select
                       value={action.switchId || getDefaultOptionId(dataOptions.switches)}
                       onChange={(value) => updateSwitchAction('switches', actionIndex, { switchId: value })}
-                      style={{ width: 220 }}
+                      className="w-[220px]"
                       options={switchSelectOptions}
                       placeholder="选择开关"
                     showSearch
@@ -676,7 +676,7 @@ export function QuestPanel() {
                     <Select
                       value={action.value ? 'true' : 'false'}
                       onChange={(value) => updateSwitchAction('switches', actionIndex, { value: value === 'true' })}
-                      style={{ width: 100 }}
+                      className="w-[100px]"
                       options={[
                         { value: 'true', label: '开启' },
                         { value: 'false', label: '关闭' },
@@ -708,7 +708,7 @@ export function QuestPanel() {
                     <Select
                       value={action.variableId || getDefaultOptionId(dataOptions.variables)}
                       onChange={(value) => updateVariableAction('startVariables', actionIndex, { variableId: value })}
-                      style={{ width: 220 }}
+                      className="w-[220px]"
                       options={variableSelectOptions}
                       placeholder="选择变量"
                     showSearch
@@ -717,7 +717,7 @@ export function QuestPanel() {
                     <Select
                       value={action.op || '='}
                       onChange={(value) => updateVariableAction('startVariables', actionIndex, { op: value })}
-                      style={{ width: 80 }}
+                      className="w-[80px]"
                       options={VARIABLE_OPERATOR_OPTIONS}
                     showSearch
                     optionFilterProp="label"
@@ -751,7 +751,7 @@ export function QuestPanel() {
                     <Select
                       value={action.variableId || getDefaultOptionId(dataOptions.variables)}
                       onChange={(value) => updateVariableAction('variables', actionIndex, { variableId: value })}
-                      style={{ width: 220 }}
+                      className="w-[220px]"
                       options={variableSelectOptions}
                       placeholder="选择变量"
                     showSearch
@@ -760,7 +760,7 @@ export function QuestPanel() {
                     <Select
                       value={action.op || '='}
                       onChange={(value) => updateVariableAction('variables', actionIndex, { op: value })}
-                      style={{ width: 80 }}
+                      className="w-[80px]"
                       options={VARIABLE_OPERATOR_OPTIONS}
                     showSearch
                     optionFilterProp="label"
@@ -816,7 +816,7 @@ export function QuestPanel() {
                   <Select
                     value={req.type}
                     onChange={(value) => updateRequirement(index, { type: value })}
-                    style={{ width: 120 }}
+                    className="w-[120px]"
                     options={REQUIREMENT_TYPES}
                   showSearch
                   optionFilterProp="label"
@@ -825,7 +825,7 @@ export function QuestPanel() {
                     <Select
                       value={req.questId || 1}
                       onChange={(value) => updateRequirement(index, { questId: value })}
-                      style={{ width: 200 }}
+                      className="w-[200px]"
                       options={questSelectOptions}
                       placeholder="选择前置任务"
                     showSearch
@@ -837,7 +837,7 @@ export function QuestPanel() {
                       <Select
                         value={req.itemId || 1}
                         onChange={(value) => updateRequirement(index, { itemId: value })}
-                        style={{ width: 200 }}
+                        className="w-[200px]"
                         options={itemSelectOptions}
                         placeholder="选择物品"
                       showSearch
@@ -855,7 +855,7 @@ export function QuestPanel() {
                       <Select
                         value={req.weaponId || 1}
                         onChange={(value) => updateRequirement(index, { weaponId: value })}
-                        style={{ width: 200 }}
+                        className="w-[200px]"
                         options={weaponSelectOptions}
                         placeholder="选择武器"
                       showSearch
@@ -873,7 +873,7 @@ export function QuestPanel() {
                       <Select
                         value={req.armorId || 1}
                         onChange={(value) => updateRequirement(index, { armorId: value })}
-                        style={{ width: 200 }}
+                        className="w-[200px]"
                         options={armorSelectOptions}
                         placeholder="选择防具"
                       showSearch
@@ -897,7 +897,7 @@ export function QuestPanel() {
                         <Select
                           value={req.actorId ?? getDefaultOptionId(dataOptions.actors)}
                           onChange={(value) => updateRequirement(index, { actorId: value })}
-                          style={{ width: 220 }}
+                          className="w-[220px]"
                           options={actorSelectOptions}
                           placeholder="选择角色"
                         showSearch
@@ -913,7 +913,7 @@ export function QuestPanel() {
                       <Select
                         value={req.operator || '>='}
                         onChange={(value) => updateRequirement(index, { operator: value })}
-                        style={{ width: 80 }}
+                        className="w-[80px]"
                         options={OPERATOR_OPTIONS}
                       showSearch
                       optionFilterProp="label"
@@ -925,7 +925,7 @@ export function QuestPanel() {
                       <Select
                         value={req.switchId || 1}
                         onChange={(value) => updateRequirement(index, { switchId: value })}
-                        style={{ width: 200 }}
+                        className="w-[200px]"
                         options={switchSelectOptions}
                         placeholder="选择开关"
                       showSearch
@@ -934,7 +934,7 @@ export function QuestPanel() {
                       <Select
                         value={req.targetValue === true ? 'true' : 'false'}
                         onChange={(value) => updateRequirement(index, { targetValue: value === 'true' })}
-                        style={{ width: 100 }}
+                        className="w-[100px]"
                         options={[
                           { value: 'true', label: '开启' },
                           { value: 'false', label: '关闭' },
@@ -949,7 +949,7 @@ export function QuestPanel() {
                       <Select
                         value={req.variableId || 1}
                         onChange={(value) => updateRequirement(index, { variableId: value })}
-                        style={{ width: 200 }}
+                        className="w-[200px]"
                         options={variableSelectOptions}
                         placeholder="选择变量"
                       showSearch
@@ -958,7 +958,7 @@ export function QuestPanel() {
                       <Select
                         value={req.operator || '>='}
                         onChange={(value) => updateRequirement(index, { operator: value })}
-                        style={{ width: 80 }}
+                        className="w-[80px]"
                         options={OPERATOR_OPTIONS}
                       showSearch
                       optionFilterProp="label"
@@ -980,7 +980,7 @@ export function QuestPanel() {
                       <Select
                         value={req.operator || '>='}
                         onChange={(value) => updateRequirement(index, { operator: value })}
-                        style={{ width: 80 }}
+                        className="w-[80px]"
                         options={OPERATOR_OPTIONS}
                       showSearch
                       optionFilterProp="label"
@@ -991,7 +991,7 @@ export function QuestPanel() {
                     value={req.description}
                     onChange={(e) => updateRequirement(index, { description: e.target.value })}
                     placeholder="描述"
-                    style={{ width: 200 }}
+                    className="w-[200px]"
                   />
                 </Space>
               </Card>
@@ -1125,7 +1125,7 @@ export function QuestPanel() {
                     <Select
                       value={obj.type}
                       onChange={(value) => updateObjective(index, { type: value })}
-                      style={{ width: 120 }}
+                      className="w-[120px]"
                       options={OBJECTIVE_TYPES}
                     showSearch
                     optionFilterProp="label"
@@ -1134,7 +1134,7 @@ export function QuestPanel() {
                       <Select
                         value={obj.enemyId || 1}
                         onChange={(value) => updateObjective(index, { enemyId: value })}
-                        style={{ width: 200 }}
+                        className="w-[200px]"
                         options={enemySelectOptions}
                         placeholder="选择敌人"
                       showSearch
@@ -1145,7 +1145,7 @@ export function QuestPanel() {
                       <Select
                         value={obj.itemId || 1}
                         onChange={(value) => updateObjective(index, { itemId: value })}
-                        style={{ width: 200 }}
+                        className="w-[200px]"
                         options={itemSelectOptions}
                         placeholder="选择物品"
                       showSearch
@@ -1156,7 +1156,7 @@ export function QuestPanel() {
                       <Select
                         value={obj.weaponId || 1}
                         onChange={(value) => updateObjective(index, { weaponId: value })}
-                        style={{ width: 200 }}
+                        className="w-[200px]"
                         options={weaponSelectOptions}
                         placeholder="选择武器"
                       showSearch
@@ -1167,7 +1167,7 @@ export function QuestPanel() {
                       <Select
                         value={obj.armorId || 1}
                         onChange={(value) => updateObjective(index, { armorId: value })}
-                        style={{ width: 200 }}
+                        className="w-[200px]"
                         options={armorSelectOptions}
                         placeholder="选择防具"
                       showSearch
@@ -1179,7 +1179,7 @@ export function QuestPanel() {
                         <Select
                           value={obj.switchId || 1}
                           onChange={(value) => updateObjective(index, { switchId: value })}
-                          style={{ width: 200 }}
+                          className="w-[200px]"
                           options={switchSelectOptions}
                           placeholder="选择开关"
                         showSearch
@@ -1188,7 +1188,7 @@ export function QuestPanel() {
                         <Select
                           value={obj.targetValue === true ? 'true' : 'false'}
                           onChange={(value) => updateObjective(index, { targetValue: value === 'true' })}
-                          style={{ width: 100 }}
+                          className="w-[100px]"
                           options={[
                             { value: 'true', label: '开启' },
                             { value: 'false', label: '关闭' },
@@ -1203,7 +1203,7 @@ export function QuestPanel() {
                         <Select
                           value={obj.variableId || 1}
                           onChange={(value) => updateObjective(index, { variableId: value })}
-                          style={{ width: 200 }}
+                          className="w-[200px]"
                           options={variableSelectOptions}
                           placeholder="选择变量"
                         showSearch
@@ -1212,7 +1212,7 @@ export function QuestPanel() {
                         <Select
                           value={obj.operator || '>='}
                           onChange={(value) => updateObjective(index, { operator: value })}
-                          style={{ width: 80 }}
+                          className="w-[80px]"
                           options={OPERATOR_OPTIONS}
                         showSearch
                         optionFilterProp="label"
@@ -1236,7 +1236,7 @@ export function QuestPanel() {
                         <Select
                           value={obj.operator || '>='}
                           onChange={(value) => updateObjective(index, { operator: value })}
-                          style={{ width: 80 }}
+                          className="w-[80px]"
                           options={OPERATOR_OPTIONS}
                         showSearch
                         optionFilterProp="label"
@@ -1258,7 +1258,7 @@ export function QuestPanel() {
                       value={obj.description}
                       onChange={(e) => updateObjective(index, { description: e.target.value })}
                       placeholder="描述"
-                      style={{ width: 300 }}
+                      className="w-[300px]"
                     />
                   </Space>
 
@@ -1284,7 +1284,7 @@ export function QuestPanel() {
                               <Select
                                 value={action.switchId || getDefaultOptionId(dataOptions.switches)}
                                 onChange={(value) => updateObjectiveSwitchAction(index, actionIndex, { switchId: value })}
-                                style={{ width: 220 }}
+                                className="w-[220px]"
                                 options={switchSelectOptions}
                                 placeholder="选择开关"
                               showSearch
@@ -1293,7 +1293,7 @@ export function QuestPanel() {
                               <Select
                                 value={action.value ? 'true' : 'false'}
                                 onChange={(value) => updateObjectiveSwitchAction(index, actionIndex, { value: value === 'true' })}
-                                style={{ width: 100 }}
+                                className="w-[100px]"
                                 options={[
                                   { value: 'true', label: '开启' },
                                   { value: 'false', label: '关闭' },
@@ -1335,7 +1335,7 @@ export function QuestPanel() {
                               <Select
                                 value={action.variableId || getDefaultOptionId(dataOptions.variables)}
                                 onChange={(value) => updateObjectiveVariableAction(index, actionIndex, { variableId: value })}
-                                style={{ width: 220 }}
+                                className="w-[220px]"
                                 options={variableSelectOptions}
                                 placeholder="选择变量"
                               showSearch
@@ -1344,7 +1344,7 @@ export function QuestPanel() {
                               <Select
                                 value={action.op || '+'}
                                 onChange={(value) => updateObjectiveVariableAction(index, actionIndex, { op: value })}
-                                style={{ width: 80 }}
+                                className="w-[80px]"
                                 options={VARIABLE_OPERATOR_OPTIONS}
                               showSearch
                               optionFilterProp="label"
@@ -1410,7 +1410,7 @@ export function QuestPanel() {
                   <Select
                     value={reward.type}
                     onChange={(value) => updateReward(index, { type: value })}
-                    style={{ width: 100 }}
+                    className="w-[100px]"
                     options={REWARD_TYPES}
                   showSearch
                   optionFilterProp="label"
@@ -1419,7 +1419,7 @@ export function QuestPanel() {
                     <Select
                       value={reward.itemId || 1}
                       onChange={(value) => updateReward(index, { itemId: value })}
-                      style={{ width: 200 }}
+                      className="w-[200px]"
                       options={itemSelectOptions}
                       placeholder="选择物品"
                     showSearch
@@ -1430,7 +1430,7 @@ export function QuestPanel() {
                     <Select
                       value={reward.weaponId || 1}
                       onChange={(value) => updateReward(index, { weaponId: value })}
-                      style={{ width: 200 }}
+                      className="w-[200px]"
                       options={weaponSelectOptions}
                       placeholder="选择武器"
                     showSearch
@@ -1441,7 +1441,7 @@ export function QuestPanel() {
                     <Select
                       value={reward.armorId || 1}
                       onChange={(value) => updateReward(index, { armorId: value })}
-                      style={{ width: 200 }}
+                      className="w-[200px]"
                       options={armorSelectOptions}
                       placeholder="选择防具"
                     showSearch
@@ -1453,7 +1453,7 @@ export function QuestPanel() {
                       <Select
                         value={reward.switchId || 1}
                         onChange={(value) => updateReward(index, { switchId: value })}
-                        style={{ width: 200 }}
+                        className="w-[200px]"
                         options={switchSelectOptions}
                         placeholder="选择开关"
                       showSearch
@@ -1462,7 +1462,7 @@ export function QuestPanel() {
                       <Select
                         value={reward.targetValue === true ? 'true' : 'false'}
                         onChange={(value) => updateReward(index, { targetValue: value === 'true' })}
-                        style={{ width: 100 }}
+                        className="w-[100px]"
                         options={[
                           { value: 'true', label: '开启' },
                           { value: 'false', label: '关闭' },
@@ -1477,7 +1477,7 @@ export function QuestPanel() {
                       <Select
                         value={reward.variableId || 1}
                         onChange={(value) => updateReward(index, { variableId: value })}
-                        style={{ width: 200 }}
+                        className="w-[200px]"
                         options={variableSelectOptions}
                         placeholder="选择变量"
                       showSearch
@@ -1486,7 +1486,7 @@ export function QuestPanel() {
                       <Select
                         value={reward.op || '='}
                         onChange={(value) => updateReward(index, { op: value })}
-                        style={{ width: 80 }}
+                        className="w-[80px]"
                         options={VARIABLE_OPERATOR_OPTIONS}
                       showSearch
                       optionFilterProp="label"
@@ -1504,7 +1504,7 @@ export function QuestPanel() {
                     value={reward.description}
                     onChange={(e) => updateReward(index, { description: e.target.value })}
                     placeholder="描述"
-                    style={{ width: 200 }}
+                    className="w-[200px]"
                   />
                 </Space>
               </Card>

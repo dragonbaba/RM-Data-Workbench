@@ -1844,8 +1844,7 @@ export function PropertyPanel() {
                   min={0}
                   max={costType === 'variableRate' ? 100 : undefined}
                   step={1}
-                  className="w-full"
-                  style={{ width: '100%' }}
+                  className="w-full w-full"
                 />
               </Form.Item>
             </>
@@ -1883,7 +1882,7 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">数量</span>}
                 className="mb-0"
               >
-                <InputNumber min={1} step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber min={1} step={1} className="w-full w-full" />
               </Form.Item>
             </>
           );
@@ -1899,8 +1898,7 @@ export function PropertyPanel() {
               min={0}
               max={costType === 'hpRate' || costType === 'goldRate' ? 100 : undefined}
               step={1}
-              className="w-full"
-              style={{ width: '100%' }}
+              className="w-full w-full"
             />
           </Form.Item>
         );
@@ -2019,7 +2017,7 @@ export function PropertyPanel() {
           label={<span className="text-xs text-gray-400">圆形半径</span>}
           className="mb-0"
         >
-          <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+          <InputNumber min={0} step={1} className="w-full w-full" />
         </Form.Item>
       ) : null}
       {activeShapeType === 2 ? (
@@ -2029,14 +2027,14 @@ export function PropertyPanel() {
             label={<span className="text-xs text-gray-400">扇形半径</span>}
             className="mb-0"
           >
-            <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+            <InputNumber min={0} step={1} className="w-full w-full" />
           </Form.Item>
           <Form.Item
             name={[SHAPE_PARAMS_FIELD_KEY, '2', 'angleDeg']}
             label={<span className="text-xs text-gray-400">扇形角度</span>}
             className="mb-0"
           >
-            <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+            <InputNumber min={0} step={1} className="w-full w-full" />
           </Form.Item>
         </>
       ) : null}
@@ -2047,14 +2045,14 @@ export function PropertyPanel() {
             label={<span className="text-xs text-gray-400">矩形宽度</span>}
             className="mb-0"
           >
-            <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+            <InputNumber min={0} step={1} className="w-full w-full" />
           </Form.Item>
           <Form.Item
             name={[SHAPE_PARAMS_FIELD_KEY, '3', 'length']}
             label={<span className="text-xs text-gray-400">矩形长度</span>}
             className="mb-0"
           >
-            <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+            <InputNumber min={0} step={1} className="w-full w-full" />
           </Form.Item>
         </>
       ) : null}
@@ -2076,12 +2074,6 @@ export function PropertyPanel() {
     <Card
       title={title}
       className="mb-4"
-      headStyle={{
-        backgroundColor: '#252b3d',
-        borderBottom: '1px solid var(--color-border)',
-        color: 'var(--color-accent)',
-      }}
-      bodyStyle={{ backgroundColor: '#1a1f2e' }}
     >
       <div className="text-xs text-gray-500 mb-4">{description}</div>
       <div className="grid grid-cols-5 gap-x-4 gap-y-4 items-start">
@@ -2102,7 +2094,7 @@ export function PropertyPanel() {
               name={[groupKey, field.index, 'value']}
               className="mb-0"
             >
-              <InputNumber className="w-full" style={{ width: '100%' }} step={1} />
+              <InputNumber className="w-full w-full" step={1} />
             </Form.Item>
           ),
           (
@@ -2111,7 +2103,7 @@ export function PropertyPanel() {
               name={[groupKey, field.index, 'floatValue']}
               className="mb-0"
             >
-              <InputNumber className="w-full" style={{ width: '100%' }} step={0.1} />
+              <InputNumber className="w-full w-full" step={0.1} />
             </Form.Item>
           ),
           (
@@ -2120,7 +2112,7 @@ export function PropertyPanel() {
               name={[groupKey, field.index, 'upgradeValue']}
               className="mb-0"
             >
-              <InputNumber className="w-full" style={{ width: '100%' }} step={1} />
+              <InputNumber className="w-full w-full" step={1} />
             </Form.Item>
           ),
           (
@@ -2129,7 +2121,7 @@ export function PropertyPanel() {
               name={[groupKey, field.index, 'upgradeFloatValue']}
               className="mb-0"
             >
-              <InputNumber className="w-full" style={{ width: '100%' }} step={0.1} />
+              <InputNumber className="w-full w-full" step={0.1} />
             </Form.Item>
           ),
         ])}
@@ -2155,12 +2147,6 @@ export function PropertyPanel() {
             </div>
           )}
           className="mb-4"
-          headStyle={{
-            backgroundColor: '#252b3d',
-            borderBottom: '1px solid var(--color-border)',
-            color: 'var(--color-accent)',
-          }}
-          bodyStyle={{ backgroundColor: '#1a1f2e' }}
         >
           <div className="text-xs text-gray-500 mb-4">
             逐级配置强化消耗，第一行对应强化到 +1，第二行对应强化到 +2。金币和必需物品在强化失败时也会消耗；保底物品只在本次选择保底强化时消耗。
@@ -2190,10 +2176,10 @@ export function PropertyPanel() {
                   >
                     <div className="text-sm text-gray-200">+{index + 1}</div>
                     <Form.Item name={[field.name, 'successRate']} className="mb-0">
-                      <InputNumber min={0} max={100} step={0.01} className="w-full" style={{ width: '100%' }} />
+                      <InputNumber min={0} max={100} step={0.01} className="w-full w-full" />
                     </Form.Item>
                     <Form.Item name={[field.name, 'goldCost']} className="mb-0">
-                      <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+                      <InputNumber min={0} step={1} className="w-full w-full" />
                     </Form.Item>
                     <Form.Item name={[field.name, 'requiredItemId']} className="mb-0">
                       <Select
@@ -2204,7 +2190,7 @@ export function PropertyPanel() {
                       />
                     </Form.Item>
                     <Form.Item name={[field.name, 'requiredItemAmount']} className="mb-0">
-                      <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+                      <InputNumber min={0} step={1} className="w-full w-full" />
                     </Form.Item>
                     <Form.Item name={[field.name, 'protectItemId']} className="mb-0">
                       <Select
@@ -2215,7 +2201,7 @@ export function PropertyPanel() {
                       />
                     </Form.Item>
                     <Form.Item name={[field.name, 'protectItemAmount']} className="mb-0">
-                      <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+                      <InputNumber min={0} step={1} className="w-full w-full" />
                     </Form.Item>
                     <Button
                       type="text"
@@ -2244,12 +2230,6 @@ export function PropertyPanel() {
     <Card
       title={title}
       className="mb-4"
-      headStyle={{
-        backgroundColor: '#252b3d',
-        borderBottom: '1px solid var(--color-border)',
-        color: 'var(--color-accent)',
-      }}
-      bodyStyle={{ backgroundColor: '#1a1f2e' }}
     >
       <div className="text-xs text-gray-500 mb-4">{description}</div>
       <div className="grid grid-cols-4 gap-x-4 gap-y-4">
@@ -2260,7 +2240,7 @@ export function PropertyPanel() {
               label={<span className="text-xs text-gray-400">{field.label}</span>}
               className="mb-0"
             >
-            <InputNumber step={step} className="w-full" style={{ width: '100%' }} />
+            <InputNumber step={step} className="w-full w-full" />
           </Form.Item>
         ))}
       </div>
@@ -2271,12 +2251,6 @@ export function PropertyPanel() {
     <Card
       title="元素属性率"
       className="mb-4"
-      headStyle={{
-        backgroundColor: '#252b3d',
-        borderBottom: '1px solid var(--color-border)',
-        color: 'var(--color-accent)',
-      }}
-      bodyStyle={{ backgroundColor: '#1a1f2e' }}
     >
       <div className="text-xs text-gray-500 mb-4">{description}</div>
       {armorElementRateFields.length === 0 ? (
@@ -2292,7 +2266,7 @@ export function PropertyPanel() {
               label={<span className="text-xs text-gray-400">{field.label}</span>}
               className="mb-0"
             >
-              <InputNumber step={0.01} className="w-full" style={{ width: '100%' }} />
+              <InputNumber step={0.01} className="w-full w-full" />
             </Form.Item>
           ))}
         </div>
@@ -2329,12 +2303,6 @@ export function PropertyPanel() {
       <Card
         title="被动状态"
         className="mb-4"
-        headStyle={{
-          backgroundColor: '#252b3d',
-          borderBottom: '1px solid var(--color-border)',
-          color: 'var(--color-accent)',
-        }}
-        bodyStyle={{ backgroundColor: '#1a1f2e' }}
       >
         <div className="text-xs text-gray-500 mb-4">
           这里维护宿主固定携带的被动状态 id 列表。修复模式会强制补齐空数组，运行时按严格字段直接读取，不再对缺字段做兜底。
@@ -2405,12 +2373,6 @@ export function PropertyPanel() {
       <Card
         title="Boss 图鉴挑战"
         className="mb-4"
-        headStyle={{
-          backgroundColor: '#252b3d',
-          borderBottom: '1px solid var(--color-border)',
-          color: 'var(--color-accent)',
-        }}
-        bodyStyle={{ backgroundColor: '#1a1f2e' }}
       >
         <div className="text-xs text-gray-500 mb-4">
           这里只维护 `enemy.bookChallenge` 的挑战入口和星级属性。掉落倍率、金币/经验倍率和额外奖励请在掉落模式统一维护。
@@ -2478,28 +2440,28 @@ export function PropertyPanel() {
                           label={<span className="text-xs text-gray-400">星级数</span>}
                           className="mb-0"
                         >
-                          <InputNumber min={1} step={1} className="w-full" style={{ width: '100%' }} />
+                          <InputNumber min={1} step={1} className="w-full w-full" />
                         </Form.Item>
                         <Form.Item
                           name={[field.name, 'goldCost']}
                           label={<span className="text-xs text-gray-400">挑战金币</span>}
                           className="mb-0"
                         >
-                          <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+                          <InputNumber min={0} step={1} className="w-full w-full" />
                         </Form.Item>
                         <Form.Item
                           name={[field.name, 'levelRequirement']}
                           label={<span className="text-xs text-gray-400">等级要求</span>}
                           className="mb-0"
                         >
-                          <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+                          <InputNumber min={0} step={1} className="w-full w-full" />
                         </Form.Item>
                         <Form.Item
                           name={[field.name, 'baseParamRate']}
                           label={<span className="text-xs text-gray-400">基础属性倍率</span>}
                           className="mb-0"
                         >
-                          <InputNumber min={0} step={0.1} className="w-full" style={{ width: '100%' }} />
+                          <InputNumber min={0} step={0.1} className="w-full w-full" />
                         </Form.Item>
                       </div>
                       <Form.List name={[field.name, 'passiveStates']}>
@@ -2613,7 +2575,7 @@ export function PropertyPanel() {
                     label={<span className="text-xs text-gray-400">倍率增量</span>}
                     className="mb-0"
                   >
-                    <InputNumber step={0.01} className="w-full" style={{ width: '100%' }} />
+                    <InputNumber step={0.01} className="w-full w-full" />
                   </Form.Item>
                   <Button
                     type="text"
@@ -2655,7 +2617,7 @@ export function PropertyPanel() {
           label={<span className="text-xs text-gray-400">盾上限</span>}
           className="mb-0"
         >
-          <InputNumber min={0} max={99} step={1} className="w-full" style={{ width: '100%' }} />
+          <InputNumber min={0} max={99} step={1} className="w-full w-full" />
         </Form.Item>
       </div>
       <Form.List name={[field.name, 'slots']}>
@@ -2703,7 +2665,7 @@ export function PropertyPanel() {
                       label={<span className="text-xs text-gray-400">倍率增量</span>}
                       className="mb-0"
                     >
-                      <InputNumber step={0.01} className="w-full" style={{ width: '100%' }} />
+                      <InputNumber step={0.01} className="w-full w-full" />
                     </Form.Item>
                     <Button
                       type="text"
@@ -2730,12 +2692,6 @@ export function PropertyPanel() {
     <Card
       title={title}
       className="mb-4"
-      headStyle={{
-        backgroundColor: '#252b3d',
-        borderBottom: '1px solid var(--color-border)',
-        color: 'var(--color-accent)',
-      }}
-      bodyStyle={{ backgroundColor: '#1a1f2e' }}
     >
       <div className="text-xs text-gray-500 mb-4">{description}</div>
       <div className="grid grid-cols-4 gap-4 mb-4">
@@ -2744,7 +2700,7 @@ export function PropertyPanel() {
           label={<span className="text-xs text-gray-400">盾上限</span>}
           className="mb-0"
         >
-          <InputNumber min={0} max={99} step={1} className="w-full" style={{ width: '100%' }} />
+          <InputNumber min={0} max={99} step={1} className="w-full w-full" />
         </Form.Item>
       </div>
       {renderWeaknessSlotList(pathPrefix, emptyText)}
@@ -2765,7 +2721,7 @@ export function PropertyPanel() {
           label={<span className="text-xs text-gray-400">切换弱点组</span>}
           className="mb-0"
         >
-          <InputNumber min={-1} step={1} className="w-full" style={{ width: '100%' }} />
+          <InputNumber min={-1} step={1} className="w-full w-full" />
         </Form.Item>
         <Form.Item
           name={[STATE_WEAKNESS_EFFECTS_FIELD_KEY, phaseKey, 'protectElements']}
@@ -2803,12 +2759,6 @@ export function PropertyPanel() {
     <Card
       title="状态蓄力配置"
       className="mb-4"
-      headStyle={{
-        backgroundColor: '#252b3d',
-        borderBottom: '1px solid var(--color-border)',
-        color: 'var(--color-accent)',
-      }}
-      bodyStyle={{ backgroundColor: '#1a1f2e' }}
     >
       <div className="text-xs text-gray-500 mb-4">
         这里定义状态级 `chargeConfig`。当前结构化蓄力只在状态移除时触发：`禁止行动` 会让状态持续期间视为不可行动；`结束后给一动` 与 `结束时释放技能` 会在状态结束时新增一条行动；`顺位队列` 决定它写入当前回合还是下回合，`顺位偏移` 里正数表示提前，负数表示延后。
@@ -2864,7 +2814,7 @@ export function PropertyPanel() {
           label={<span className="text-xs text-gray-400">顺位偏移</span>}
           className="mb-0"
         >
-          <InputNumber step={1} className="w-full" style={{ width: '100%' }} />
+          <InputNumber step={1} className="w-full w-full" />
         </Form.Item>
       </div>
     </Card>
@@ -2881,7 +2831,7 @@ export function PropertyPanel() {
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-4 bg-dark-900">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold" style={{ color: 'var(--color-accent)' }}>
+        <h2 className="panel-title">
           属性定义
         </h2>
         <span className="text-xs text-gray-500">自动记录变更并标记脏文件</span>
@@ -2891,12 +2841,6 @@ export function PropertyPanel() {
         <Card
           title="基础属性"
           className="mb-4"
-          headStyle={{
-            backgroundColor: '#252b3d',
-            borderBottom: '1px solid var(--color-border)',
-            color: 'var(--color-accent)',
-          }}
-          bodyStyle={{ backgroundColor: '#1a1f2e' }}
         >
           {supportsFlatBaseAttributes ? (
             <div className="grid grid-cols-4 gap-x-4 gap-y-4">
@@ -2916,7 +2860,6 @@ export function PropertyPanel() {
                       inputMode="numeric"
                       className="w-full"
                       placeholder="整数"
-                      style={{ width: '100%' }}
                     />
                   </Form.Item>
                 ),
@@ -2935,7 +2878,6 @@ export function PropertyPanel() {
                       inputMode="decimal"
                       className="w-full"
                       placeholder="数字"
-                      style={{ width: '100%' }}
                     />
                   </Form.Item>,
                 );
@@ -2955,7 +2897,6 @@ export function PropertyPanel() {
                   inputMode="numeric"
                   className="w-full"
                   placeholder="输入价格"
-                  style={{ width: '100%' }}
                 />
               </Form.Item>
             ) : null}
@@ -3001,7 +2942,6 @@ export function PropertyPanel() {
                     step={1}
                     className="w-full"
                     placeholder="输入武器图片 ID"
-                    style={{ width: '100%' }}
                   />
                 </Form.Item>
                 <Form.Item
@@ -3063,12 +3003,6 @@ export function PropertyPanel() {
           <Card
             title="技能 / 物品弹道 / 迎击配置"
             className="mb-4"
-            headStyle={{
-              backgroundColor: '#252b3d',
-              borderBottom: '1px solid var(--color-border)',
-              color: 'var(--color-accent)',
-            }}
-            bodyStyle={{ backgroundColor: '#1a1f2e' }}
           >
             <div className="text-xs text-gray-500 mb-4">
               这里维护技能/物品共用的结构化弹道与迎击字段，不再依赖 `meta.projectileId / skillProjectileTag / reactionSuccessRate / reactionPriority`。
@@ -3139,8 +3073,7 @@ export function PropertyPanel() {
                   min={0}
                   max={100}
                   step={1}
-                  className="w-full"
-                  style={{ width: '100%' }}
+                  className="w-full w-full"
                   disabled={watchedSkillProjectileTag !== SKILL_PROJECTILE_TAG_INTERCEPTOR}
                 />
               </Form.Item>
@@ -3153,8 +3086,7 @@ export function PropertyPanel() {
                   min={0}
                   max={100}
                   step={1}
-                  className="w-full"
-                  style={{ width: '100%' }}
+                  className="w-full w-full"
                   disabled={watchedSkillProjectileTag !== SKILL_PROJECTILE_TAG_INTERCEPTOR}
                 />
               </Form.Item>
@@ -3166,12 +3098,6 @@ export function PropertyPanel() {
           <Card
             title="技能武器动作配置"
             className="mb-4"
-            headStyle={{
-              backgroundColor: '#252b3d',
-              borderBottom: '1px solid var(--color-border)',
-              color: 'var(--color-accent)',
-            }}
-            bodyStyle={{ backgroundColor: '#1a1f2e' }}
           >
             <div className="grid grid-cols-4 gap-x-4 gap-y-4">
               <Form.Item
@@ -3192,21 +3118,21 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">最少次数</span>}
                 className="mb-0"
               >
-                <InputNumber min={1} max={8} step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber min={1} max={8} step={1} className="w-full w-full" />
               </Form.Item>
               <Form.Item
                 name={[SKILL_WEAPON_ACTION_FIELD_KEY, 'countMax']}
                 label={<span className="text-xs text-gray-400">最多次数</span>}
                 className="mb-0"
               >
-                <InputNumber min={1} max={8} step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber min={1} max={8} step={1} className="w-full w-full" />
               </Form.Item>
               <Form.Item
                 name={[SKILL_WEAPON_ACTION_FIELD_KEY, 'maxCount']}
                 label={<span className="text-xs text-gray-400">硬上限</span>}
                 className="mb-0"
               >
-                <InputNumber min={1} max={8} step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber min={1} max={8} step={1} className="w-full w-full" />
               </Form.Item>
               <Form.Item
                 name={[SKILL_WEAPON_ACTION_FIELD_KEY, 'ammoLimited']}
@@ -3229,21 +3155,21 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">耐久降低最小</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber min={0} step={1} className="w-full w-full" />
               </Form.Item>
               <Form.Item
                 name={[SKILL_WEAPON_ACTION_FIELD_KEY, 'durabilityLossMax']}
                 label={<span className="text-xs text-gray-400">耐久降低最大</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber min={0} step={1} className="w-full w-full" />
               </Form.Item>
               <Form.Item
                 name={[SKILL_WEAPON_ACTION_FIELD_KEY, 'friendStateId']}
                 label={<span className="text-xs text-gray-400">全员状态</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber min={0} step={1} className="w-full w-full" />
               </Form.Item>
             </div>
           </Card>
@@ -3253,12 +3179,6 @@ export function PropertyPanel() {
           <Card
             title={isItemFile ? '物品伤害 / 耐久协议' : '技能伤害 / 耐久协议'}
             className="mb-4"
-            headStyle={{
-              backgroundColor: '#252b3d',
-              borderBottom: '1px solid var(--color-border)',
-              color: 'var(--color-accent)',
-            }}
-            bodyStyle={{ backgroundColor: '#1a1f2e' }}
           >
             <div className="text-xs text-gray-500 mb-4">
               这里维护{isItemFile ? '物品' : '技能'}真实战斗语义的单一顶层协议 `skillEffectSpec`。伤害元素已纳入新协议，不再读取旧 `damage.elementId`。`formula` 支持基础通用公式与当前{isItemFile ? '物品' : '技能'}脚本两种来源，脚本模式仅列出当前{isItemFile ? '物品' : '技能'}脚本中导出 `damageFormula` 的键。
@@ -3270,7 +3190,7 @@ export function PropertyPanel() {
                   label={<span className="text-xs text-gray-400">使用次数上限</span>}
                   className="mb-0"
                 >
-                  <InputNumber min={-1} step={1} className="w-full" style={{ width: '100%' }} />
+                  <InputNumber min={-1} step={1} className="w-full w-full" />
                 </Form.Item>
                 <Form.Item
                   name={SKILL_NEED_TARGET_SELECT_FIELD_KEY}
@@ -3328,7 +3248,7 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">伤害浮动分散度</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} max={100} step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber min={0} max={100} step={1} className="w-full w-full" />
               </Form.Item>
               <Form.Item
                 name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'damage', 'formula', 'mode']}
@@ -3373,14 +3293,14 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">耐久度改变值</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber min={0} step={1} className="w-full w-full" />
               </Form.Item>
               <Form.Item
                 name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'skillDurability', 'halfBrokenSkipRate']}
                 label={<span className="text-xs text-gray-400">低耐久跳过概率</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} max={100} step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber min={0} max={100} step={1} className="w-full w-full" />
               </Form.Item>
             </div>
             {watchedDamageFormulaMode === 'script' && isDamageFormulaScriptOptionsLoading ? (
@@ -3418,12 +3338,6 @@ export function PropertyPanel() {
                   </div>
                 )}
                 className="mb-4"
-                headStyle={{
-                  backgroundColor: '#252b3d',
-                  borderBottom: '1px solid var(--color-border)',
-                  color: 'var(--color-accent)',
-                }}
-                bodyStyle={{ backgroundColor: '#1a1f2e' }}
               >
                 <div className="text-xs text-gray-500 mb-4">
                   所有消耗会并行生效并共同决定技能是否可释放。生命、金钱、变量使用 `value`，
@@ -3477,12 +3391,6 @@ export function PropertyPanel() {
           <Card
             title="敌人扩展"
             className="mb-4"
-            headStyle={{
-              backgroundColor: '#252b3d',
-              borderBottom: '1px solid var(--color-border)',
-              color: 'var(--color-accent)',
-            }}
-            bodyStyle={{ backgroundColor: '#1a1f2e' }}
           >
             <div className="text-xs text-gray-500 mb-4">
               这里直接维护敌人顶层扩展字段。迎击能力使用结构化 `canReaction + reactionSkillId`，
@@ -3507,28 +3415,28 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">等级</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber min={0} step={1} className="w-full w-full" />
               </Form.Item>
               <Form.Item
                 name={ENEMY_LEVEL_SCOPE_FIELD_KEY}
                 label={<span className="text-xs text-gray-400">等级下浮</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber min={0} step={1} className="w-full w-full" />
               </Form.Item>
               <Form.Item
                 name={ENEMY_LEVEL_SCOPE_UP_FIELD_KEY}
                 label={<span className="text-xs text-gray-400">等级上浮</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber min={0} step={1} className="w-full w-full" />
               </Form.Item>
               <Form.Item
                 name={ENEMY_BOUNTY_FIELD_KEY}
                 label={<span className="text-xs text-gray-400">赏金值</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber min={0} step={1} className="w-full w-full" />
               </Form.Item>
               <Form.Item
                 name={ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY}
@@ -3600,14 +3508,8 @@ export function PropertyPanel() {
             {renderOwnerParamsSection('战斗属性')}
             {renderStateChargeEditor()}
             <Card
+              className="card-dark mb-4"
               title="状态即时弱点效果"
-              className="mb-4"
-              headStyle={{
-                backgroundColor: '#252b3d',
-                borderBottom: '1px solid var(--color-border)',
-                color: 'var(--color-accent)',
-              }}
-              bodyStyle={{ backgroundColor: '#1a1f2e' }}
             >
               <div className="text-xs text-gray-500 mb-4">
                 这里只控制状态添加/移除时的一次性弱点操作。`切换弱点组` 写 `-1` 表示不切组，`0` 表示切回基础组，`1..n` 对应敌人的动态弱点组。
@@ -3644,12 +3546,6 @@ export function PropertyPanel() {
               <Card
                 title="敌人弱点组"
                 className="mb-4"
-                headStyle={{
-                  backgroundColor: '#252b3d',
-                  borderBottom: '1px solid var(--color-border)',
-                  color: 'var(--color-accent)',
-                }}
-                bodyStyle={{ backgroundColor: '#1a1f2e' }}
               >
                 <div className="rounded border border-dashed border-gray-600 px-4 py-6 text-sm text-gray-500 text-center">
                   当前系统没有可编辑元素，请先在 System.json 配置元素列表。
@@ -3680,12 +3576,6 @@ export function PropertyPanel() {
                         </div>
                       )}
                       className="mb-4"
-                      headStyle={{
-                        backgroundColor: '#252b3d',
-                        borderBottom: '1px solid var(--color-border)',
-                        color: 'var(--color-accent)',
-                      }}
-                      bodyStyle={{ backgroundColor: '#1a1f2e' }}
                     >
                       <div className="text-xs text-gray-500 mb-4">
                         动态组从 `groupIndex=1` 开始。这里同样是敌人弱点槽位，不是 owner 元素属性率；后续状态/技能即时效果会直接切到这些组，并同步刷新该组盾上限。
@@ -3711,12 +3601,6 @@ export function PropertyPanel() {
           <Card
             title="OTB 顺位规则"
             className="mb-4"
-            headStyle={{
-              backgroundColor: '#252b3d',
-              borderBottom: '1px solid var(--color-border)',
-              color: 'var(--color-accent)',
-            }}
-            bodyStyle={{ backgroundColor: '#1a1f2e' }}
           >
             <div className="text-xs text-gray-500 mb-4">
               这里直接维护技能/物品的结构化 `orderEffects` 字段，后续 OTB 运行时将直接读取，不再依赖备注正则。正数表示提前，负数表示延后；`targetCurrent` 改目标本回合，`targetNext` 改目标下回合，`targetFollow` 只会让 `targetNext` 在目标仍留在当前队列时改写到本回合。`userNext / speedConvert` 只影响使用者下回合顺位，不负责新增行动机会；状态结束后新增一动请改上面的“状态蓄力配置”。
@@ -3727,28 +3611,28 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">自身下回合偏移</span>}
                 className="mb-0"
               >
-                <InputNumber step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber step={1} className="w-full w-full" />
               </Form.Item>
               <Form.Item
                 name={[ORDER_EFFECTS_FIELD_KEY, 'targetCurrent']}
                 label={<span className="text-xs text-gray-400">目标本回合偏移</span>}
                 className="mb-0"
               >
-                <InputNumber step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber step={1} className="w-full w-full" />
               </Form.Item>
               <Form.Item
                 name={[ORDER_EFFECTS_FIELD_KEY, 'targetNext']}
                 label={<span className="text-xs text-gray-400">目标下回合偏移</span>}
                 className="mb-0"
               >
-                <InputNumber step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber step={1} className="w-full w-full" />
               </Form.Item>
               <Form.Item
                 name={[ORDER_EFFECTS_FIELD_KEY, 'speedConvert']}
                 label={<span className="text-xs text-gray-400">速度换算</span>}
                 className="mb-0"
               >
-                <InputNumber step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber step={1} className="w-full w-full" />
               </Form.Item>
               <Form.Item
                 name={[ORDER_EFFECTS_FIELD_KEY, 'targetFollow']}
@@ -3766,12 +3650,6 @@ export function PropertyPanel() {
           <Card
             title="技能/物品范围规则"
             className="mb-4"
-            headStyle={{
-              backgroundColor: '#252b3d',
-              borderBottom: '1px solid var(--color-border)',
-              color: 'var(--color-accent)',
-            }}
-            bodyStyle={{ backgroundColor: '#1a1f2e' }}
           >
             <div className="grid grid-cols-4 gap-x-4 gap-y-4">
               <Form.Item
@@ -3855,7 +3733,7 @@ export function PropertyPanel() {
                   label={<span className="text-xs text-gray-400">范围几体</span>}
                   className="mb-0"
                 >
-                  <InputNumber min={1} step={1} className="w-full" style={{ width: '100%' }} />
+                  <InputNumber min={1} step={1} className="w-full w-full" />
                 </Form.Item>
               ) : null}
               <Form.Item
@@ -3863,14 +3741,14 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">重复次数</span>}
                 className="mb-0"
               >
-                <InputNumber min={1} step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber min={1} step={1} className="w-full w-full" />
               </Form.Item>
               <Form.Item
                 name={REPEAT_TIME_FLOAT_FIELD_KEY}
                 label={<span className="text-xs text-gray-400">重复次数浮动</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber min={0} step={1} className="w-full w-full" />
               </Form.Item>
             </div>
             {shouldShowCommonShapeSection ? (
@@ -3885,12 +3763,6 @@ export function PropertyPanel() {
           <Card
             title="武器范围规则"
             className="mb-4"
-            headStyle={{
-              backgroundColor: '#252b3d',
-              borderBottom: '1px solid var(--color-border)',
-              color: 'var(--color-accent)',
-            }}
-            bodyStyle={{ backgroundColor: '#1a1f2e' }}
           >
             <div className="grid grid-cols-4 gap-x-4 gap-y-4">
               <Form.Item
@@ -3939,7 +3811,7 @@ export function PropertyPanel() {
                   label={<span className="text-xs text-gray-400">武器几体</span>}
                   className="mb-0"
                 >
-                  <InputNumber min={1} step={1} className="w-full" style={{ width: '100%' }} />
+                  <InputNumber min={1} step={1} className="w-full w-full" />
                 </Form.Item>
               ) : null}
               <Form.Item
@@ -3947,14 +3819,14 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">武器重复次数</span>}
                 className="mb-0"
               >
-                <InputNumber min={1} step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber min={1} step={1} className="w-full w-full" />
               </Form.Item>
               <Form.Item
                 name={REPEAT_TIME_FLOAT_FIELD_KEY}
                 label={<span className="text-xs text-gray-400">重复次数浮动</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={1} className="w-full" style={{ width: '100%' }} />
+                <InputNumber min={0} step={1} className="w-full w-full" />
               </Form.Item>
             </div>
             {shouldShowWeaponShapeSection ? (
@@ -3969,12 +3841,6 @@ export function PropertyPanel() {
           <Card
             title="元素属性率"
             className="mb-4"
-            headStyle={{
-              backgroundColor: '#252b3d',
-              borderBottom: '1px solid var(--color-border)',
-              color: 'var(--color-accent)',
-            }}
-            bodyStyle={{ backgroundColor: '#1a1f2e' }}
           >
             <div className="text-xs text-gray-500 mb-4">
               这里维护防具自身提供的固定元素属性率与浮动值。正数表示穿上后更脆，受到该元素伤害增加；负数表示抗性，受到该元素伤害减少。基础值 0.2 表示 +20%，-0.2 表示 -20%；浮动 0.05 表示在该基础上再做 ±5% 变化。索引 0 固定为 0，不在面板中编辑。
@@ -3992,14 +3858,14 @@ export function PropertyPanel() {
                       label={<span className="text-xs text-gray-400">{field.label} 值</span>}
                       className="mb-0"
                     >
-                      <InputNumber step={0.01} className="w-full" style={{ width: '100%' }} />
+                      <InputNumber step={0.01} className="w-full w-full" />
                     </Form.Item>
                     <Form.Item
                       name={[ELEMENT_RATE_FLOATS_FIELD_KEY, field.id]}
                       label={<span className="text-xs text-gray-400">{field.label} 浮动</span>}
                       className="mb-0"
                     >
-                      <InputNumber min={0} step={0.01} className="w-full" style={{ width: '100%' }} />
+                      <InputNumber min={0} step={0.01} className="w-full w-full" />
                     </Form.Item>
                   </div>
                 ))}
@@ -4055,12 +3921,6 @@ export function PropertyPanel() {
           </div>
         }
         className="mb-4"
-        headStyle={{
-          backgroundColor: '#252b3d',
-          borderBottom: '1px solid var(--color-border)',
-          color: 'var(--color-accent)',
-        }}
-        bodyStyle={{ backgroundColor: '#1a1f2e' }}
       >
         <div className="grid grid-cols-1 gap-y-3">
           <div className="text-xs text-gray-500">
@@ -4115,12 +3975,6 @@ export function PropertyPanel() {
             </Button>
           </div>
         }
-        headStyle={{
-          backgroundColor: '#252b3d',
-          borderBottom: '1px solid var(--color-border)',
-          color: 'var(--color-accent)',
-        }}
-        bodyStyle={{ backgroundColor: '#1a1f2e' }}
       >
         <div className="text-xs text-gray-500 mb-4">
           这里只保留非业务扩展字段。命中、回避、暴击、暴伤、载重、承重、连发、弹舱等固定属性请改上方模板。
@@ -4139,7 +3993,7 @@ export function PropertyPanel() {
               <span className="text-xs text-gray-400" style={{ flex: 1 }}>
                 浮动数值（第3列）
               </span>
-              <span className="text-xs text-gray-400" style={{ width: 32 }}>
+              <span className="text-xs text-gray-400 w-[32px]">
                 操作
               </span>
             </div>

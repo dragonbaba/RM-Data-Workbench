@@ -1,4 +1,5 @@
 import type { RPGItem, StateChargeConfig } from '../types';
+import { arePlainDataEqual } from './PlainDataCompare';
 
 export const STATE_CHARGE_QUEUE_SCOPE_CURRENT = 0;
 export const STATE_CHARGE_QUEUE_SCOPE_NEXT = 1;
@@ -75,7 +76,7 @@ export function areStateChargeConfigsEqual(
 ): boolean {
   const normalizedLeft = normalizeStateChargeEditorValues(left);
   const normalizedRight = normalizeStateChargeEditorValues(right);
-  return JSON.stringify(normalizedLeft) === JSON.stringify(normalizedRight);
+  return arePlainDataEqual(normalizedLeft, normalizedRight);
 }
 
 export function normalizeStateDataEntry(state: unknown): RPGItem | null {
