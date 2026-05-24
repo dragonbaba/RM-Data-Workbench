@@ -722,7 +722,7 @@ const normalizeEnemyWeaknessSlot = (value: unknown) => {
   const record = value as Record<string, unknown>;
   return {
     elementId: Math.max(0, toIntOrZero(record.elementId)),
-    rate: toFloatOrZero(record.rate),
+    rate: Math.abs(toFloatOrZero(record.rate)),
   };
 };
 
@@ -2572,10 +2572,10 @@ export function PropertyPanel() {
                   </Form.Item>
                   <Form.Item
                     name={[field.name, 'rate']}
-                    label={<span className="text-xs text-gray-400">倍率增量</span>}
+                    label={<span className="text-xs text-gray-400">弱点倍率 (正数=弱点)</span>}
                     className="mb-0"
                   >
-                    <InputNumber step={0.01} className="w-full" />
+                    <InputNumber min={0} step={0.01} className="w-full" />
                   </Form.Item>
                   <Button
                     type="text"
@@ -2662,10 +2662,10 @@ export function PropertyPanel() {
                     <Form.Item
                       name={[slotField.name, 'rate']}
                       fieldKey={slotField.fieldKey !== undefined ? [slotField.fieldKey, 'rate'] : undefined}
-                      label={<span className="text-xs text-gray-400">倍率增量</span>}
+                      label={<span className="text-xs text-gray-400">弱点倍率 (正数=弱点)</span>}
                       className="mb-0"
                     >
-                      <InputNumber step={0.01} className="w-full" />
+                      <InputNumber min={0} step={0.01} className="w-full" />
                     </Form.Item>
                     <Button
                       type="text"
@@ -3556,7 +3556,7 @@ export function PropertyPanel() {
                 {renderWeaknessGroupCard(
                   '基础弱点组',
                   [ENEMY_BASE_WEAKNESS_GROUP_FIELD_KEY],
-                  '基础组会作为 groupIndex=0 使用。这里是敌人弱点槽位，不是 owner 元素属性率；倍率写增量值，最终按 `1 + 增量` 结算，`0.3` 表示实际元素倍率为 `1.3`，`-0.2` 表示实际元素倍率为 `0.8`。',
+                  '正数即弱点倍率增量，最终按 1+增量 结算受伤百分比。例如 0.3 表示受到 130% 伤害（+30%），填写 0 无弱点。仅允许输入正数（小数），负数自动转为正数。',
                   '当前没有基础弱点，敌人将不会显示弱点槽位。',
                 )}
                 <Form.List name={ENEMY_DYNAMIC_WEAKNESS_GROUPS_FIELD_KEY}>

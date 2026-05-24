@@ -336,6 +336,31 @@ export function normalizeEnemyEditorValues(
   };
 }
 
+const normalizeWeaknessSlot = (value: unknown) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { elementId: 0, rate: 0 };
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    elementId: Math.max(0, toIntOrZero(record.elementId)),
+    rate: Math.abs(typeof record.rate === 'number' ? record.rate : Number(record.rate) || 0),
+  };
+};
+
+const normalizeWeaknessGroup = (value: unknown) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  const shieldMax = Math.max(0, toIntOrZero(record.shieldMax));
+  const rawSlots = Array.isArray(record.slots) ? record.slots : [];
+  const slots: Array<{ elementId: number; rate: number }> = [];
+  for (let i = 0; i < rawSlots.length; i++) {
+    slots.push(normalizeWeaknessSlot(rawSlots[i]));
+  }
+  return { shieldMax, slots };
+};
+
 export function normalizeEnemyDataEntry(
   enemy: unknown,
   skillsData?: unknown[] | null,
@@ -343,6 +368,10 @@ export function normalizeEnemyDataEntry(
   if (!isRecord(enemy)) return null;
   const normalized = normalizeEnemyEditorValues(enemy, skillsData);
   const currentMeta = isRecord(enemy.meta) ? enemy.meta : {};
+
+  const baseWeakness = normalizeWeaknessGroup((enemy as Record<string, unknown>).baseWeaknessGroup);
+  const dynRaw = (enemy as Record<string, unknown>).dynamicWeaknessGroups;
+  const normalizedDynamic = Array.isArray(dynRaw) ? dynRaw.map(normalizeWeaknessGroup).filter(g => g != null) as Array<{ shieldMax: number; slots: Array<{ elementId: number; rate: number }> }> : [];
 
   return {
     ...(enemy as unknown as RPGEnemy),
@@ -359,6 +388,8 @@ export function normalizeEnemyDataEntry(
     reactionSkillId: normalized.reactionSkillId,
     bookChallenge: normalized.bookChallenge,
     actionOverrides: normalized.actionOverrides,
+    ...(baseWeakness != null ? { baseWeaknessGroup: baseWeakness } : {}),
+    ...(normalizedDynamic.length > 0 ? { dynamicWeaknessGroups: normalizedDynamic } : {}),
   };
 }
 
