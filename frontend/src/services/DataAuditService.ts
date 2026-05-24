@@ -14,6 +14,7 @@ import {
   OWNER_SCALAR_KEYS,
   OWNER_SPECIAL_PARAM_KEYS,
 } from '../types';
+import { NEWLINE_REGEXP, TRAILING_PATH_SEPARATORS_REGEXP } from '../constants/regexp';
 
 export const ACTORS_FILE_NAME = 'Actors.json';
 export const CLASSES_FILE_NAME = 'Classes.json';
@@ -82,9 +83,10 @@ const OWNER_PROBABILITY_EXTRA_PARAM_KEYS = new Set([
   'critRate',
   'interceptRate',
 ]);
+
 const CLASS_PARAM_COUNT = 8;
 const CLASS_PARAM_LEVEL_COUNT = 100;
-const DESCRIPTION_LINE_SPLIT_REGEX = /\r?\n/;
+const DESCRIPTION_LINE_SPLIT_REGEX = NEWLINE_REGEXP;
 
 export interface DataAuditFileResult {
   fileName: string;
@@ -108,7 +110,7 @@ export interface DataAuditDependencies {
 
 const joinPath = (basePath: string, fileName: string) => {
   if (!basePath) return fileName;
-  return `${basePath.replace(/[\\/]+$/, '')}/${fileName}`;
+  return `${basePath.replace(TRAILING_PATH_SEPARATORS_REGEXP, '')}/${fileName}`;
 };
 
 const normalizeFilePayload = (fileName: string, data: unknown): unknown[] => {

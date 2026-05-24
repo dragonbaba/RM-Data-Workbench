@@ -2,6 +2,7 @@ import { FileExists, GetDefaultQuest, ReadJSON, WriteJSON } from '../../wailsjs/
 import { EventSystem } from '../core/EventSystem';
 import type { ProjectileTemplate, RPGMap, RPGMapInfo } from '../types';
 import { normalizeStandardDataForEditor, SYSTEM_FILE_NAME } from './DataFileFormatService';
+import { BACKSLASH_REGEXP, MAP_ID_REGEXP, TRAILING_PATH_SEPARATORS_REGEXP, WINDOWS_DRIVE_REGEXP } from '../constants/regexp';
 import { createDefaultProjectileTemplate } from './ProjectileTemplateService';
 import {
   createDefaultEquipExtensions,
@@ -42,7 +43,7 @@ export interface ReloadedFileResult {
 
 const joinPath = (basePath: string, fileName: string) => {
   if (!basePath) return fileName;
-  return `${basePath.replace(/[\\/]+$/, '')}/${fileName}`;
+  return `${basePath.replace(TRAILING_PATH_SEPARATORS_REGEXP, '')}/${fileName}`;
 };
 
 const buildMapFileName = (mapId: number) => `Map${String(mapId).padStart(3, '0')}.json`;
@@ -58,8 +59,8 @@ class DataLoaderServiceClass {
   }
 
   private normalizePath(path: string): string {
-    const normalized = (path || '').replace(/\\/g, '/');
-    return /^[A-Za-z]:\//.test(normalized) ? normalized.toLowerCase() : normalized;
+    const normalized = (path || '').replace(BACKSLASH_REGEXP, '/');
+    return WINDOWS_DRIVE_REGEXP.test(normalized) ? normalized.toLowerCase() : normalized;
   }
 
   private normalizeMapInfos(data: unknown): RPGMapInfo[] {
@@ -113,7 +114,7 @@ class DataLoaderServiceClass {
   }
 
   private extractMapId(fileName: string): number | null {
-    const match = /^map(\d+)\.json$/i.exec(fileName);
+    const match = MAP_ID_REGEXP.exec(fileName);
     if (!match) return null;
     const value = Number(match[1]);
     return Number.isInteger(value) && value > 0 ? value : null;
@@ -123,7 +124,7 @@ class DataLoaderServiceClass {
     const lower = (fileName || '').toLowerCase();
     if (lower.includes('quest')) return 'quest';
     if (lower.includes('projectile')) return 'projectile';
-    if (lower === MAP_INFOS_FILE_NAME.toLowerCase() || /^map\d+\.json$/i.test(fileName)) return 'map';
+    if (lower === MAP_INFOS_FILE_NAME.toLowerCase() || MAP_ID_REGEXP.test(fileName)) return 'map';
     return 'data';
   }
 

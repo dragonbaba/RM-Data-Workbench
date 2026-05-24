@@ -68,24 +68,26 @@ const DROP_DEPENDENCY_FILES = new Set([
   'armors.json',
 ]);
 
+import { BACKSLASH_REGEXP, MAP_ID_REGEXP, WINDOWS_DRIVE_REGEXP } from '../constants/regexp';
+
 const PROPERTY_DEPENDENCY_FILES = new Map<string, Set<string>>([
   ['weapons.json', new Set(['system.json', 'skills.json', 'equipextensions.json'])],
   ['skills.json', new Set(['projectiles.json'])],
 ]);
 
 export const normalizeDataPathKey = (value: string): string => {
-  const normalized = (value || '').replace(/\\/g, '/');
-  return /^[A-Za-z]:\//.test(normalized) ? normalized.toLowerCase() : normalized;
+  const normalized = (value || '').replace(BACKSLASH_REGEXP, '/');
+  return WINDOWS_DRIVE_REGEXP.test(normalized) ? normalized.toLowerCase() : normalized;
 };
 
 export const extractFileName = (filePath: string): string => {
-  const normalized = (filePath || '').replace(/\\/g, '/');
+  const normalized = (filePath || '').replace(BACKSLASH_REGEXP, '/');
   return normalized.split('/').pop() || '';
 };
 
 const normalizeFileName = (fileName: string): string => (fileName || '').trim().toLowerCase();
 
-export const isMapFileName = (fileName: string): boolean => /^Map\d+\.json$/i.test(fileName || '');
+export const isMapFileName = (fileName: string): boolean => MAP_ID_REGEXP.test(fileName || '');
 
 export const isReloadableDataFile = (fileName: string): boolean => {
   if (!fileName) return false;
@@ -107,7 +109,7 @@ export const isReloadableDataFile = (fileName: string): boolean => {
     'system.json',
     'troops.json',
     'weapons.json',
-  ].includes(normalized) || /^map\d+\.json$/i.test(fileName);
+  ].includes(normalized) || MAP_ID_REGEXP.test(fileName);
 };
 
 export const resolveDataChangeImpact = (

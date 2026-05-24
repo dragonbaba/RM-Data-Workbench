@@ -3,14 +3,15 @@ import { persist } from 'zustand/middleware';
 import { AppState, EditorConfig, EditorMode, FileType, RPGItem, RPGMap, RPGMapInfo, RPGQuest, ProjectileTemplate } from '../types';
 import { EventSystem } from '../core/EventSystem';
 import { DataLoaderService } from '../services/DataLoaderService';
+import { BACKSLASH_REGEXP, WINDOWS_DRIVE_REGEXP } from '../constants/regexp';
 
 const STORAGE_KEY = 'rpg-editor-config';
 const DIRTY_FILES_KEY = 'rpg-editor-dirty-files';
 const DIRTY_ITEM_INDEXES_KEY = 'rpg-editor-dirty-item-indexes';
 
 const normalizePathKey = (input: string): string => {
-  const normalized = (input || '').replace(/\\/g, '/');
-  return /^[A-Za-z]:\//.test(normalized) ? normalized.toLowerCase() : normalized;
+  const normalized = (input || '').replace(BACKSLASH_REGEXP, '/');
+  return WINDOWS_DRIVE_REGEXP.test(normalized) ? normalized.toLowerCase() : normalized;
 };
 
 const defaultConfig: EditorConfig = {

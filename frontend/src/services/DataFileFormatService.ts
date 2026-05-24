@@ -1,8 +1,10 @@
+import { BACKSLASH_REGEXP } from '../constants/regexp';
+
 type RecordLike = Record<string, unknown>;
 
 export const SYSTEM_FILE_NAME = 'System.json';
 
-const normalizePath = (value: string) => (value || '').replace(/\\/g, '/');
+const normalizePath = (value: string) => (value || '').replace(BACKSLASH_REGEXP, '/');
 
 export const extractFileNameFromPath = (filePath: string): string => {
   const normalized = normalizePath(filePath);

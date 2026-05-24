@@ -1,9 +1,7 @@
-const INT_REGEX = /^-?\d+$/;
-const FLOAT_REGEX = /^-?\d+\.\d+$/;
-const META_TAG_REGEX = /<([^<>:]+)(:?)([^>]*)>/g;
+import { FLOAT_STRING_REGEXP, INTEGER_STRING_REGEXP, META_TAG_REGEXP } from '../constants/regexp';
 
 function isNumberString(value: string): boolean {
-  return INT_REGEX.test(value) || FLOAT_REGEX.test(value);
+  return INTEGER_STRING_REGEXP.test(value) || FLOAT_STRING_REGEXP.test(value);
 }
 
 function isBooleanString(value: string): boolean {
@@ -58,7 +56,7 @@ export function extractMetadataFromNote(note: string | null | undefined): Record
   const source = typeof note === 'string' ? note : '';
   const metaInfo: Record<string, unknown> = Object.create(null);
 
-  for (const tag of source.matchAll(META_TAG_REGEX)) {
+  for (const tag of source.matchAll(META_TAG_REGEXP)) {
     const tagName = tag[1];
     const tagPattern = tag[2];
     const tagValue = tag[3];

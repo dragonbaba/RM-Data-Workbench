@@ -6,14 +6,11 @@ import { extractScriptCode } from './ScriptContentUtils';
 import { formatStoredScriptPath, hasLegacyTimestampScriptPath, normalizeItemScriptPaths, resolveScriptFilePath } from './ScriptPathCompat';
 import { appendEditorFailureLog, buildSaveFailureLog, formatSaveFailureError } from './SaveFailureLogger';
 import { setEditorStore, useEditorStore } from '../stores/editorStore';
-
-const HTTP_PROTOCOL_REGEXP = /^(https?:)?\/\//i;
-const BACKSLASH_REGEXP = /\\/g;
-const TRAILING_SLASH_REGEXP = /[\\/]+$/;
+import { BACKSLASH_REGEXP, FORWARD_SLASH_REGEXP, HTTP_PROTOCOL_REGEXP, TRAILING_PATH_SEPARATORS_REGEXP } from '../constants/regexp';
 
 const normalizePath = (value: string): string => {
   if (!value) return '';
-  return value.replace(BACKSLASH_REGEXP, '/').replace(TRAILING_SLASH_REGEXP, '');
+  return value.replace(BACKSLASH_REGEXP, '/').replace(TRAILING_PATH_SEPARATORS_REGEXP, '');
 };
 
 const encodeText = (text: string): number[] => Array.from(new TextEncoder().encode(text));
@@ -162,7 +159,7 @@ const readScriptFile = async (filePath: string): Promise<string | null> => {
   try {
     return await ReadFileString(filePath);
   } catch (error) {
-    const normalized = filePath.replace(/\//g, '\\');
+    const normalized = filePath.replace(FORWARD_SLASH_REGEXP, '\\');
     try {
       return await ReadFileString(normalized);
     } catch (secondaryError) {

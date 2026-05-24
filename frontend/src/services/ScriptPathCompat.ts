@@ -1,12 +1,16 @@
 import { useEditorStore } from '../stores/editorStore';
+import {
+  BACKSLASH_REGEXP,
+  HTTP_PROTOCOL_REGEXP,
+  LEADING_DOT_SLASH_REGEXP,
+  LEADING_SLASH_REGEXP,
+  LEGACY_TIMESTAMP_FILE_REGEXP,
+  TRAILING_PATH_SEPARATORS_REGEXP,
+  WINDOWS_DRIVE_ANY_SLASH_REGEXP,
+} from '../constants/regexp';
 
-const TRANSFORM_REGEXP = /[\\/]+$/;
-const BACKSLASH_REGEXP = /\\/g;
-const LEADING_DOT_SLASH_REGEXP = /^\.\/+/;
-const LEADING_SLASH_REGEXP = /^\/+/;
-const WINDOWS_DRIVE_REGEXP = /^[a-zA-Z]:[\\/]/;
-const HTTP_PROTOCOL_REGEXP = /^(https?:)?\/\//i;
-const LEGACY_TIMESTAMP_FILE_REGEXP = /_\d{10,}\.js$/i;
+const TRANSFORM_REGEXP = TRAILING_PATH_SEPARATORS_REGEXP;
+const WINDOWS_DRIVE_REGEXP = WINDOWS_DRIVE_ANY_SLASH_REGEXP;
 
 const normalizeSlashes = (value: string): string => (value ? value.replace(BACKSLASH_REGEXP, '/') : '');
 

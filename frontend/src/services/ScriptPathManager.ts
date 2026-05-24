@@ -4,6 +4,13 @@
  */
 
 import { EventSystem } from '../core/EventSystem';
+import {
+  BACKSLASH_REGEXP,
+  FILE_EXTENSION_REGEXP,
+  REMOVE_EXTENSION_REGEXP,
+  TRAILING_FORWARD_SLASH_REGEXP,
+  WINDOWS_DRIVE_ANY_SLASH_REGEXP,
+} from '../constants/regexp';
 
 class ScriptPathManagerClass {
   private workspaceRoot: string = '';
@@ -29,7 +36,7 @@ class ScriptPathManagerClass {
    */
   normalizePath(path: string): string {
     if (!path) return '';
-    return path.replace(/\\/g, '/').replace(/\/$/, '');
+    return path.replace(BACKSLASH_REGEXP, '/').replace(TRAILING_FORWARD_SLASH_REGEXP, '');
   }
 
   /**
@@ -49,14 +56,14 @@ class ScriptPathManagerClass {
     const normalized = this.normalizePath(filePath);
     const parts = normalized.split('/');
     const fileName = parts[parts.length - 1] || '';
-    return fileName.replace(/\.[^/.]+$/, '');
+    return fileName.replace(REMOVE_EXTENSION_REGEXP, '');
   }
 
   /**
    * 获取文件扩展名
    */
   getExtension(filePath: string): string {
-    const match = filePath.match(/\.([^.]+)$/);
+    const match = filePath.match(FILE_EXTENSION_REGEXP);
     return match ? match[1] : '';
   }
 
@@ -95,7 +102,7 @@ class ScriptPathManagerClass {
    */
   isAbsolutePath(path: string): boolean {
     const normalized = this.normalizePath(path);
-    return normalized.startsWith('/') || /^[a-zA-Z]:/.test(normalized);
+    return normalized.startsWith('/') || WINDOWS_DRIVE_ANY_SLASH_REGEXP.test(normalized);
   }
 
   /**

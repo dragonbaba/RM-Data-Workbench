@@ -4,6 +4,13 @@ import type {
   SkillCostType,
 } from '../types';
 import { normalizeCommonRangeValues } from './RangePropertyService';
+import {
+  EXPORT_FUNCTION_DAMAGE_FORMULA_REGEXP,
+  EXPORT_NAMED_DAMAGE_FORMULA_REGEXP,
+  EXPORT_VARIABLE_DAMAGE_FORMULA_REGEXP,
+  NEWLINE_REGEXP,
+  SKILL_NOTE_MIGRATED_LINE_REGEXP,
+} from '../constants/regexp';
 
 export const SKILL_PROJECTILE_TAG_NONE = -1;
 export const SKILL_PROJECTILE_TAG_INTERCEPTOR = 0;
@@ -569,8 +576,8 @@ const cleanMigratedSkillMeta = (meta: Record<string, unknown>): Record<string, u
 const cleanMigratedSkillNote = (note: unknown): unknown => {
   if (typeof note !== 'string') return note;
   return note
-    .split(/\r?\n/)
-    .filter((line) => !/^<\s*(?:limits|lilmits|needTargetSelect|needWeaponSelect)\s*:/i.test(line.trim()))
+    .split(NEWLINE_REGEXP)
+    .filter((line) => !SKILL_NOTE_MIGRATED_LINE_REGEXP.test(line.trim()))
     .join('\n');
 };
 
@@ -586,9 +593,9 @@ export const hasDamageFormulaExport = (content: unknown): boolean => {
   if (typeof content !== 'string' || !content.trim()) {
     return false;
   }
-  return /\bexport\s+(?:async\s+)?function\s+damageFormula\b/.test(content)
-    || /\bexport\s+(?:const|let|var)\s+damageFormula\b/.test(content)
-    || /\bexport\s*\{\s*damageFormula(?:\s+as\s+\w+)?\s*\}/.test(content);
+  return EXPORT_FUNCTION_DAMAGE_FORMULA_REGEXP.test(content)
+    || EXPORT_VARIABLE_DAMAGE_FORMULA_REGEXP.test(content)
+    || EXPORT_NAMED_DAMAGE_FORMULA_REGEXP.test(content);
 };
 
 export function normalizeSkillEditorValues(

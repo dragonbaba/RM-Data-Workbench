@@ -4,6 +4,7 @@
  */
 
 import { EventSystem } from '../core/EventSystem';
+import { DIGIT_ONLY_REGEXP, JSON_PATH_SPLIT_REGEXP } from '../constants/regexp';
 
 interface SerializationOptions {
   pretty?: boolean;
@@ -196,15 +197,15 @@ class JSONSerializerClass {
    * 在指定路径设置值
    */
   private setValueAtPath(obj: any, path: string, value: any): void {
-    const keys = path.split(/\.|\[(\d+)\]/).filter(Boolean);
+    const keys = path.split(JSON_PATH_SPLIT_REGEXP).filter(Boolean);
     let current = obj;
 
     for (let i = 0; i < keys.length - 1; i++) {
       const key = keys[i];
       const nextKey = keys[i + 1];
-      
+
       if (!(key in current)) {
-        current[key] = /^\d+$/.test(nextKey) ? [] : {};
+        current[key] = DIGIT_ONLY_REGEXP.test(nextKey) ? [] : {};
       }
       
       current = current[key];

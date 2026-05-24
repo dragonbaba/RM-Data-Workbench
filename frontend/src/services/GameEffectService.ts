@@ -8,6 +8,7 @@ import type {
   GameEffectType,
 } from '../types';
 import { extractSystemRecord } from './DataFileFormatService';
+import { NEWLINE_OR_COMMA_REGEXP } from '../constants/regexp';
 
 export interface EnsureItemEffectsResult<T> {
   item: T;
@@ -222,7 +223,7 @@ const normalizeDescriptionLines = (value: unknown): string[] | undefined => {
     return undefined;
   }
   const lines = value
-    .split(/\r?\n|，|,/)
+    .split(NEWLINE_OR_COMMA_REGEXP)
     .map((entry) => entry.trim());
   return lines.length > 0 ? lines : undefined;
 };

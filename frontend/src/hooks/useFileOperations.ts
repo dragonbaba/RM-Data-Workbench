@@ -23,6 +23,7 @@ import { copyScript, createScript, deleteAllScripts, deleteScript, renameScript,
 import { ScriptPathManager } from '../services/ScriptPathManager';
 import { EQUIP_EXTENSIONS_FILE_NAME } from '../services/EquipExtensionsService';
 import { ExternalDataChangeQueue } from '../services/ExternalDataChangeQueue';
+import { BACKSLASH_REGEXP, MAP_ID_REGEXP, TRAILING_PATH_SEPARATORS_REGEXP, WINDOWS_DRIVE_REGEXP } from '../constants/regexp';
 
 interface WorkspacePayload {
   projectRoot: string;
@@ -60,13 +61,13 @@ const EXTERNAL_CHANGE_BATCH_WINDOW_MS = 180;
 
 const joinPath = (basePath: string, fileName: string) => {
   if (!basePath) return fileName;
-  return `${basePath.replace(/[\\/]+$/, '')}/${fileName}`;
+  return `${basePath.replace(TRAILING_PATH_SEPARATORS_REGEXP, '')}/${fileName}`;
 };
 
-const normalizePath = (value: string) => value.replace(/\\/g, '/');
+const normalizePath = (value: string) => value.replace(BACKSLASH_REGEXP, '/');
 const normalizePathKey = (value: string) => {
   const normalized = normalizePath(value || '');
-  return /^[A-Za-z]:\//.test(normalized) ? normalized.toLowerCase() : normalized;
+  return WINDOWS_DRIVE_REGEXP.test(normalized) ? normalized.toLowerCase() : normalized;
 };
 
 const getFileName = (filePath: string) => normalizePath(filePath).split('/').pop() || '';
@@ -99,7 +100,7 @@ const getDirectoryPath = (filePath: string) => {
 };
 
 const extractMapIdFromFileName = (fileName: string): number | null => {
-  const match = /^map(\d+)\.json$/i.exec(fileName);
+  const match = MAP_ID_REGEXP.exec(fileName);
   if (!match) return null;
   const value = Number(match[1]);
   return Number.isInteger(value) && value > 0 ? value : null;

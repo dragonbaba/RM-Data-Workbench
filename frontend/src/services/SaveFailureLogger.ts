@@ -14,8 +14,10 @@ const formatUnknownError = (error: unknown): string => {
   }
 };
 
+import { TRAILING_WHITESPACE_REGEXP } from '../constants/regexp';
+
 const ensureTrailingBreak = (content: string): string => {
-  const trimmed = content.replace(/\s+$/, '');
+  const trimmed = content.replace(TRAILING_WHITESPACE_REGEXP, '');
   return `${trimmed}\n\n`;
 };
 
