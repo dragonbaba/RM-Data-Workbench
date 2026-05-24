@@ -1844,7 +1844,7 @@ export function PropertyPanel() {
                   min={0}
                   max={costType === 'variableRate' ? 100 : undefined}
                   step={1}
-                  className="w-full w-full"
+                  className="w-full"
                 />
               </Form.Item>
             </>
@@ -1882,7 +1882,7 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">数量</span>}
                 className="mb-0"
               >
-                <InputNumber min={1} step={1} className="w-full w-full" />
+                <InputNumber min={1} step={1} className="w-full" />
               </Form.Item>
             </>
           );
@@ -1898,7 +1898,7 @@ export function PropertyPanel() {
               min={0}
               max={costType === 'hpRate' || costType === 'goldRate' ? 100 : undefined}
               step={1}
-              className="w-full w-full"
+              className="w-full"
             />
           </Form.Item>
         );
@@ -2017,7 +2017,7 @@ export function PropertyPanel() {
           label={<span className="text-xs text-gray-400">圆形半径</span>}
           className="mb-0"
         >
-          <InputNumber min={0} step={1} className="w-full w-full" />
+          <InputNumber min={0} step={1} className="w-full" />
         </Form.Item>
       ) : null}
       {activeShapeType === 2 ? (
@@ -2027,14 +2027,14 @@ export function PropertyPanel() {
             label={<span className="text-xs text-gray-400">扇形半径</span>}
             className="mb-0"
           >
-            <InputNumber min={0} step={1} className="w-full w-full" />
+            <InputNumber min={0} step={1} className="w-full" />
           </Form.Item>
           <Form.Item
             name={[SHAPE_PARAMS_FIELD_KEY, '2', 'angleDeg']}
             label={<span className="text-xs text-gray-400">扇形角度</span>}
             className="mb-0"
           >
-            <InputNumber min={0} step={1} className="w-full w-full" />
+            <InputNumber min={0} step={1} className="w-full" />
           </Form.Item>
         </>
       ) : null}
@@ -2045,14 +2045,14 @@ export function PropertyPanel() {
             label={<span className="text-xs text-gray-400">矩形宽度</span>}
             className="mb-0"
           >
-            <InputNumber min={0} step={1} className="w-full w-full" />
+            <InputNumber min={0} step={1} className="w-full" />
           </Form.Item>
           <Form.Item
             name={[SHAPE_PARAMS_FIELD_KEY, '3', 'length']}
             label={<span className="text-xs text-gray-400">矩形长度</span>}
             className="mb-0"
           >
-            <InputNumber min={0} step={1} className="w-full w-full" />
+            <InputNumber min={0} step={1} className="w-full" />
           </Form.Item>
         </>
       ) : null}
@@ -2094,7 +2094,7 @@ export function PropertyPanel() {
               name={[groupKey, field.index, 'value']}
               className="mb-0"
             >
-              <InputNumber className="w-full w-full" step={1} />
+              <InputNumber className="w-full" step={1} />
             </Form.Item>
           ),
           (
@@ -2103,7 +2103,7 @@ export function PropertyPanel() {
               name={[groupKey, field.index, 'floatValue']}
               className="mb-0"
             >
-              <InputNumber className="w-full w-full" step={0.1} />
+              <InputNumber className="w-full" step={0.1} />
             </Form.Item>
           ),
           (
@@ -2112,7 +2112,7 @@ export function PropertyPanel() {
               name={[groupKey, field.index, 'upgradeValue']}
               className="mb-0"
             >
-              <InputNumber className="w-full w-full" step={1} />
+              <InputNumber className="w-full" step={1} />
             </Form.Item>
           ),
           (
@@ -2121,7 +2121,7 @@ export function PropertyPanel() {
               name={[groupKey, field.index, 'upgradeFloatValue']}
               className="mb-0"
             >
-              <InputNumber className="w-full w-full" step={0.1} />
+              <InputNumber className="w-full" step={0.1} />
             </Form.Item>
           ),
         ])}
@@ -2176,10 +2176,10 @@ export function PropertyPanel() {
                   >
                     <div className="text-sm text-gray-200">+{index + 1}</div>
                     <Form.Item name={[field.name, 'successRate']} className="mb-0">
-                      <InputNumber min={0} max={100} step={0.01} className="w-full w-full" />
+                      <InputNumber min={0} max={100} step={0.01} className="w-full" />
                     </Form.Item>
                     <Form.Item name={[field.name, 'goldCost']} className="mb-0">
-                      <InputNumber min={0} step={1} className="w-full w-full" />
+                      <InputNumber min={0} step={1} className="w-full" />
                     </Form.Item>
                     <Form.Item name={[field.name, 'requiredItemId']} className="mb-0">
                       <Select
@@ -2190,7 +2190,7 @@ export function PropertyPanel() {
                       />
                     </Form.Item>
                     <Form.Item name={[field.name, 'requiredItemAmount']} className="mb-0">
-                      <InputNumber min={0} step={1} className="w-full w-full" />
+                      <InputNumber min={0} step={1} className="w-full" />
                     </Form.Item>
                     <Form.Item name={[field.name, 'protectItemId']} className="mb-0">
                       <Select
@@ -2201,7 +2201,7 @@ export function PropertyPanel() {
                       />
                     </Form.Item>
                     <Form.Item name={[field.name, 'protectItemAmount']} className="mb-0">
-                      <InputNumber min={0} step={1} className="w-full w-full" />
+                      <InputNumber min={0} step={1} className="w-full" />
                     </Form.Item>
                     <Button
                       type="text"
@@ -2240,7 +2240,7 @@ export function PropertyPanel() {
               label={<span className="text-xs text-gray-400">{field.label}</span>}
               className="mb-0"
             >
-            <InputNumber step={step} className="w-full w-full" />
+            <InputNumber step={step} className="w-full" />
           </Form.Item>
         ))}
       </div>
@@ -2266,7 +2266,7 @@ export function PropertyPanel() {
               label={<span className="text-xs text-gray-400">{field.label}</span>}
               className="mb-0"
             >
-              <InputNumber step={0.01} className="w-full w-full" />
+              <InputNumber step={0.01} className="w-full" />
             </Form.Item>
           ))}
         </div>
@@ -2440,28 +2440,28 @@ export function PropertyPanel() {
                           label={<span className="text-xs text-gray-400">星级数</span>}
                           className="mb-0"
                         >
-                          <InputNumber min={1} step={1} className="w-full w-full" />
+                          <InputNumber min={1} step={1} className="w-full" />
                         </Form.Item>
                         <Form.Item
                           name={[field.name, 'goldCost']}
                           label={<span className="text-xs text-gray-400">挑战金币</span>}
                           className="mb-0"
                         >
-                          <InputNumber min={0} step={1} className="w-full w-full" />
+                          <InputNumber min={0} step={1} className="w-full" />
                         </Form.Item>
                         <Form.Item
                           name={[field.name, 'levelRequirement']}
                           label={<span className="text-xs text-gray-400">等级要求</span>}
                           className="mb-0"
                         >
-                          <InputNumber min={0} step={1} className="w-full w-full" />
+                          <InputNumber min={0} step={1} className="w-full" />
                         </Form.Item>
                         <Form.Item
                           name={[field.name, 'baseParamRate']}
                           label={<span className="text-xs text-gray-400">基础属性倍率</span>}
                           className="mb-0"
                         >
-                          <InputNumber min={0} step={0.1} className="w-full w-full" />
+                          <InputNumber min={0} step={0.1} className="w-full" />
                         </Form.Item>
                       </div>
                       <Form.List name={[field.name, 'passiveStates']}>
@@ -2575,7 +2575,7 @@ export function PropertyPanel() {
                     label={<span className="text-xs text-gray-400">倍率增量</span>}
                     className="mb-0"
                   >
-                    <InputNumber step={0.01} className="w-full w-full" />
+                    <InputNumber step={0.01} className="w-full" />
                   </Form.Item>
                   <Button
                     type="text"
@@ -2617,7 +2617,7 @@ export function PropertyPanel() {
           label={<span className="text-xs text-gray-400">盾上限</span>}
           className="mb-0"
         >
-          <InputNumber min={0} max={99} step={1} className="w-full w-full" />
+          <InputNumber min={0} max={99} step={1} className="w-full" />
         </Form.Item>
       </div>
       <Form.List name={[field.name, 'slots']}>
@@ -2665,7 +2665,7 @@ export function PropertyPanel() {
                       label={<span className="text-xs text-gray-400">倍率增量</span>}
                       className="mb-0"
                     >
-                      <InputNumber step={0.01} className="w-full w-full" />
+                      <InputNumber step={0.01} className="w-full" />
                     </Form.Item>
                     <Button
                       type="text"
@@ -2700,7 +2700,7 @@ export function PropertyPanel() {
           label={<span className="text-xs text-gray-400">盾上限</span>}
           className="mb-0"
         >
-          <InputNumber min={0} max={99} step={1} className="w-full w-full" />
+          <InputNumber min={0} max={99} step={1} className="w-full" />
         </Form.Item>
       </div>
       {renderWeaknessSlotList(pathPrefix, emptyText)}
@@ -2721,7 +2721,7 @@ export function PropertyPanel() {
           label={<span className="text-xs text-gray-400">切换弱点组</span>}
           className="mb-0"
         >
-          <InputNumber min={-1} step={1} className="w-full w-full" />
+          <InputNumber min={-1} step={1} className="w-full" />
         </Form.Item>
         <Form.Item
           name={[STATE_WEAKNESS_EFFECTS_FIELD_KEY, phaseKey, 'protectElements']}
@@ -2814,7 +2814,7 @@ export function PropertyPanel() {
           label={<span className="text-xs text-gray-400">顺位偏移</span>}
           className="mb-0"
         >
-          <InputNumber step={1} className="w-full w-full" />
+          <InputNumber step={1} className="w-full" />
         </Form.Item>
       </div>
     </Card>
@@ -3073,7 +3073,7 @@ export function PropertyPanel() {
                   min={0}
                   max={100}
                   step={1}
-                  className="w-full w-full"
+                  className="w-full"
                   disabled={watchedSkillProjectileTag !== SKILL_PROJECTILE_TAG_INTERCEPTOR}
                 />
               </Form.Item>
@@ -3086,7 +3086,7 @@ export function PropertyPanel() {
                   min={0}
                   max={100}
                   step={1}
-                  className="w-full w-full"
+                  className="w-full"
                   disabled={watchedSkillProjectileTag !== SKILL_PROJECTILE_TAG_INTERCEPTOR}
                 />
               </Form.Item>
@@ -3118,21 +3118,21 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">最少次数</span>}
                 className="mb-0"
               >
-                <InputNumber min={1} max={8} step={1} className="w-full w-full" />
+                <InputNumber min={1} max={8} step={1} className="w-full" />
               </Form.Item>
               <Form.Item
                 name={[SKILL_WEAPON_ACTION_FIELD_KEY, 'countMax']}
                 label={<span className="text-xs text-gray-400">最多次数</span>}
                 className="mb-0"
               >
-                <InputNumber min={1} max={8} step={1} className="w-full w-full" />
+                <InputNumber min={1} max={8} step={1} className="w-full" />
               </Form.Item>
               <Form.Item
                 name={[SKILL_WEAPON_ACTION_FIELD_KEY, 'maxCount']}
                 label={<span className="text-xs text-gray-400">硬上限</span>}
                 className="mb-0"
               >
-                <InputNumber min={1} max={8} step={1} className="w-full w-full" />
+                <InputNumber min={1} max={8} step={1} className="w-full" />
               </Form.Item>
               <Form.Item
                 name={[SKILL_WEAPON_ACTION_FIELD_KEY, 'ammoLimited']}
@@ -3155,21 +3155,21 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">耐久降低最小</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={1} className="w-full w-full" />
+                <InputNumber min={0} step={1} className="w-full" />
               </Form.Item>
               <Form.Item
                 name={[SKILL_WEAPON_ACTION_FIELD_KEY, 'durabilityLossMax']}
                 label={<span className="text-xs text-gray-400">耐久降低最大</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={1} className="w-full w-full" />
+                <InputNumber min={0} step={1} className="w-full" />
               </Form.Item>
               <Form.Item
                 name={[SKILL_WEAPON_ACTION_FIELD_KEY, 'friendStateId']}
                 label={<span className="text-xs text-gray-400">全员状态</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={1} className="w-full w-full" />
+                <InputNumber min={0} step={1} className="w-full" />
               </Form.Item>
             </div>
           </Card>
@@ -3190,7 +3190,7 @@ export function PropertyPanel() {
                   label={<span className="text-xs text-gray-400">使用次数上限</span>}
                   className="mb-0"
                 >
-                  <InputNumber min={-1} step={1} className="w-full w-full" />
+                  <InputNumber min={-1} step={1} className="w-full" />
                 </Form.Item>
                 <Form.Item
                   name={SKILL_NEED_TARGET_SELECT_FIELD_KEY}
@@ -3248,7 +3248,7 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">伤害浮动分散度</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} max={100} step={1} className="w-full w-full" />
+                <InputNumber min={0} max={100} step={1} className="w-full" />
               </Form.Item>
               <Form.Item
                 name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'damage', 'formula', 'mode']}
@@ -3293,14 +3293,14 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">耐久度改变值</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={1} className="w-full w-full" />
+                <InputNumber min={0} step={1} className="w-full" />
               </Form.Item>
               <Form.Item
                 name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'skillDurability', 'halfBrokenSkipRate']}
                 label={<span className="text-xs text-gray-400">低耐久跳过概率</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} max={100} step={1} className="w-full w-full" />
+                <InputNumber min={0} max={100} step={1} className="w-full" />
               </Form.Item>
             </div>
             {watchedDamageFormulaMode === 'script' && isDamageFormulaScriptOptionsLoading ? (
@@ -3415,28 +3415,28 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">等级</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={1} className="w-full w-full" />
+                <InputNumber min={0} step={1} className="w-full" />
               </Form.Item>
               <Form.Item
                 name={ENEMY_LEVEL_SCOPE_FIELD_KEY}
                 label={<span className="text-xs text-gray-400">等级下浮</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={1} className="w-full w-full" />
+                <InputNumber min={0} step={1} className="w-full" />
               </Form.Item>
               <Form.Item
                 name={ENEMY_LEVEL_SCOPE_UP_FIELD_KEY}
                 label={<span className="text-xs text-gray-400">等级上浮</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={1} className="w-full w-full" />
+                <InputNumber min={0} step={1} className="w-full" />
               </Form.Item>
               <Form.Item
                 name={ENEMY_BOUNTY_FIELD_KEY}
                 label={<span className="text-xs text-gray-400">赏金值</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={1} className="w-full w-full" />
+                <InputNumber min={0} step={1} className="w-full" />
               </Form.Item>
               <Form.Item
                 name={ENEMY_ATTACK_ANIMATION_ID_FIELD_KEY}
@@ -3611,28 +3611,28 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">自身下回合偏移</span>}
                 className="mb-0"
               >
-                <InputNumber step={1} className="w-full w-full" />
+                <InputNumber step={1} className="w-full" />
               </Form.Item>
               <Form.Item
                 name={[ORDER_EFFECTS_FIELD_KEY, 'targetCurrent']}
                 label={<span className="text-xs text-gray-400">目标本回合偏移</span>}
                 className="mb-0"
               >
-                <InputNumber step={1} className="w-full w-full" />
+                <InputNumber step={1} className="w-full" />
               </Form.Item>
               <Form.Item
                 name={[ORDER_EFFECTS_FIELD_KEY, 'targetNext']}
                 label={<span className="text-xs text-gray-400">目标下回合偏移</span>}
                 className="mb-0"
               >
-                <InputNumber step={1} className="w-full w-full" />
+                <InputNumber step={1} className="w-full" />
               </Form.Item>
               <Form.Item
                 name={[ORDER_EFFECTS_FIELD_KEY, 'speedConvert']}
                 label={<span className="text-xs text-gray-400">速度换算</span>}
                 className="mb-0"
               >
-                <InputNumber step={1} className="w-full w-full" />
+                <InputNumber step={1} className="w-full" />
               </Form.Item>
               <Form.Item
                 name={[ORDER_EFFECTS_FIELD_KEY, 'targetFollow']}
@@ -3733,7 +3733,7 @@ export function PropertyPanel() {
                   label={<span className="text-xs text-gray-400">范围几体</span>}
                   className="mb-0"
                 >
-                  <InputNumber min={1} step={1} className="w-full w-full" />
+                  <InputNumber min={1} step={1} className="w-full" />
                 </Form.Item>
               ) : null}
               <Form.Item
@@ -3741,14 +3741,14 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">重复次数</span>}
                 className="mb-0"
               >
-                <InputNumber min={1} step={1} className="w-full w-full" />
+                <InputNumber min={1} step={1} className="w-full" />
               </Form.Item>
               <Form.Item
                 name={REPEAT_TIME_FLOAT_FIELD_KEY}
                 label={<span className="text-xs text-gray-400">重复次数浮动</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={1} className="w-full w-full" />
+                <InputNumber min={0} step={1} className="w-full" />
               </Form.Item>
             </div>
             {shouldShowCommonShapeSection ? (
@@ -3811,7 +3811,7 @@ export function PropertyPanel() {
                   label={<span className="text-xs text-gray-400">武器几体</span>}
                   className="mb-0"
                 >
-                  <InputNumber min={1} step={1} className="w-full w-full" />
+                  <InputNumber min={1} step={1} className="w-full" />
                 </Form.Item>
               ) : null}
               <Form.Item
@@ -3819,14 +3819,14 @@ export function PropertyPanel() {
                 label={<span className="text-xs text-gray-400">武器重复次数</span>}
                 className="mb-0"
               >
-                <InputNumber min={1} step={1} className="w-full w-full" />
+                <InputNumber min={1} step={1} className="w-full" />
               </Form.Item>
               <Form.Item
                 name={REPEAT_TIME_FLOAT_FIELD_KEY}
                 label={<span className="text-xs text-gray-400">重复次数浮动</span>}
                 className="mb-0"
               >
-                <InputNumber min={0} step={1} className="w-full w-full" />
+                <InputNumber min={0} step={1} className="w-full" />
               </Form.Item>
             </div>
             {shouldShowWeaponShapeSection ? (
@@ -3858,14 +3858,14 @@ export function PropertyPanel() {
                       label={<span className="text-xs text-gray-400">{field.label} 值</span>}
                       className="mb-0"
                     >
-                      <InputNumber step={0.01} className="w-full w-full" />
+                      <InputNumber step={0.01} className="w-full" />
                     </Form.Item>
                     <Form.Item
                       name={[ELEMENT_RATE_FLOATS_FIELD_KEY, field.id]}
                       label={<span className="text-xs text-gray-400">{field.label} 浮动</span>}
                       className="mb-0"
                     >
-                      <InputNumber min={0} step={0.01} className="w-full w-full" />
+                      <InputNumber min={0} step={0.01} className="w-full" />
                     </Form.Item>
                   </div>
                 ))}
