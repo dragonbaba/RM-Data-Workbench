@@ -586,6 +586,8 @@ export function QuestPanel() {
                 onChange={(value) => updateQuest({ difficulty: value })}
                 className="w-full"
                 options={DIFFICULTY_OPTIONS}
+              showSearch
+              optionFilterProp="label"
               />
             </div>
             <div className="flex items-end gap-4">
@@ -627,6 +629,8 @@ export function QuestPanel() {
                       style={{ width: 220 }}
                       options={switchSelectOptions}
                       placeholder="选择开关"
+                    showSearch
+                    optionFilterProp="label"
                     />
                     <Select
                       value={action.value ? 'true' : 'false'}
@@ -636,6 +640,8 @@ export function QuestPanel() {
                         { value: 'true', label: '开启' },
                         { value: 'false', label: '关闭' },
                       ]}
+                    showSearch
+                    optionFilterProp="label"
                     />
                     <Button type="text" danger icon={<DeleteOutlined />} onClick={() => removeSwitchAction('startSwitches', actionIndex)} />
                   </Space>
@@ -664,6 +670,8 @@ export function QuestPanel() {
                       style={{ width: 220 }}
                       options={switchSelectOptions}
                       placeholder="选择开关"
+                    showSearch
+                    optionFilterProp="label"
                     />
                     <Select
                       value={action.value ? 'true' : 'false'}
@@ -673,6 +681,8 @@ export function QuestPanel() {
                         { value: 'true', label: '开启' },
                         { value: 'false', label: '关闭' },
                       ]}
+                    showSearch
+                    optionFilterProp="label"
                     />
                     <Button type="text" danger icon={<DeleteOutlined />} onClick={() => removeSwitchAction('switches', actionIndex)} />
                   </Space>
@@ -701,12 +711,16 @@ export function QuestPanel() {
                       style={{ width: 220 }}
                       options={variableSelectOptions}
                       placeholder="选择变量"
+                    showSearch
+                    optionFilterProp="label"
                     />
                     <Select
                       value={action.op || '='}
                       onChange={(value) => updateVariableAction('startVariables', actionIndex, { op: value })}
                       style={{ width: 80 }}
                       options={VARIABLE_OPERATOR_OPTIONS}
+                    showSearch
+                    optionFilterProp="label"
                     />
                     <InputNumber
                       value={action.value ?? 0}
@@ -740,12 +754,16 @@ export function QuestPanel() {
                       style={{ width: 220 }}
                       options={variableSelectOptions}
                       placeholder="选择变量"
+                    showSearch
+                    optionFilterProp="label"
                     />
                     <Select
                       value={action.op || '='}
                       onChange={(value) => updateVariableAction('variables', actionIndex, { op: value })}
                       style={{ width: 80 }}
                       options={VARIABLE_OPERATOR_OPTIONS}
+                    showSearch
+                    optionFilterProp="label"
                     />
                     <InputNumber
                       value={action.value ?? 0}
@@ -800,6 +818,8 @@ export function QuestPanel() {
                     onChange={(value) => updateRequirement(index, { type: value })}
                     style={{ width: 120 }}
                     options={REQUIREMENT_TYPES}
+                  showSearch
+                  optionFilterProp="label"
                   />
                   {req.type === 2 && (
                     <Select
@@ -808,6 +828,8 @@ export function QuestPanel() {
                       style={{ width: 200 }}
                       options={questSelectOptions}
                       placeholder="选择前置任务"
+                    showSearch
+                    optionFilterProp="label"
                     />
                   )}
                   {req.type === 3 && (
@@ -818,6 +840,8 @@ export function QuestPanel() {
                         style={{ width: 200 }}
                         options={itemSelectOptions}
                         placeholder="选择物品"
+                      showSearch
+                      optionFilterProp="label"
                       />
                       <InputNumber
                         value={(req.targetValue as number) ?? 1}
@@ -834,6 +858,8 @@ export function QuestPanel() {
                         style={{ width: 200 }}
                         options={weaponSelectOptions}
                         placeholder="选择武器"
+                      showSearch
+                      optionFilterProp="label"
                       />
                       <InputNumber
                         value={(req.targetValue as number) ?? 1}
@@ -850,6 +876,8 @@ export function QuestPanel() {
                         style={{ width: 200 }}
                         options={armorSelectOptions}
                         placeholder="选择防具"
+                      showSearch
+                      optionFilterProp="label"
                       />
                       <InputNumber
                         value={(req.targetValue as number) ?? 1}
@@ -872,6 +900,8 @@ export function QuestPanel() {
                           style={{ width: 220 }}
                           options={actorSelectOptions}
                           placeholder="选择角色"
+                        showSearch
+                        optionFilterProp="label"
                         />
                       ) : (
                         <InputNumber
@@ -885,6 +915,8 @@ export function QuestPanel() {
                         onChange={(value) => updateRequirement(index, { operator: value })}
                         style={{ width: 80 }}
                         options={OPERATOR_OPTIONS}
+                      showSearch
+                      optionFilterProp="label"
                       />
                     </>
                   )}
@@ -896,6 +928,8 @@ export function QuestPanel() {
                         style={{ width: 200 }}
                         options={switchSelectOptions}
                         placeholder="选择开关"
+                      showSearch
+                      optionFilterProp="label"
                       />
                       <Select
                         value={req.targetValue === true ? 'true' : 'false'}
@@ -905,6 +939,8 @@ export function QuestPanel() {
                           { value: 'true', label: '开启' },
                           { value: 'false', label: '关闭' },
                         ]}
+                      showSearch
+                      optionFilterProp="label"
                       />
                     </>
                   )}
@@ -916,12 +952,16 @@ export function QuestPanel() {
                         style={{ width: 200 }}
                         options={variableSelectOptions}
                         placeholder="选择变量"
+                      showSearch
+                      optionFilterProp="label"
                       />
                       <Select
                         value={req.operator || '>='}
                         onChange={(value) => updateRequirement(index, { operator: value })}
                         style={{ width: 80 }}
                         options={OPERATOR_OPTIONS}
+                      showSearch
+                      optionFilterProp="label"
                       />
                       <InputNumber
                         value={(req.targetValue as number) ?? 0}
@@ -942,6 +982,8 @@ export function QuestPanel() {
                         onChange={(value) => updateRequirement(index, { operator: value })}
                         style={{ width: 80 }}
                         options={OPERATOR_OPTIONS}
+                      showSearch
+                      optionFilterProp="label"
                       />
                     </>
                   )}
@@ -1085,6 +1127,8 @@ export function QuestPanel() {
                       onChange={(value) => updateObjective(index, { type: value })}
                       style={{ width: 120 }}
                       options={OBJECTIVE_TYPES}
+                    showSearch
+                    optionFilterProp="label"
                     />
                     {obj.type === 1 && (
                       <Select
@@ -1093,6 +1137,8 @@ export function QuestPanel() {
                         style={{ width: 200 }}
                         options={enemySelectOptions}
                         placeholder="选择敌人"
+                      showSearch
+                      optionFilterProp="label"
                       />
                     )}
                     {obj.type === 2 && (
@@ -1102,6 +1148,8 @@ export function QuestPanel() {
                         style={{ width: 200 }}
                         options={itemSelectOptions}
                         placeholder="选择物品"
+                      showSearch
+                      optionFilterProp="label"
                       />
                     )}
                     {obj.type === 3 && (
@@ -1111,6 +1159,8 @@ export function QuestPanel() {
                         style={{ width: 200 }}
                         options={weaponSelectOptions}
                         placeholder="选择武器"
+                      showSearch
+                      optionFilterProp="label"
                       />
                     )}
                     {obj.type === 4 && (
@@ -1120,6 +1170,8 @@ export function QuestPanel() {
                         style={{ width: 200 }}
                         options={armorSelectOptions}
                         placeholder="选择防具"
+                      showSearch
+                      optionFilterProp="label"
                       />
                     )}
                     {obj.type === 5 && (
@@ -1130,6 +1182,8 @@ export function QuestPanel() {
                           style={{ width: 200 }}
                           options={switchSelectOptions}
                           placeholder="选择开关"
+                        showSearch
+                        optionFilterProp="label"
                         />
                         <Select
                           value={obj.targetValue === true ? 'true' : 'false'}
@@ -1139,6 +1193,8 @@ export function QuestPanel() {
                             { value: 'true', label: '开启' },
                             { value: 'false', label: '关闭' },
                           ]}
+                        showSearch
+                        optionFilterProp="label"
                         />
                       </>
                     )}
@@ -1150,12 +1206,16 @@ export function QuestPanel() {
                           style={{ width: 200 }}
                           options={variableSelectOptions}
                           placeholder="选择变量"
+                        showSearch
+                        optionFilterProp="label"
                         />
                         <Select
                           value={obj.operator || '>='}
                           onChange={(value) => updateObjective(index, { operator: value })}
                           style={{ width: 80 }}
                           options={OPERATOR_OPTIONS}
+                        showSearch
+                        optionFilterProp="label"
                         />
                         <InputNumber
                           value={(obj.targetValue as number) ?? 0}
@@ -1178,6 +1238,8 @@ export function QuestPanel() {
                           onChange={(value) => updateObjective(index, { operator: value })}
                           style={{ width: 80 }}
                           options={OPERATOR_OPTIONS}
+                        showSearch
+                        optionFilterProp="label"
                         />
                         <InputNumber
                           value={(obj.targetValue as number) ?? 1}
@@ -1225,6 +1287,8 @@ export function QuestPanel() {
                                 style={{ width: 220 }}
                                 options={switchSelectOptions}
                                 placeholder="选择开关"
+                              showSearch
+                              optionFilterProp="label"
                               />
                               <Select
                                 value={action.value ? 'true' : 'false'}
@@ -1234,6 +1298,8 @@ export function QuestPanel() {
                                   { value: 'true', label: '开启' },
                                   { value: 'false', label: '关闭' },
                                 ]}
+                              showSearch
+                              optionFilterProp="label"
                               />
                               <Button
                                 type="text"
@@ -1272,12 +1338,16 @@ export function QuestPanel() {
                                 style={{ width: 220 }}
                                 options={variableSelectOptions}
                                 placeholder="选择变量"
+                              showSearch
+                              optionFilterProp="label"
                               />
                               <Select
                                 value={action.op || '+'}
                                 onChange={(value) => updateObjectiveVariableAction(index, actionIndex, { op: value })}
                                 style={{ width: 80 }}
                                 options={VARIABLE_OPERATOR_OPTIONS}
+                              showSearch
+                              optionFilterProp="label"
                               />
                               <InputNumber
                                 value={action.value ?? 0}
@@ -1342,6 +1412,8 @@ export function QuestPanel() {
                     onChange={(value) => updateReward(index, { type: value })}
                     style={{ width: 100 }}
                     options={REWARD_TYPES}
+                  showSearch
+                  optionFilterProp="label"
                   />
                   {reward.type === 1 && (
                     <Select
@@ -1350,6 +1422,8 @@ export function QuestPanel() {
                       style={{ width: 200 }}
                       options={itemSelectOptions}
                       placeholder="选择物品"
+                    showSearch
+                    optionFilterProp="label"
                     />
                   )}
                   {reward.type === 2 && (
@@ -1359,6 +1433,8 @@ export function QuestPanel() {
                       style={{ width: 200 }}
                       options={weaponSelectOptions}
                       placeholder="选择武器"
+                    showSearch
+                    optionFilterProp="label"
                     />
                   )}
                   {reward.type === 3 && (
@@ -1368,6 +1444,8 @@ export function QuestPanel() {
                       style={{ width: 200 }}
                       options={armorSelectOptions}
                       placeholder="选择防具"
+                    showSearch
+                    optionFilterProp="label"
                     />
                   )}
                   {reward.type === 6 && (
@@ -1378,6 +1456,8 @@ export function QuestPanel() {
                         style={{ width: 200 }}
                         options={switchSelectOptions}
                         placeholder="选择开关"
+                      showSearch
+                      optionFilterProp="label"
                       />
                       <Select
                         value={reward.targetValue === true ? 'true' : 'false'}
@@ -1387,6 +1467,8 @@ export function QuestPanel() {
                           { value: 'true', label: '开启' },
                           { value: 'false', label: '关闭' },
                         ]}
+                      showSearch
+                      optionFilterProp="label"
                       />
                     </>
                   )}
@@ -1398,12 +1480,16 @@ export function QuestPanel() {
                         style={{ width: 200 }}
                         options={variableSelectOptions}
                         placeholder="选择变量"
+                      showSearch
+                      optionFilterProp="label"
                       />
                       <Select
                         value={reward.op || '='}
                         onChange={(value) => updateReward(index, { op: value })}
                         style={{ width: 80 }}
                         options={VARIABLE_OPERATOR_OPTIONS}
+                      showSearch
+                      optionFilterProp="label"
                       />
                     </>
                   )}

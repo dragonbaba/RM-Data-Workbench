@@ -129,7 +129,10 @@ export default function MapPanel() {
             </div>
 
             <Form.Item label="固定天气" name="fixedWeather">
-              <Select options={fixedWeatherOptions} />
+              <Select options={fixedWeatherOptions}
+              showSearch
+              optionFilterProp="label"
+              />
             </Form.Item>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

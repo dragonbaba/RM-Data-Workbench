@@ -5,6 +5,7 @@ import { EventSystem } from '../../core/EventSystem';
 import { useEditorStore } from '../../stores/editorStore';
 import { DataLoaderService } from '../../services/DataLoaderService';
 import { VirtualList } from '../common/VirtualList';
+import { BACKSLASH_REGEXP, TRAILING_PATH_SEPARATORS_REGEXP, WINDOWS_DRIVE_REGEXP } from '../../constants/regexp';
 
 const EQUIP_EXTENSIONS_FILE_NAME = 'EquipExtensions.json';
 const ACTORS_FILE_NAME = 'Actors.json';
@@ -12,12 +13,12 @@ const ENEMIES_FILE_NAME = 'Enemies.json';
 
 const joinPath = (basePath: string, fileName: string) => {
   if (!basePath) return fileName;
-  return `${basePath.replace(/[\\/]+$/, '')}/${fileName}`;
+  return `${basePath.replace(TRAILING_PATH_SEPARATORS_REGEXP, '')}/${fileName}`;
 };
 
 const normalizePathKey = (value: string) => {
-  const normalized = (value || '').replace(/\\/g, '/');
-  return /^[A-Za-z]:\//.test(normalized) ? normalized.toLowerCase() : normalized;
+  const normalized = (value || '').replace(BACKSLASH_REGEXP, '/');
+  return WINDOWS_DRIVE_REGEXP.test(normalized) ? normalized.toLowerCase() : normalized;
 };
 
 export function LeftPanel() {

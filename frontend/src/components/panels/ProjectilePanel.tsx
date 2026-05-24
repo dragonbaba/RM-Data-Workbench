@@ -15,6 +15,7 @@ import type { ProjectilePreviewTemplate, ProjectileTemplate, TrajectorySegment }
 import { ToastManager } from '../common/ToastManager';
 import { InputDialog } from '../common/InputDialog';
 import { DataLoaderService } from '../../services/DataLoaderService';
+import { BACKSLASH_REGEXP, TRAILING_PATH_SEPARATORS_REGEXP, WINDOWS_DRIVE_REGEXP } from '../../constants/regexp';
 import { EventSystem } from '../../core/EventSystem';
 import {
   cloneProjectileTemplate,
@@ -483,7 +484,7 @@ export function ProjectilePanel() {
     const actorsData = DataLoaderService.getCachedDataByName('Actors.json');
     const weaponsData = DataLoaderService.getCachedDataByName('Weapons.json');
     const actorFilePath = DataLoaderService.getFilePathByName('Actors.json')
-      || (config.dataPath ? `${config.dataPath.replace(/[\\/]+$/, '').replace(/\\/g, '/')}/Actors.json` : '');
+      || (config.dataPath ? `${config.dataPath.replace(TRAILING_PATH_SEPARATORS_REGEXP, '').replace(BACKSLASH_REGEXP, '/')}/Actors.json` : '');
 
     if (!actorsData || !actorFilePath) {
       if (!silent) {
@@ -571,7 +572,7 @@ export function ProjectilePanel() {
 
     const enemiesData = DataLoaderService.getCachedDataByName('Enemies.json');
     const enemyFilePath = DataLoaderService.getFilePathByName('Enemies.json')
-      || (config.dataPath ? `${config.dataPath.replace(/[\\/]+$/, '').replace(/\\/g, '/')}/Enemies.json` : '');
+      || (config.dataPath ? `${config.dataPath.replace(TRAILING_PATH_SEPARATORS_REGEXP, '').replace(BACKSLASH_REGEXP, '/')}/Enemies.json` : '');
 
     if (!enemiesData || !enemyFilePath) {
       if (!silent) {
@@ -936,6 +937,8 @@ export function ProjectilePanel() {
                     { value: 'right', label: '右侧发射 / 左侧目标' },
                   ]}
                   style={{ width: 180 }}
+                showSearch
+                optionFilterProp="label"
                 />
                 <Button
                   size="small"
@@ -965,6 +968,8 @@ export function ProjectilePanel() {
                         { value: 'enemy', label: '敌人' },
                       ]}
                       className="w-full"
+                    showSearch
+                    optionFilterProp="label"
                     />
                   </div>
                   <div>
@@ -975,6 +980,8 @@ export function ProjectilePanel() {
                       options={sourceOptions}
                       className="w-full"
                       placeholder="选择发射方"
+                    showSearch
+                    optionFilterProp="label"
                     />
                   </div>
                   {sourceType === 'actor' ? (
@@ -986,6 +993,8 @@ export function ProjectilePanel() {
                         options={actorOffsetWeaponOptions}
                         className="w-full"
                         placeholder="选择武器"
+                      showSearch
+                      optionFilterProp="label"
                       />
                     </div>
                   ) : (
@@ -997,6 +1006,8 @@ export function ProjectilePanel() {
                         options={skillSelectOptions}
                         className="w-full"
                         placeholder="选择技能"
+                      showSearch
+                      optionFilterProp="label"
                       />
                     </div>
                   )}
@@ -1018,6 +1029,8 @@ export function ProjectilePanel() {
                         { value: 'enemy', label: '敌人' },
                       ]}
                       className="w-full"
+                    showSearch
+                    optionFilterProp="label"
                     />
                   </div>
                   <div>
@@ -1028,6 +1041,8 @@ export function ProjectilePanel() {
                       options={targetOptions}
                       className="w-full"
                       placeholder="选择目标"
+                    showSearch
+                    optionFilterProp="label"
                     />
                   </div>
                 </div>
@@ -1115,6 +1130,8 @@ export function ProjectilePanel() {
                     options={animationSelectOptions}
                     className="w-full"
                     placeholder="选择起始动画"
+                  showSearch
+                  optionFilterProp="label"
                   />
                 </div>
                 <div>
@@ -1132,6 +1149,8 @@ export function ProjectilePanel() {
                     options={animationSelectOptions}
                     className="w-full"
                     placeholder="选择发射动画"
+                  showSearch
+                  optionFilterProp="label"
                   />
                 </div>
                 <div>
@@ -1142,6 +1161,8 @@ export function ProjectilePanel() {
                     options={animationSelectOptions}
                     className="w-full"
                     placeholder="选择结束动画"
+                  showSearch
+                  optionFilterProp="label"
                   />
                 </div>
               </div>
@@ -1220,6 +1241,8 @@ export function ProjectilePanel() {
                       onChange={(value) => updateSegment(index, { easeX: value })}
                       options={EASING_OPTIONS}
                       className="w-full"
+                    showSearch
+                    optionFilterProp="label"
                     />
                   </div>
                   <div>
@@ -1229,6 +1252,8 @@ export function ProjectilePanel() {
                       onChange={(value) => updateSegment(index, { easeY: value })}
                       options={EASING_OPTIONS}
                       className="w-full"
+                    showSearch
+                    optionFilterProp="label"
                     />
                   </div>
                 </div>
@@ -1246,8 +1271,8 @@ export function ProjectilePanel() {
 
 export default ProjectilePanel;
   const normalizePathKey = (value: string) => {
-    const normalized = (value || '').replace(/\\/g, '/');
-    return /^[A-Za-z]:\//.test(normalized) ? normalized.toLowerCase() : normalized;
+    const normalized = (value || '').replace(BACKSLASH_REGEXP, '/');
+    return WINDOWS_DRIVE_REGEXP.test(normalized) ? normalized.toLowerCase() : normalized;
   };
 
   const findDataIndexById = (data: unknown[] | null, id: number): number => {

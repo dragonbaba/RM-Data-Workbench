@@ -24,12 +24,13 @@ import {
   validateGameEffectEntry,
 } from '../../services/GameEffectService';
 import { arePlainDataEqual } from '../../services/PlainDataCompare';
+import { COMMA_OR_NEWLINE_REGEXP, NEWLINE_REGEXP, PATH_SEPARATOR_REGEXP } from '../../constants/regexp';
 
 const SYSTEM_FILE_NAME = 'System.json';
 
 const splitTokens = (value: string): string[] =>
   value
-    .split(/[\n,，]/)
+    .split(COMMA_OR_NEWLINE_REGEXP)
     .map((token) => token.trim())
     .filter((token) => token.length > 0);
 
@@ -45,7 +46,7 @@ const stringifyDescription = (value: string[]): string => value.join('\n');
 
 const parseDescription = (value: string): string[] =>
   value
-    .split(/\r?\n/)
+    .split(NEWLINE_REGEXP)
     .map((line) => line.trim());
 
 const getNumberArg = (effect: GameEffectEntry, key: string): number | null => {
@@ -179,7 +180,7 @@ export function EffectPanel() {
     [],
   );
 
-  const fileName = currentFilePath.split(/[\\/]/).pop() || '';
+  const fileName = currentFilePath.split(PATH_SEPARATOR_REGEXP).pop() || '';
   const isEffectsFile = fileName.toLowerCase() === EFFECTS_FILE_NAME.toLowerCase();
 
   useEffect(() => {
@@ -488,6 +489,8 @@ export function EffectPanel() {
               onChange={(value) => replaceWithTemplate(value as GameEffectType)}
               options={effectTypeOptions}
               className="w-full"
+            showSearch
+            optionFilterProp="label"
             />
           </div>
           <div>
@@ -669,6 +672,8 @@ export function EffectPanel() {
                             options={groupOptions}
                             className="w-full"
                             status={groupInvalid ? 'error' : ''}
+                          showSearch
+                          optionFilterProp="label"
                           />
                           {groupInvalid ? (
                             <div className="mt-1 text-xs text-red-400">
@@ -685,6 +690,8 @@ export function EffectPanel() {
                             options={keyOptions}
                             className="w-full"
                             status={keyInvalid ? 'error' : ''}
+                          showSearch
+                          optionFilterProp="label"
                           />
                           {keyInvalid ? (
                             <div className="mt-1 text-xs text-red-400">
@@ -699,6 +706,8 @@ export function EffectPanel() {
                           )))}
                           options={opOptions}
                           className="w-full"
+                        showSearch
+                        optionFilterProp="label"
                         />
                         <InputNumber
                           value={row.value}

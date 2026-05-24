@@ -19,13 +19,14 @@ import {
   type RefitVariableOperator,
 } from '../../services/EquipExtensionsService';
 import { ToastManager } from '../common/ToastManager';
+import { TRAILING_PATH_SEPARATORS_REGEXP } from '../../constants/regexp';
 
 type RecordLike = Record<string, unknown>;
 type SystemOption = { value: number; label: string };
 
 const joinPath = (basePath: string, fileName: string) => {
   if (!basePath) return fileName;
-  return `${basePath.replace(/[\\/]+$/, '')}/${fileName}`;
+  return `${basePath.replace(TRAILING_PATH_SEPARATORS_REGEXP, '')}/${fileName}`;
 };
 
 const getDisplayName = (item: RecordLike | null, fallback: string) => {
@@ -396,6 +397,8 @@ export function RefitPanel() {
                               }))}
                               className="w-full"
                               onChange={(value) => updateTransition(slotIndex, transitionIndex, { toEquipTypeId: value })}
+                            showSearch
+                            optionFilterProp="label"
                             />
                           </div>
 
@@ -446,6 +449,8 @@ export function RefitPanel() {
                                       <Select
                                         value={condition.kind}
                                         className="w-full"
+                                        showSearch
+                                        optionFilterProp="label"
                                         options={[
                                           { value: 'none', label: '无条件' },
                                           { value: 'switch', label: '开关' },
@@ -519,6 +524,8 @@ export function RefitPanel() {
                                                 ...condition,
                                                 value: value === 'true',
                                               })}
+                                            showSearch
+                                            optionFilterProp="label"
                                             />
                                           </div>
                                           <Button
@@ -558,6 +565,8 @@ export function RefitPanel() {
                                                 ...condition,
                                                 op: value,
                                               })}
+                                            showSearch
+                                            optionFilterProp="label"
                                             />
                                           </div>
                                           <div className="flex-1 min-w-0">

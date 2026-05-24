@@ -20,13 +20,14 @@ import {
   type EquipExtensionsData,
 } from '../../services/EquipExtensionsService';
 import { ToastManager } from '../common/ToastManager';
+import { TRAILING_PATH_SEPARATORS_REGEXP } from '../../constants/regexp';
 
 type RecordLike = Record<string, unknown>;
 type EquipTypeDraft = { key: string; originalIndex: number | null; name: string };
 
 const joinPath = (basePath: string, fileName: string) => {
   if (!basePath) return fileName;
-  return `${basePath.replace(/[\\/]+$/, '')}/${fileName}`;
+  return `${basePath.replace(TRAILING_PATH_SEPARATORS_REGEXP, '')}/${fileName}`;
 };
 
 const getDisplayName = (item: RecordLike | null, fallback: string) => {
@@ -448,6 +449,8 @@ export function EquipPanel() {
                           value={slotTypeId}
                           options={equipTypeOptions}
                           className="w-full"
+                          showSearch
+                          optionFilterProp="label"
                           onChange={(value) => updateSlotType(slotIndex, Number(value || 0))}
                         />
                       </div>
@@ -458,6 +461,8 @@ export function EquipPanel() {
                           value={equipId || 0}
                           options={equipOptions}
                           className="w-full"
+                          showSearch
+                          optionFilterProp="label"
                           onChange={(value) => updateEquipValue(slotIndex, Number(value || 0))}
                         />
                       </div>
@@ -550,6 +555,8 @@ export function EquipPanel() {
                         <Select
                           value={draftKey || undefined}
                           className="w-full"
+                          showSearch
+                          optionFilterProp="label"
                           placeholder="选择武器装备类型"
                           options={equipTypeDrafts
                             .map((draft, draftIndex) => ({

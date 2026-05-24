@@ -530,6 +530,8 @@ export function DropPanel() {
                       options={DROP_TYPE_OPTIONS}
                       className="w-full"
                       onChange={(value) => updateDropAt(index, { dropType: Number(value || 0) as 0 | 1 | 2 })}
+                    showSearch
+                    optionFilterProp="label"
                     />
                   </div>
 
@@ -658,6 +660,8 @@ export function DropPanel() {
                               options={CHALLENGE_REWARD_TYPE_OPTIONS}
                               className="w-full"
                               onChange={(value) => updateChallengeRewardAt(starIndex, rewardIndex, { rewardType: value })}
+                            showSearch
+                            optionFilterProp="label"
                             />
                           </div>
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import * as PIXI from 'pixi.js';
 import { useEditorStore } from '../../stores/editorStore';
 import { DataLoaderService } from '../../services/DataLoaderService';
+import { BACKSLASH_REGEXP, TRAILING_DATA_DIR_REGEXP, TRAILING_PATH_SEPARATORS_REGEXP } from '../../constants/regexp';
 import { ReadImageFile } from '../../../wailsjs/go/main/App';
 import type { ProjectilePreviewTemplate, ProjectileTemplate } from '../../types';
 import {
@@ -155,10 +156,10 @@ const getBattlerPreviewImageSpec = (
     return { imagePath: null, useStaticFrame: false };
   }
   
-  const basePath = dataPath.replace(/[\\/]+$/, '').replace(/[\\/]data$/, '');
+  const basePath = dataPath.replace(TRAILING_PATH_SEPARATORS_REGEXP, '').replace(TRAILING_DATA_DIR_REGEXP, '');
   const imageType = type === 'actor' ? 'sv_actors' : 'sv_enemies';
   return {
-    imagePath: `${basePath.replace(/\\/g, '/')}/img/${imageType}/${imageName}.png`,
+    imagePath: `${basePath.replace(BACKSLASH_REGEXP, '/')}/img/${imageType}/${imageName}.png`,
     useStaticFrame: type === 'actor' && shouldUseStaticActorPreviewFrame(item),
   };
 };
