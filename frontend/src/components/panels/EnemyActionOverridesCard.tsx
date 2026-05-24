@@ -344,7 +344,13 @@ export function EnemyActionOverridesCard({
                 label={<span className="text-xs text-gray-400">目标阵营</span>}
                 className="mb-0"
               >
-                <Select options={TARGET_CAMP_OPTIONS} className="w-full" disabled={!isOverrideEnabled} />
+                <Select
+                  options={TARGET_CAMP_OPTIONS}
+                  className="w-full"
+                  disabled={!isOverrideEnabled}
+                  showSearch
+                  optionFilterProp="label"
+                />
               </Form.Item>
               <Form.Item
                 name={[fieldKey, selectedKey, 'targetLifeState']}
@@ -355,6 +361,8 @@ export function EnemyActionOverridesCard({
                   options={TARGET_LIFE_STATE_OPTIONS}
                   className="w-full"
                   disabled={!isOverrideEnabled || watchedTargetCamp === 3}
+                  showSearch
+                  optionFilterProp="label"
                 />
               </Form.Item>
               <Form.Item
@@ -366,6 +374,8 @@ export function EnemyActionOverridesCard({
                   options={SELECT_MODE_OPTIONS}
                   className="w-full"
                   disabled={!isOverrideEnabled || watchedTargetCamp === 3 || watchedTargetCamp === 4}
+                  showSearch
+                  optionFilterProp="label"
                 />
               </Form.Item>
               <Form.Item
@@ -377,6 +387,8 @@ export function EnemyActionOverridesCard({
                   options={AREA_MODE_OPTIONS}
                   className="w-full"
                   disabled={!isOverrideEnabled || watchedTargetCamp === 3 || watchedTargetCamp === 4 || watchedSelectMode === 2}
+                  showSearch
+                  optionFilterProp="label"
                 />
               </Form.Item>
               {shouldShowShapeSelect ? (
@@ -385,7 +397,13 @@ export function EnemyActionOverridesCard({
                   label={<span className="text-xs text-gray-400">范围形状</span>}
                   className="mb-0"
                 >
-                  <Select options={AREA_SHAPE_TYPE_OPTIONS} className="w-full" disabled={!isOverrideEnabled} />
+                  <Select
+                      options={AREA_SHAPE_TYPE_OPTIONS}
+                      className="w-full"
+                      disabled={!isOverrideEnabled}
+                      showSearch
+                      optionFilterProp="label"
+                    />
                 </Form.Item>
               ) : null}
               {shouldShowTargetCount ? (
@@ -429,6 +447,13 @@ export function EnemyActionOverridesCard({
                   checkedChildren="允许"
                   unCheckedChildren="保护"
                 />
+              </Form.Item>
+              <Form.Item
+                name={[fieldKey, selectedKey, 'skillUseCount']}
+                label={<span className="text-xs text-gray-400">技能使用次数上限</span>}
+                className="mb-0"
+              >
+                <InputNumber min={-1} step={1} className="w-full" style={{ width: '100%' }} disabled={!isOverrideEnabled} />
               </Form.Item>
               <Form.Item
                 name={[fieldKey, selectedKey, 'skillDurability']}

@@ -649,6 +649,7 @@ describe('DataAuditService', () => {
             classId: 1,
             level: 1,
             levelScope: 0,
+            levelScopeUp: 0,
             isBoss: false,
             allowBreak: false,
             canReaction: false,

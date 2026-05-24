@@ -356,6 +356,7 @@ export interface EnemyActionOverride {
   repeatTimeFloat: number;
   actionRepeat: number;
   allowSkillBreak: boolean;
+  skillUseCount?: number;
   skillDurability?: number;
 }
 
@@ -384,6 +385,7 @@ export interface RPGEnemy extends RPGItem {
   classId?: number;
   level?: number;
   levelScope?: number;
+  levelScopeUp?: number;
   isBoss?: boolean;
   allowBreak?: boolean;
   canReaction?: boolean;

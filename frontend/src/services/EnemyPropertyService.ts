@@ -15,6 +15,7 @@ export const KNOWN_ENEMY_PROPERTY_KEYS = [
   'classId',
   'level',
   'levelScope',
+  'levelScopeUp',
   'isBoss',
   'allowBreak',
   'canReaction',
@@ -29,6 +30,7 @@ export interface EnemyEditorValues {
   classId: number;
   level: number;
   levelScope: number;
+  levelScopeUp: number;
   isBoss: boolean;
   allowBreak: boolean;
   canReaction: boolean;
@@ -43,6 +45,7 @@ export interface EnemyEditorInput {
   classId?: unknown;
   level?: unknown;
   levelScope?: unknown;
+  levelScopeUp?: unknown;
   isBoss?: unknown;
   allowBreak?: unknown;
   canReaction?: unknown;
@@ -98,6 +101,14 @@ const normalizeSkillDurability = (value: unknown): number => {
   }
   return 100;
 };
+const normalizeSkillUseCount = (value: unknown): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const int = value | 0;
+    return int >= 0 ? int : -1;
+  }
+  return -1;
+};
+
 
 const getSkillDataById = (skillsData: unknown[] | null | undefined, skillId: number): Record<string, unknown> => {
   if (!Array.isArray(skillsData) || skillId <= 0) {
@@ -140,6 +151,7 @@ export const normalizeEnemyActionOverride = (
     actionRepeat: normalizeActionRepeat(source.actionRepeat),
     allowSkillBreak: normalizeAllowSkillBreak(source.allowSkillBreak),
     skillDurability: normalizeSkillDurability(source.skillDurability),
+    skillUseCount: normalizeSkillUseCount(source.skillUseCount),
   };
 };
 
@@ -294,6 +306,7 @@ export function normalizeEnemyEditorValues(
       classId: 1,
       level: 1,
       levelScope: 0,
+      levelScopeUp: 0,
       isBoss: false,
       allowBreak: false,
       canReaction: false,
@@ -309,6 +322,7 @@ export function normalizeEnemyEditorValues(
     classId: normalizeEnemyClassId(enemy.classId),
     level: normalizeEnemyLevel(enemy.level),
     levelScope: toIntOrZero(enemy.levelScope),
+    levelScopeUp: toIntOrZero(enemy.levelScopeUp),
     isBoss: toBooleanFlag(enemy.isBoss),
     allowBreak: toBooleanFlag(enemy.allowBreak),
     canReaction: Object.prototype.hasOwnProperty.call(enemy, 'canReaction')
@@ -336,6 +350,7 @@ export function normalizeEnemyDataEntry(
     classId: normalized.classId,
     level: normalized.level,
     levelScope: normalized.levelScope,
+    levelScopeUp: normalized.levelScopeUp,
     isBoss: normalized.isBoss,
     allowBreak: normalized.allowBreak,
     canReaction: normalized.canReaction,
@@ -361,6 +376,7 @@ export function hasEnemyEditorChanges(
   return currentValues.classId !== normalizeEnemyClassId(nextValues.classId)
     || currentValues.level !== normalizeEnemyLevel(nextValues.level)
     || currentValues.levelScope !== toIntOrZero(nextValues.levelScope)
+    || currentValues.levelScopeUp !== toIntOrZero(nextValues.levelScopeUp)
     || currentValues.isBoss !== toBooleanFlag(nextValues.isBoss)
     || currentValues.allowBreak !== toBooleanFlag(nextValues.allowBreak)
     || currentValues.canReaction !== toBooleanFlag(nextValues.canReaction)
@@ -386,6 +402,7 @@ export function buildEnemySaveData(
     classId: normalizeEnemyClassId(nextValues.classId),
     level: normalizeEnemyLevel(nextValues.level),
     levelScope: toIntOrZero(nextValues.levelScope),
+    levelScopeUp: toIntOrZero(nextValues.levelScopeUp),
     isBoss: toBooleanFlag(nextValues.isBoss),
     allowBreak: toBooleanFlag(nextValues.allowBreak),
     canReaction: toBooleanFlag(nextValues.canReaction),
