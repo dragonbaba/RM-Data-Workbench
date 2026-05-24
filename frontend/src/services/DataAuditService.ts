@@ -136,6 +136,32 @@ const normalizeEntryByFileName = (
     return normalizeCommonRangeDataEntry(normalized) ?? normalized;
   }
 
+  if (fileName === 'Troops.json') {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return entry;
+    const record = entry as Record<string, unknown>;
+    const cond = record.meetCondition;
+    if (!cond || typeof cond !== 'object' || Array.isArray(cond)) {
+      record.meetCondition = { switchId: 0, switchValue: true, variableId: 0, variableOp: '>=', variableValue: 0 };
+      return record;
+    }
+    const c = cond as Record<string, unknown>;
+    const nextSwitchId = Math.max(0, toFiniteNumber(c.switchId) ?? 0);
+    const nextSwitchValue = c.switchValue === true;
+    const nextVariableId = Math.max(0, toFiniteNumber(c.variableId) ?? 0);
+    const nextVariableOp = (typeof c.variableOp === 'string' && ['>=', '<=', '==='].includes(c.variableOp)) ? c.variableOp : '>=';
+    const nextVariableValue = Math.max(0, toFiniteNumber(c.variableValue) ?? 0);
+    const rawSwitchId = toFiniteNumber(c.switchId) ?? 0;
+    const rawVariableId = toFiniteNumber(c.variableId) ?? 0;
+    const rawVariableValue = toFiniteNumber(c.variableValue) ?? 0;
+    if (rawSwitchId !== nextSwitchId || c.switchValue !== nextSwitchValue ||
+        rawVariableId !== nextVariableId || c.variableOp !== nextVariableOp ||
+        rawVariableValue !== nextVariableValue) {
+      record.meetCondition = { switchId: nextSwitchId, switchValue: nextSwitchValue, variableId: nextVariableId, variableOp: nextVariableOp, variableValue: nextVariableValue };
+    }
+    return record;
+  }
+
+
   if (fileName === 'Enemies.json') {
     return normalizePassiveStateHostEntry(normalizeEnemyDataEntry(entry, skillsData) ?? entry) ?? entry;
   }

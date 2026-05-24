@@ -65,6 +65,7 @@ import {
   OWNER_EXTRA_PARAM_KEYS,
   OWNER_SCALAR_KEYS,
   OWNER_SPECIAL_PARAM_KEYS,
+  TROOP_MEET_CONDITION_DEFAULT,
 } from '../../types';
 import type {
   BattleOrderEffects,
@@ -84,6 +85,7 @@ import type {
   SkillCostEntry,
   SkillCostType,
   StateWeaknessEffects,
+  TroopMeetCondition,
 } from '../../types';
 import { normalizeEffectIdList } from '../../services/GameEffectService';
 import { arePlainDataEqual } from '../../services/PlainDataCompare';
@@ -471,6 +473,12 @@ const SELECT_MODE_OPTIONS = [
   { value: 2, label: '2 : 全体选中' },
 ];
 
+const VARIABLE_COMPARE_OPTIONS = [
+  { value: '>=', label: '>=' },
+  { value: '<=', label: '<=' },
+  { value: '===', label: '===' },
+];
+
 const AREA_MODE_OPTIONS = [
   { value: 1, label: '1 : 单体' },
   { value: 2, label: '2 : 范围' },
@@ -652,6 +660,23 @@ const getVariableOptions = (systemData: unknown) => {
 
   return options;
 };
+
+const getSwitchOptions = (systemData: unknown) => {
+  const systemRecord = getSystemRecord(systemData);
+  const rawSwitches = Array.isArray(systemRecord?.switches) ? systemRecord.switches : [];
+  const options = [{ value: 0, label: '0 : 未选择开关' }];
+
+  for (let index = 1; index < rawSwitches.length; index++) {
+    const rawName = typeof rawSwitches[index] === 'string' ? rawSwitches[index].trim() : '';
+    options.push({
+      value: index,
+      label: `${index} : ${rawName || `开关${index}`}`,
+    });
+  }
+
+  return options;
+};
+
 
 const getBaseAttributeDisplayFields = (systemData: unknown) => {
   const systemRecord = getSystemRecord(systemData);
@@ -885,6 +910,20 @@ const buildEffectReferenceOptions = (effectsData: unknown): Array<{ value: numbe
   return options;
 };
 
+const normalizeTroopMeetCondition = (value: unknown): TroopMeetCondition => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { ...TROOP_MEET_CONDITION_DEFAULT };
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    switchId: Math.max(0, toIntOrZero(record.switchId)),
+    switchValue: record.switchValue === true,
+    variableId: Math.max(0, toIntOrZero(record.variableId)),
+    variableOp: (typeof record.variableOp === 'string' && ['>=', '<=', '==='].includes(record.variableOp)) ? record.variableOp : '>=',
+    variableValue: toIntOrZero(record.variableValue),
+  };
+};
+
 export function PropertyPanel() {
   const currentItem = useEditorStore((state) => state.currentItem);
   const currentItemIndex = useEditorStore((state) => state.currentItemIndex);
@@ -914,6 +953,7 @@ export function PropertyPanel() {
   const isArmorItem = currentFileName === ARMORS_FILE_NAME.toLowerCase();
   const isSkillFile = currentFileName === SKILLS_FILE_NAME.toLowerCase();
   const isEnemyFile = currentFileName === ENEMIES_FILE_NAME.toLowerCase();
+  const isTroopFile = currentFileName === TROOPS_FILE_NAME.toLowerCase();
   const isStateFile = currentFileName === STATES_FILE_NAME.toLowerCase();
   const supportsFlatBaseAttributes = isActorFile || isEnemyFile || isWeaponItem || isArmorItem;
   const supportsFlatFloatBaseAttributes = isWeaponItem || isArmorItem;
@@ -942,6 +982,7 @@ export function PropertyPanel() {
   const watchedEnemyChallengeTroopId = Form.useWatch([ENEMY_BOOK_CHALLENGE_FIELD_KEY, 'challengeTroopId'], form) ?? 0;
   const watchedEnemyBaseWeaknessGroup = Form.useWatch(ENEMY_BASE_WEAKNESS_GROUP_FIELD_KEY, form);
   const watchedEnemyDynamicWeaknessGroups = Form.useWatch(ENEMY_DYNAMIC_WEAKNESS_GROUPS_FIELD_KEY, form);
+  const watchedMeetCondition = Form.useWatch('meetCondition', form);
   // Reference datasets come from the global cache and should only refresh when the cache revision changes.
   const systemData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown>(SYSTEM_FILE_NAME),
@@ -1168,6 +1209,10 @@ export function PropertyPanel() {
     () => !areArraysEqual(normalizedEffectIds, originalEffectIds),
     [normalizedEffectIds, originalEffectIds],
   );
+  const switchOptions = useMemo(
+    () => getSwitchOptions(systemData),
+    [systemData],
+  );
 
   useEffect(() => {
     const refreshReferences = (payload?: unknown) => {
@@ -1287,6 +1332,9 @@ export function PropertyPanel() {
         baseFormValues[ENEMY_REACTION_SKILL_ID_FIELD_KEY] = enemyValues.reactionSkillId;
         baseFormValues[ENEMY_BOOK_CHALLENGE_FIELD_KEY] = enemyValues.bookChallenge;
         baseFormValues[ENEMY_ACTION_OVERRIDES_FIELD_KEY] = enemyValues.actionOverrides;
+      }
+      if (isTroopFile) {
+        baseFormValues['meetCondition'] = normalizeTroopMeetCondition((currentItem as Record<string, unknown> | null)?.meetCondition);
       }
       if (supportsOwnerParams) {
         baseFormValues.ownerParams = buildOwnerParamsFormValues(item.ownerParams, systemData, supportsOwnerElementRate);
@@ -1718,6 +1766,7 @@ export function PropertyPanel() {
       || (isEnemyFile && nextEnemyDynamicWeaknessGroups !== null && !areEnemyWeaknessGroupListsEqual((sourceItem as RPGEnemy).dynamicWeaknessGroups, nextEnemyDynamicWeaknessGroups))
       || (isStateFile && !areStateWeaknessEffectsEqual(sourceItem.weaknessStateEffects, nextStateWeaknessEffects ?? undefined))
       || (isStateFile && !areStateChargeConfigsEqual(sourceItem.chargeConfig, nextStateChargeConfig ?? undefined))
+      || (isTroopFile && !arePlainDataEqual(normalizeTroopMeetCondition(values['meetCondition']), normalizeTroopMeetCondition((sourceItem as unknown as Record<string, unknown>).meetCondition)))
       || (supportsProjectileConfig && nextSkillValues !== null && hasSkillEditorChanges(sourceItem, nextSkillValues, { isItem: isItemFile }))
       || ((isWeaponItem || isArmorItem) && (sourceItem.qualityLock === true) !== nextQualityLock)
       || (isEnemyFile && nextEnemyValues !== null && hasEnemyEditorChanges(sourceItem as RPGEnemy, nextEnemyValues, skillsData));
@@ -1753,6 +1802,7 @@ export function PropertyPanel() {
         ...(isArmorItem && nextElementRateFloats ? { elementRateFloats: nextElementRateFloats } : {}),
         ...(isStateFile ? { weaknessStateEffects: nextStateWeaknessEffects ?? undefined } : {}),
         ...(isStateFile ? { chargeConfig: nextStateChargeConfig ?? undefined } : {}),
+        ...(isTroopFile ? { meetCondition: normalizeTroopMeetCondition(values['meetCondition']) } : {}),
         ...(isEnemyFile && nextEnemyBaseWeaknessGroup ? {
           baseWeaknessGroup: nextEnemyBaseWeaknessGroup,
           dynamicWeaknessGroups: nextEnemyDynamicWeaknessGroups ?? [],
@@ -3489,6 +3539,41 @@ export function PropertyPanel() {
               >
                 <Switch checkedChildren="启用" unCheckedChildren="关闭" />
               </Form.Item>
+            </div>
+          </Card>
+        ) : null}
+
+        {isTroopFile ? (
+          <Card className="card-dark mb-4" title="敌群出现条件">
+            <div className="text-xs text-gray-500 mb-4">
+              控制该敌群是否出现的开关/变量条件。两个条件同时设置时需同时满足。默认全为 0/关闭 表示无条件出现。
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">出现条件开关</label>
+                <Space.Compact className="w-full">
+                  <Form.Item name={['meetCondition', 'switchId']} noStyle>
+                    <Select options={switchOptions} className="flex-1" placeholder="选择开关" showSearch optionFilterProp="label" />
+                  </Form.Item>
+                  <Form.Item name={['meetCondition', 'switchValue']} noStyle valuePropName="checked">
+                    <Switch checkedChildren="开启" unCheckedChildren="关闭" />
+                  </Form.Item>
+                </Space.Compact>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">出现条件变量</label>
+                <Space.Compact className="w-full">
+                  <Form.Item name={['meetCondition', 'variableId']} noStyle>
+                    <Select options={variableOptions} className="flex-1" placeholder="选择变量" showSearch optionFilterProp="label" />
+                  </Form.Item>
+                  <Form.Item name={['meetCondition', 'variableOp']} noStyle>
+                    <Select options={VARIABLE_COMPARE_OPTIONS} style={{ width: 80 }} showSearch optionFilterProp="label" />
+                  </Form.Item>
+                  <Form.Item name={['meetCondition', 'variableValue']} noStyle>
+                    <InputNumber style={{ width: 80 }} min={0} step={1} />
+                  </Form.Item>
+                </Space.Compact>
+              </div>
             </div>
           </Card>
         ) : null}

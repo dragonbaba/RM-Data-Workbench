@@ -586,6 +586,23 @@ export interface EditorConfig {
   updateCheckFrequency: 'startup' | 'daily' | 'weekly' | 'manual';
 }
 
+
+export interface TroopMeetCondition {
+  switchId: number;
+  switchValue: boolean;
+  variableId: number;
+  variableOp: string;
+  variableValue: number;
+}
+
+export const TROOP_MEET_CONDITION_DEFAULT: Readonly<TroopMeetCondition> = Object.freeze({
+  switchId: 0,
+  switchValue: true,
+  variableId: 0,
+  variableOp: '>=',
+  variableValue: 0,
+});
+
 export interface AppState {
   currentData: (RPGItem | RPGEnemy | RPGQuest | ProjectileTemplate | null)[] | null;
   currentMapData: RPGMap | null;
