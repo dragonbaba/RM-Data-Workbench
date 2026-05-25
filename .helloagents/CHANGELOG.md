@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### Added
+
+- **[敌群出现条件 meetCondition]**: 敌群属性面板新增出现条件模块，固定两个条件行：开关选择+Toggle、变量选择+操作符(>=/<=/===)+数值输入。新增 `TroopMeetCondition` 类型 + `TROOP_MEET_CONDITION_DEFAULT` 冻结常量；`DataAuditService` 修复模式自动补齐缺失字段，`EquipExtensions.json` 移除出审计目标。 — by Zaun
+  - 文件: `frontend/src/types/index.ts`, `frontend/src/components/panels/PropertyPanel.tsx`, `frontend/src/services/DataAuditService.ts`, `frontend/src/services/DataAuditService.test.ts`
 - **[性能与CSS优化]**: 全局消除内联样式分配：`style={{width}}`→`className` (~80处)、Card `headStyle/bodyStyle`→全局CSS (26处)、`JSON.stringify`比较→`arePlainDataEqual`；内联正则字面量全部迁移到 `constants/regexp.ts`；面板标题统一 `.panel-title` 类；新增 `text-accent/text-muted/bg-surface/border-b-color` 语义CSS工具类。 — by Zaun
   - 文件: 16 files, `frontend/src/styles/global.css`, `frontend/src/services/StateChargePropertyService.ts`, etc.
 

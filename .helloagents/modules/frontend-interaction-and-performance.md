@@ -298,3 +298,12 @@
   - 缺失 or 非法 `dynamicWeaknessGroups` → `[]`
   - 每个 slot 的 `elementId` 收口为 `>=0` 整数，`rate` 取绝对值
 - 修复模式（`DataAuditService` → `normalizeEntryByFileName` → `normalizeEnemyDataEntry`）自动覆盖历史数据中的负数和非法字段。测试 10/10 通过。
+
+## 敌群出现条件当前规则
+- `TroopMeetCondition` 固定为 `{ switchId, switchValue, variableId, variableOp, variableValue }`
+- 默认值（无出现条件）：全 0、`switchValue=true`、`variableOp='>='` — 使用 `TROOP_MEET_CONDITION_DEFAULT` 冻结常量。
+- 属性面板编辑区固定两个条件行，无增删按钮。
+- UI 布局：开关行 `flex items-center gap-2`，Select 自适应 `flex-1 min-w-0`，Switch 垂直居中。
+- 变量操作符使用 `VARIABLE_COMPARE_OPTIONS` 模块级常量（`>=` / `<=` / `===`）。
+- 修复模式（`DataAuditService` → `normalizeEntryByFileName`）自动补齐缺失的 `meetCondition` 字段。
+- `EquipExtensions.json` 不在审计目标中，只随编辑器加载/显式保存时规范化。
