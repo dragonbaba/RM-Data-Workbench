@@ -145,6 +145,12 @@ const normalizeEntryByFileName = (
       return { ...record, meetCondition: { switchId: 0, switchValue: true, variableId: 0, variableOp: '>=', variableValue: 0 } };
     }
     const c = cond as Record<string, unknown>;
+    if (hasOwnKey(record, 'meetCondition') &&
+        toFiniteNumber(c.switchId) === 0 && c.switchValue === true &&
+        toFiniteNumber(c.variableId) === 0 && c.variableOp === '>=' &&
+        toFiniteNumber(c.variableValue) === 0) {
+      return entry;
+    }
     const nextSwitchId = Math.max(0, toFiniteNumber(c.switchId) ?? 0);
     const nextSwitchValue = c.switchValue === true;
     const nextVariableId = Math.max(0, toFiniteNumber(c.variableId) ?? 0);
