@@ -1766,7 +1766,7 @@ export function PropertyPanel() {
       || (isEnemyFile && nextEnemyDynamicWeaknessGroups !== null && !areEnemyWeaknessGroupListsEqual((sourceItem as RPGEnemy).dynamicWeaknessGroups, nextEnemyDynamicWeaknessGroups))
       || (isStateFile && !areStateWeaknessEffectsEqual(sourceItem.weaknessStateEffects, nextStateWeaknessEffects ?? undefined))
       || (isStateFile && !areStateChargeConfigsEqual(sourceItem.chargeConfig, nextStateChargeConfig ?? undefined))
-      || (isTroopFile && !arePlainDataEqual(normalizeTroopMeetCondition(values['meetCondition']), normalizeTroopMeetCondition((sourceItem as unknown as Record<string, unknown>).meetCondition)))
+      || (isTroopFile && !arePlainDataEqual(normalizeTroopMeetCondition(values['meetCondition']), (sourceItem as unknown as Record<string, unknown>).meetCondition))
       || (supportsProjectileConfig && nextSkillValues !== null && hasSkillEditorChanges(sourceItem, nextSkillValues, { isItem: isItemFile }))
       || ((isWeaponItem || isArmorItem) && (sourceItem.qualityLock === true) !== nextQualityLock)
       || (isEnemyFile && nextEnemyValues !== null && hasEnemyEditorChanges(sourceItem as RPGEnemy, nextEnemyValues, skillsData));
