@@ -3551,14 +3551,14 @@ export function PropertyPanel() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs text-gray-400 mb-1">出现条件开关</label>
-                <Space.Compact className="w-full">
+                <div className="flex items-center gap-2">
                   <Form.Item name={['meetCondition', 'switchId']} noStyle>
-                    <Select options={switchOptions} className="flex-1" placeholder="选择开关" showSearch optionFilterProp="label" />
+                    <Select options={switchOptions} style={{ width: 200 }} placeholder="选择开关" showSearch optionFilterProp="label" />
                   </Form.Item>
                   <Form.Item name={['meetCondition', 'switchValue']} noStyle valuePropName="checked">
                     <Switch checkedChildren="开启" unCheckedChildren="关闭" />
                   </Form.Item>
-                </Space.Compact>
+                </div>
               </div>
               <div>
                 <label className="block text-xs text-gray-400 mb-1">出现条件变量</label>
@@ -3567,10 +3567,10 @@ export function PropertyPanel() {
                     <Select options={variableOptions} className="flex-1" placeholder="选择变量" showSearch optionFilterProp="label" />
                   </Form.Item>
                   <Form.Item name={['meetCondition', 'variableOp']} noStyle>
-                    <Select options={VARIABLE_COMPARE_OPTIONS} style={{ width: 80 }} showSearch optionFilterProp="label" />
+                    <Select options={VARIABLE_COMPARE_OPTIONS} className="w-20" showSearch optionFilterProp="label" />
                   </Form.Item>
                   <Form.Item name={['meetCondition', 'variableValue']} noStyle>
-                    <InputNumber style={{ width: 80 }} min={0} step={1} />
+                    <InputNumber className="w-20" min={0} step={1} />
                   </Form.Item>
                 </Space.Compact>
               </div>
