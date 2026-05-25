@@ -3553,7 +3553,7 @@ export function PropertyPanel() {
                 <label className="block text-xs text-gray-400 mb-1">出现条件开关</label>
                 <div className="flex items-center gap-2">
                   <Form.Item name={['meetCondition', 'switchId']} noStyle>
-                    <Select options={switchOptions} style={{ width: 200 }} placeholder="选择开关" showSearch optionFilterProp="label" />
+                    <Select options={switchOptions} className="flex-1 min-w-0" placeholder="选择开关" showSearch optionFilterProp="label" />
                   </Form.Item>
                   <Form.Item name={['meetCondition', 'switchValue']} noStyle valuePropName="checked">
                     <Switch checkedChildren="开启" unCheckedChildren="关闭" />
