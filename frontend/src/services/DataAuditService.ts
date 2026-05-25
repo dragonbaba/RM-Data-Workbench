@@ -142,8 +142,7 @@ const normalizeEntryByFileName = (
     const record = entry as Record<string, unknown>;
     const cond = record.meetCondition;
     if (!cond || typeof cond !== 'object' || Array.isArray(cond)) {
-      record.meetCondition = { switchId: 0, switchValue: true, variableId: 0, variableOp: '>=', variableValue: 0 };
-      return record;
+      return { ...record, meetCondition: { switchId: 0, switchValue: true, variableId: 0, variableOp: '>=', variableValue: 0 } };
     }
     const c = cond as Record<string, unknown>;
     const nextSwitchId = Math.max(0, toFiniteNumber(c.switchId) ?? 0);
@@ -157,9 +156,9 @@ const normalizeEntryByFileName = (
     if (rawSwitchId !== nextSwitchId || c.switchValue !== nextSwitchValue ||
         rawVariableId !== nextVariableId || c.variableOp !== nextVariableOp ||
         rawVariableValue !== nextVariableValue) {
-      record.meetCondition = { switchId: nextSwitchId, switchValue: nextSwitchValue, variableId: nextVariableId, variableOp: nextVariableOp, variableValue: nextVariableValue };
+      return { ...record, meetCondition: { switchId: nextSwitchId, switchValue: nextSwitchValue, variableId: nextVariableId, variableOp: nextVariableOp, variableValue: nextVariableValue } };
     }
-    return record;
+    return entry;
   }
 
 
