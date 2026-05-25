@@ -30,7 +30,6 @@ export const AUDIT_TARGET_FILE_NAMES = [
   'Armors.json',
   'Projectiles.json',
   'Troops.json',
-  EQUIP_EXTENSIONS_FILE_NAME,
   EFFECTS_FILE_NAME,
 ] as const;
 
@@ -740,20 +739,6 @@ export async function auditAndRepairDataFiles(
           ? rawWeaponsData
         : await deps.readJson(filePath);
 
-    if (fileName === EQUIP_EXTENSIONS_FILE_NAME) {
-      const normalized = normalizeEquipExtensions(rawData, normalizedActorsData.length, normalizedWeaponsData.length);
-      if (normalized.changed) {
-        await deps.writeJson(filePath, normalized.data);
-      }
-      results.push({
-        fileName,
-        filePath,
-        checkedEntries: 1,
-        repairedEntries: normalized.changed ? 1 : 0,
-        changed: normalized.changed,
-      });
-      continue;
-    }
 
     const currentData = normalizeFilePayload(fileName, rawData);
     const nextData = [...currentData];

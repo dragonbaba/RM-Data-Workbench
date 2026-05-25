@@ -188,10 +188,10 @@ describe('DataAuditService', () => {
       }),
     });
 
-    expect(summary.checkedFiles).toBe(12);
-    expect(summary.repairedFiles).toBe(11);
-    expect(summary.repairedEntries).toBe(13);
-    expect(writes).toHaveLength(11);
+    expect(summary.checkedFiles).toBe(11);
+    expect(summary.repairedFiles).toBe(10);
+    expect(summary.repairedEntries).toBe(12);
+    expect(writes).toHaveLength(10);
 
     const actorPayload = writes.find((item) => item.filePath.endsWith('Actors.json'))?.data as unknown[];
     expect(actorPayload[1]).toMatchObject({
@@ -220,26 +220,8 @@ describe('DataAuditService', () => {
     ]);
     expect(classPayload[1]).not.toHaveProperty('floatParams');
 
-    const equipExtensionsPayload = writes.find((item) => item.filePath.endsWith('EquipExtensions.json'))?.data as any;
-    expect(equipExtensionsPayload.actorRefitRules[1]).toEqual({
-      slots: [{
-        slotIndex: 0,
-        fromEquipTypeId: 10,
-        transitions: [{
-          fromEquipTypeId: 10,
-          toEquipTypeId: 11,
-          goldCost: 100,
-          conditions: [{ kind: 'none' }],
-        }, {
-          fromEquipTypeId: 11,
-          toEquipTypeId: 10,
-          goldCost: 100,
-          conditions: [{ kind: 'none' }],
-        }],
-      }],
-    });
-
     const skillPayload = writes.find((item) => item.filePath.endsWith('Skills.json'))?.data as unknown[];
+
     expect(skillPayload[1]).toMatchObject({
       projectileId: 7,
       skillProjectileTag: 1,
