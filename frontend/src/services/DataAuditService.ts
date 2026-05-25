@@ -29,6 +29,7 @@ export const AUDIT_TARGET_FILE_NAMES = [
   'Weapons.json',
   'Armors.json',
   'Projectiles.json',
+  'Troops.json',
   EQUIP_EXTENSIONS_FILE_NAME,
   EFFECTS_FILE_NAME,
 ] as const;

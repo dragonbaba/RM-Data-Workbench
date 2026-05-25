@@ -162,6 +162,7 @@ describe('DataAuditService', () => {
           },
         },
       ]],
+      ['D:/Project/data/Troops.json', [null]],
       ['D:/Project/data/Effects.json', [
         null,
         {
@@ -187,7 +188,7 @@ describe('DataAuditService', () => {
       }),
     });
 
-    expect(summary.checkedFiles).toBe(11);
+    expect(summary.checkedFiles).toBe(12);
     expect(summary.repairedFiles).toBe(11);
     expect(summary.repairedEntries).toBe(13);
     expect(writes).toHaveLength(11);
