@@ -27,7 +27,8 @@ export const buildTrajectoryPoints = (
   startX: number,
   startY: number,
   targetX: number,
-  targetY: number
+  targetY: number,
+  xSign: number = 1,
 ): { x: number; y: number }[] => {
   const points = new Array<{ x: number; y: number }>(segments.length + 1);
   points[0] = { x: startX, y: startY };
@@ -41,7 +42,8 @@ export const buildTrajectoryPoints = (
       currentY = targetY;
     } else {
       // targetX/targetY 是相对于前一个节点的偏移，链式累加
-      currentX = Number.isFinite(segment.targetX) ? currentX + Number(segment.targetX) : currentX;
+      // xSign=1（角色）：段偏移直接累加；xSign=-1（敌人）：X取反
+      currentX = Number.isFinite(segment.targetX) ? currentX + Number(segment.targetX) * xSign : currentX;
       currentY = Number.isFinite(segment.targetY) ? currentY + Number(segment.targetY) : currentY;
     }
     points[i + 1] = { x: currentX, y: currentY };

@@ -22,7 +22,6 @@ interface ProjectileCanvasProps {
   playbackSpeed?: number;
   offsetRevision?: number;
   referenceRevision?: number;
-  emitterSide?: 'left' | 'right';
   onPlaybackComplete?: () => void;
 }
 
@@ -240,7 +239,6 @@ export const ProjectileCanvas = memo(({
   playbackSpeed = 1,
   offsetRevision = 0,
   referenceRevision = 0,
-  emitterSide = 'left',
   onPlaybackComplete,
 }: ProjectileCanvasProps) => {
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -260,8 +258,11 @@ export const ProjectileCanvas = memo(({
   const targetLoadTokenRef = useRef(0);
   const trajectoryLabelPoolRef = useRef<PIXI.Text[]>([]);
   
-  const config = useEditorStore((state) => state.config);
   const template = templateProp ?? null;
+  // 发射侧由发射方类型固定：敌人→左，角色→右
+  const emitterSide = template?.sourceType === 'enemy' ? 'left' : 'right';
+  const xSign = template?.sourceType === 'enemy' ? -1 : 1;
+  const config = useEditorStore((state) => state.config);
   const throwProjectileWtypeId = useMemo(
     () => resolveThrowProjectileWtypeId(DataLoaderService.getCachedDataByName('System.json')),
     [referenceRevision]
@@ -388,8 +389,9 @@ export const ProjectileCanvas = memo(({
       sourceY + emitterOffset.y,
       targetX,
       targetY,
+      xSign,
     );
-  }, [getEmitterOffset, resolveAnchorPositions]);
+  }, [getEmitterOffset, resolveAnchorPositions, xSign]);
 
   const compilePlaybackSegments = useCallback((
     segments: ProjectileTemplate['launchAnimation']['segments'],

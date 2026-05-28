@@ -38,6 +38,19 @@ describe('ProjectilePreviewUtils', () => {
     expect(points[2]).toEqual({ x: 300, y: 80 });
   });
 
+  it('flips segment X when xSign=-1 (enemy emitter)', () => {
+    const segments: TrajectorySegment[] = [
+      { targetX: 10, targetY: -5, duration: 0.2 },
+      { targetX: 0, targetY: 0, duration: 0.2 },
+    ];
+
+    // xSign=-1（敌人）：段 targetX 取反，Y 不变
+    const points = buildTrajectoryPoints(segments, 100, 100, 300, 80, -1);
+    expect(points).toHaveLength(3);
+    expect(points[1]).toEqual({ x: 90, y: 95 });  // 100 + (10 * -1) = 90
+    expect(points[2]).toEqual({ x: 300, y: 80 });
+  });
+
   it('resolves actor projectile offset by weapon type id', () => {
     const actor = {
       id: 1,

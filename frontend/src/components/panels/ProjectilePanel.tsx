@@ -6,7 +6,6 @@ import {
   PlusOutlined, 
   DeleteOutlined,
   RedoOutlined,
-  SwapOutlined,
   CopyOutlined,
 } from '@ant-design/icons';
 import { useEditorStore } from '../../stores/editorStore';
@@ -117,7 +116,7 @@ export function ProjectilePanel() {
   const [activeKeys, setActiveKeys] = useState<string[]>(['template', 'offset', 'preview', 'settings', 'segments']);
   const [offsetRevision, setOffsetRevision] = useState(0);
   const [referenceRevision, setReferenceRevision] = useState(0);
-  const [emitterSide, setEmitterSide] = useState<'left' | 'right'>('left');
+
   
   // 动画选项
   const [animationOptions, setAnimationOptions] = useState<AnimationItem[]>([]);
@@ -386,6 +385,7 @@ export function ProjectilePanel() {
   const handleSourceTypeChange = useCallback((value: 'actor' | 'enemy') => {
     rememberSourceSelection();
     setPreviewSourceType(value);
+    setPreviewTargetType(value === 'actor' ? 'enemy' : 'actor');
     setPreviewSourceId(0);
     if (value === 'actor') {
       setActorOffsetActorId(0);
@@ -394,7 +394,7 @@ export function ProjectilePanel() {
       setEnemyOffsetEnemyId(0);
       setEnemyOffsetSkillId(0);
     }
-  }, [rememberSourceSelection]);
+  }, [rememberSourceSelection, setPreviewTargetType]);
 
   const handleSourceIdChange = useCallback((value: number) => {
     rememberSourceSelection();
@@ -735,50 +735,7 @@ export function ProjectilePanel() {
     setIsPlaying(false);
     setTimeout(() => setIsPlaying(true), 50);
   }, []);
-
-  const handleSwapSourceAndTarget = useCallback(() => {
-    if (!template) return;
-
-    rememberSourceSelection();
-
-    const nextSourceType = targetType;
-    const nextSourceId = previewTargetId;
-    const nextTargetType = sourceType;
-    const nextTargetId = previewSourceId;
-
-    let nextWeaponId: number | undefined;
-    let nextSkillId: number | undefined;
-
-    if (nextSourceType === 'actor') {
-      const rememberedWeaponId = getRememberedActorWeapon(nextSourceId);
-      nextWeaponId = rememberedWeaponId !== 0 ? rememberedWeaponId : undefined;
-      nextSkillId = undefined;
-      setActorOffsetActorId(nextSourceId);
-      setActorOffsetWeaponId(nextWeaponId || 0);
-    } else {
-      const rememberedSkillId = getRememberedEnemySkill(nextSourceId);
-      nextSkillId = rememberedSkillId > 0 ? rememberedSkillId : undefined;
-      nextWeaponId = undefined;
-      setEnemyOffsetEnemyId(nextSourceId);
-      setEnemyOffsetSkillId(nextSkillId || 0);
-    }
-
-    setPreviewSourceType(nextSourceType);
-    setPreviewSourceId(nextSourceId);
-    setPreviewTargetType(nextTargetType);
-    setPreviewTargetId(nextTargetId);
-
-    ToastManager.success('已交换发射方与目标方数据');
-  }, [
-    getRememberedActorWeapon,
-    getRememberedEnemySkill,
-    previewSourceId,
-    previewTargetId,
-    rememberSourceSelection,
-    sourceType,
-    targetType,
-    template,
-  ]);
+  // 不再需要swap函数，发射侧已固定
 
   const totalFrames = getSegments().reduce((sum, seg) => sum + normalizeDurationFrames(seg.duration), 0) || 0;
   const previewTemplate = useMemo<ProjectilePreviewTemplate | null>(() => {
@@ -926,26 +883,6 @@ export function ProjectilePanel() {
             <div className="flex justify-between items-center w-full pr-8">
               <span>弹道预览</span>
               <Space onClick={(e) => e.stopPropagation()}>
-                <span className="text-xs text-gray-500">发射方位置:</span>
-                <Select
-                  size="small"
-                  value={emitterSide}
-                  onChange={(value) => setEmitterSide(value)}
-                  options={[
-                    { value: 'left', label: '左侧发射 / 右侧目标' },
-                    { value: 'right', label: '右侧发射 / 左侧目标' },
-                  ]}
-                  className="w-[180px]"
-                showSearch
-                optionFilterProp="label"
-                />
-                <Button
-                  size="small"
-                  icon={<SwapOutlined />}
-                  onClick={handleSwapSourceAndTarget}
-                >
-                  交换发射/目标数据
-                </Button>
                 <span className="text-xs text-gray-500">总时长: {totalFrames}f</span>
               </Space>
             </div>
@@ -1019,17 +956,12 @@ export function ProjectilePanel() {
                     <label className="block text-sm text-gray-400 mb-1">目标方类型</label>
                     <Select
                       value={targetType}
-                      onChange={(value) => {
-                        setPreviewTargetType(value as 'actor' | 'enemy');
-                        setPreviewTargetId(0);
-                      }}
+                      disabled
                       options={[
                         { value: 'actor', label: '角色' },
                         { value: 'enemy', label: '敌人' },
                       ]}
                       className="w-full"
-                    showSearch
-                    optionFilterProp="label"
                     />
                   </div>
                   <div>
@@ -1055,7 +987,6 @@ export function ProjectilePanel() {
                 playbackSpeed={playbackSpeed}
                 offsetRevision={offsetRevision}
                 referenceRevision={referenceRevision}
-                emitterSide={emitterSide}
                 onPlaybackComplete={() => setIsPlaying(false)}
               />
             </div>
