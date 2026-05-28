@@ -26,7 +26,7 @@ describe('ProjectilePreviewUtils', () => {
     expect(normalizeDurationFrames(-1)).toBe(1);
   });
 
-  it('builds trajectory points using absolute segment coordinates with final target lock', () => {
+  it('builds trajectory points with chain-accumulative segment offsets, last segment locks to target', () => {
     const segments: TrajectorySegment[] = [
       { targetX: 10, targetY: -5, duration: 0.2 },
       { targetX: 0, targetY: 0, duration: 0.2 },
@@ -34,7 +34,7 @@ describe('ProjectilePreviewUtils', () => {
 
     const points = buildTrajectoryPoints(segments, 100, 100, 300, 80);
     expect(points).toHaveLength(3);
-    expect(points[1]).toEqual({ x: 10, y: -5 });
+    expect(points[1]).toEqual({ x: 110, y: 95 });
     expect(points[2]).toEqual({ x: 300, y: 80 });
   });
 

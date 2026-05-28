@@ -19,6 +19,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- **[弹道预览轨迹坐标语义]**: `buildTrajectoryPoints` 非最后一段的 `targetX/targetY` 原来被当作绝对值使用，导致途径点坐标脱离起点基线；现改为链式累加语义（从起点开始逐段叠加偏移），与运行时 `Zaun_Projectile.js` 的 `buildSegmentPoints` 保持一致。 — by Zaun
+  - 文件: `frontend/src/services/ProjectilePreviewUtils.ts`, `frontend/src/services/ProjectilePreviewUtils.test.ts`
 - **[敌人属性与技能覆盖]**: 弱点组编辑器改进：标签统一为"弱点倍率 (正数=弱点)"，InputNumber 新增 `min={0}` 禁止负数输入，`normalizeEnemyWeaknessSlot` 对 rate 执行 `Math.abs()` 强制正数；`EnemyPropertyService` 新增 `normalizeWeaknessSlot/normalizeWeaknessGroup` 并接入 `normalizeEnemyDataEntry` 修复模式，自动修正历史数据的负数弱点和缺失字段。 — by Zaun
   - 文件: `frontend/src/components/panels/PropertyPanel.tsx`, `frontend/src/services/EnemyPropertyService.ts`
 - **[数据加载与地图管理]**: `MapPanel` 移除“保存地图信息”按钮，地图属性字段变化时立即调用 `updateCurrentMapData()` 同步当前 `MapXXX.json` 缓存并标记 dirty；回归测试覆盖不点击保存按钮也会进入 dirty。 — by Zaun

@@ -40,8 +40,9 @@ export const buildTrajectoryPoints = (
       currentX = targetX;
       currentY = targetY;
     } else {
-      currentX = Number.isFinite(segment.targetX) ? Number(segment.targetX) : currentX;
-      currentY = Number.isFinite(segment.targetY) ? Number(segment.targetY) : currentY;
+      // targetX/targetY 是相对于前一个节点的偏移，链式累加
+      currentX = Number.isFinite(segment.targetX) ? currentX + Number(segment.targetX) : currentX;
+      currentY = Number.isFinite(segment.targetY) ? currentY + Number(segment.targetY) : currentY;
     }
     points[i + 1] = { x: currentX, y: currentY };
   }
