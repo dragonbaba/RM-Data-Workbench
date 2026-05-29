@@ -6,6 +6,7 @@ import {
   normalizeDurationFrames,
   resolveActorProjectileOffset,
   resolveEnemyProjectileOffset,
+  resolveProjectilePreviewTemplate,
   resolveThrowProjectileWtypeId,
   segmentDurationToMs,
   THROW_PROJECTILE_WEAPON_OPTION_ID,
@@ -115,5 +116,68 @@ describe('ProjectilePreviewUtils', () => {
     expect(shouldUseStaticActorPreviewFrame({
       id: 3,
     })).toBe(false);
+  });
+
+  it('resolves actor preview trajectory through weapon attack skill projectile id', () => {
+    const preview = resolveProjectilePreviewTemplate({
+      projectileData: [
+        null,
+        { id: 1, name: '旧弹道', launchAnimation: { animationId: 0, segments: [] } },
+        { id: 2, name: '武器攻击弹道', launchAnimation: { animationId: 9, segments: [{ targetX: 1, targetY: 2, duration: 3 }] } },
+      ],
+      weaponsData: [null, { id: 1, name: '炮', attackSkillId: 7 }],
+      skillsData: [null, null, null, null, null, null, null, { id: 7, name: '炮击', projectileId: 2 }],
+      sourceType: 'actor',
+      sourceId: 3,
+      actorWeaponId: 1,
+      enemySkillId: 0,
+      targetType: 'enemy',
+      targetId: 4,
+    });
+
+    expect(preview.name).toBe('武器攻击弹道');
+    expect(preview.weaponId).toBe(1);
+    expect(preview.skillId).toBe(7);
+    expect(preview.launchAnimation.segments).toHaveLength(1);
+  });
+
+  it('resolves enemy preview trajectory from selected skill projectile id', () => {
+    const preview = resolveProjectilePreviewTemplate({
+      projectileData: [
+        null,
+        { id: 1, name: '敌人技能弹道', launchAnimation: { animationId: 5, segments: [{ targetX: 0, targetY: -20, duration: 30 }] } },
+      ],
+      weaponsData: null,
+      skillsData: [null, { id: 1, name: '吐息', projectileId: 1 }],
+      sourceType: 'enemy',
+      sourceId: 9,
+      actorWeaponId: 0,
+      enemySkillId: 1,
+      targetType: 'actor',
+      targetId: 2,
+    });
+
+    expect(preview.name).toBe('敌人技能弹道');
+    expect(preview.weaponId).toBeUndefined();
+    expect(preview.skillId).toBe(1);
+    expect(preview.launchAnimation.segments).toHaveLength(1);
+  });
+
+  it('keeps battler preview but returns empty trajectory when projectile id is missing', () => {
+    const preview = resolveProjectilePreviewTemplate({
+      projectileData: [null, { id: 1, name: '不会被使用', launchAnimation: { animationId: 1, segments: [{ targetX: 1, targetY: 1, duration: 1 }] } }],
+      weaponsData: [null, { id: 1, name: '空武器', attackSkillId: 3 }],
+      skillsData: [null, null, null, { id: 3, name: '无弹道技能', projectileId: 0 }],
+      sourceType: 'actor',
+      sourceId: 1,
+      actorWeaponId: 1,
+      enemySkillId: 0,
+      targetType: 'enemy',
+      targetId: 2,
+    });
+
+    expect(preview.sourceId).toBe(1);
+    expect(preview.targetId).toBe(2);
+    expect(preview.launchAnimation.segments).toEqual([]);
   });
 });

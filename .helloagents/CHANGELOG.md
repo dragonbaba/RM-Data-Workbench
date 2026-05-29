@@ -19,6 +19,12 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- **[弹道与保存防回归基线]**: 弹道预览轨迹现在按预览配置追溯 `weapon.attackSkillId -> skill.projectileId -> Projectiles.json` 或 `skill.projectileId -> Projectiles.json`，左侧弹道模板切换/编辑不再重置预览面板，也不再改变预览轨迹来源。 — by Zaun
+  - 方案: [202605291430_projectile-preview-template-lookup](archive/2026-05/202605291430_projectile-preview-template-lookup/)
+  - 决策: projectile-preview-template-lookup#D001(预览轨迹与左侧选中模板解耦)
+- **[前后端交互与性能修复记录]**: 脚本 dirty 显示改为订阅 `ScriptCacheManager` 的 clean/dirty 状态转换事件，已有脚本编辑后会在脚本列表和标题显示未保存标记，保存后同步清除。 — by Zaun
+  - 方案: [202605291430_projectile-preview-template-lookup](archive/2026-05/202605291430_projectile-preview-template-lookup/)
+  - 决策: projectile-preview-template-lookup#D004(脚本 dirty 显示以 ScriptCacheManager 内容差异为事实源)
 - **[弹道预览轨迹坐标语义]**: `buildTrajectoryPoints` 非最后一段的 `targetX/targetY` 原来被当作绝对值使用，导致途径点坐标脱离起点基线；现改为链式累加语义（从起点开始逐段叠加偏移），与运行时 `Zaun_Projectile.js` 的 `buildSegmentPoints` 保持一致。 — by Zaun
   - 文件: `frontend/src/services/ProjectilePreviewUtils.ts`, `frontend/src/services/ProjectilePreviewUtils.test.ts`
 - **[敌人属性与技能覆盖]**: 弱点组编辑器改进：标签统一为"弱点倍率 (正数=弱点)"，InputNumber 新增 `min={0}` 禁止负数输入，`normalizeEnemyWeaknessSlot` 对 rate 执行 `Math.abs()` 强制正数；`EnemyPropertyService` 新增 `normalizeWeaknessSlot/normalizeWeaknessGroup` 并接入 `normalizeEnemyDataEntry` 修复模式，自动修正历史数据的负数弱点和缺失字段。 — by Zaun

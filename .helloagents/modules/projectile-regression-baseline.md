@@ -119,3 +119,18 @@
   - `bunx tsc --noEmit` ✅
   - `bun run build` ✅
   - `bun run lint` ⚠️ 项目既有 lint 错误仍存在
+
+## 十一、增量记录（2026-05-29，预览轨迹追溯）
+- 弹道预览轨迹已与左侧弹道列表选中项解耦：
+  - 左侧切换弹道模板不会重置预览面板的发射方、目标方、武器或技能选择。
+  - 左侧模板编辑和轨迹节点编辑仍然只修改左侧当前模板。
+  - 预览轨迹只读取当前预览配置追溯到的弹道模板。
+- 角色预览链路固定为 `weapon.attackSkillId -> skill.projectileId -> Projectiles.json`。
+- 敌人预览链路固定为 `skill.projectileId -> Projectiles.json`。
+- `skill.projectileId` 只读取技能顶层字段，不读取 `meta`。
+- 未选武器/技能、`attackSkillId=0`、`projectileId=0` 或模板不存在时，预览继续显示发射方/目标方精灵，但轨迹段为空。
+- `totalFrames` 已改为读取预览模板段数，不再读取左侧编辑模板段数。
+- 本次验证：
+  - `bun run test --run src/services/ProjectilePreviewUtils.test.ts src/services/ScriptCacheManager.test.ts` ✅
+  - `bunx tsc --noEmit` ✅
+  - `bun run build` ✅（保留既有 Vite 大 chunk 警告）

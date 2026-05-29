@@ -26,6 +26,7 @@ import {
   resolveActorProjectileOffset,
   resolveEnemyProjectileOffset,
   resolveThrowProjectileWtypeId,
+  resolveProjectilePreviewTemplate,
   normalizeDurationFrames,
   THROW_PROJECTILE_WEAPON_LABEL,
   THROW_PROJECTILE_WEAPON_OPTION_ID,
@@ -450,18 +451,6 @@ export function ProjectilePanel() {
   }, []);
 
   useEffect(() => {
-    if (!hasTemplate) return;
-    setPreviewSourceType('actor');
-    setPreviewSourceId(0);
-    setPreviewTargetType('enemy');
-    setPreviewTargetId(0);
-    setActorOffsetActorId(0);
-    setActorOffsetWeaponId(0);
-    setEnemyOffsetEnemyId(0);
-    setEnemyOffsetSkillId(0);
-  }, [currentItemIndex, hasTemplate, template?.id]);
-
-  useEffect(() => {
     const offset = getActorOffsetFromCache(actorOffsetActorId, actorOffsetWeaponId);
     setActorOffsetX(offset.x);
     setActorOffsetY(offset.y);
@@ -737,37 +726,32 @@ export function ProjectilePanel() {
   }, []);
   // 不再需要swap函数，发射侧已固定
 
-  const totalFrames = getSegments().reduce((sum, seg) => sum + normalizeDurationFrames(seg.duration), 0) || 0;
   const previewTemplate = useMemo<ProjectilePreviewTemplate | null>(() => {
-    if (!template) return null;
-    return sourceType === 'actor'
-      ? {
-          ...template,
-          sourceType,
-          sourceId: previewSourceId,
-          targetType,
-          targetId: previewTargetId,
-          weaponId: actorOffsetWeaponId || undefined,
-          skillId: undefined,
-        }
-      : {
-          ...template,
-          sourceType,
-          sourceId: previewSourceId,
-          targetType,
-          targetId: previewTargetId,
-          weaponId: undefined,
-          skillId: enemyOffsetSkillId || undefined,
-        };
+    if (!hasTemplate) return null;
+    return resolveProjectilePreviewTemplate({
+      projectileData: currentData as unknown[] | null,
+      weaponsData: DataLoaderService.getCachedDataByName(WEAPONS_FILE_NAME),
+      skillsData: DataLoaderService.getCachedDataByName(SKILLS_FILE_NAME),
+      sourceType,
+      sourceId: previewSourceId,
+      actorWeaponId: actorOffsetWeaponId,
+      enemySkillId: enemyOffsetSkillId,
+      targetType,
+      targetId: previewTargetId,
+    });
   }, [
     actorOffsetWeaponId,
+    currentData,
     enemyOffsetSkillId,
+    hasTemplate,
     previewSourceId,
     previewTargetId,
+    referenceRevision,
     sourceType,
     targetType,
-    template,
   ]);
+  const totalFrames = (previewTemplate?.launchAnimation?.segments || [])
+    .reduce((sum, seg) => sum + normalizeDurationFrames(seg.duration), 0) || 0;
 
   if (!template) {
     return (

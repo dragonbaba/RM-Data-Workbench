@@ -1,4 +1,4 @@
-import type { TrajectorySegment } from '../types';
+import type { ProjectilePreviewTemplate, ProjectileTemplate, TrajectorySegment } from '../types';
 export type BattlerType = 'actor' | 'enemy';
 
 const FRAME_RATE = 60;
@@ -113,6 +113,89 @@ export const findDataEntryById = (data: unknown[] | null, id: number): RecordLik
   }
 
   return null;
+};
+
+const findProjectileTemplateById = (data: unknown[] | null, id: number): ProjectileTemplate | null => {
+  const entry = findDataEntryById(data, id);
+  if (!entry) return null;
+  const launchAnimation = entry.launchAnimation;
+  if (!launchAnimation || typeof launchAnimation !== 'object' || Array.isArray(launchAnimation)) {
+    return null;
+  }
+  return entry as unknown as ProjectileTemplate;
+};
+
+export const resolveWeaponAttackSkillId = (weaponsData: unknown[] | null, weaponId: number): number => {
+  const weapon = findDataEntryById(weaponsData, weaponId);
+  return weapon ? asInt(weapon.attackSkillId) : 0;
+};
+
+export const resolveSkillProjectileId = (skillsData: unknown[] | null, skillId: number): number => {
+  const skill = findDataEntryById(skillsData, skillId);
+  return skill ? asInt(skill.projectileId) : 0;
+};
+
+interface ProjectilePreviewTemplateInput {
+  projectileData: unknown[] | null;
+  weaponsData: unknown[] | null;
+  skillsData: unknown[] | null;
+  sourceType: BattlerType;
+  sourceId: number;
+  actorWeaponId: number;
+  enemySkillId: number;
+  targetType: BattlerType;
+  targetId: number;
+}
+
+const EMPTY_PREVIEW_PROJECTILE: ProjectileTemplate = {
+  name: '预览弹道',
+  startAnimationId: 0,
+  launchAnimation: {
+    animationId: 0,
+    segments: [],
+  },
+  endAnimationId: 0,
+};
+
+export const resolveProjectilePreviewTemplate = ({
+  projectileData,
+  weaponsData,
+  skillsData,
+  sourceType,
+  sourceId,
+  actorWeaponId,
+  enemySkillId,
+  targetType,
+  targetId,
+}: ProjectilePreviewTemplateInput): ProjectilePreviewTemplate => {
+  const skillId = sourceType === 'actor'
+    ? resolveWeaponAttackSkillId(weaponsData, actorWeaponId)
+    : enemySkillId;
+  const projectileId = resolveSkillProjectileId(skillsData, skillId);
+  const projectileTemplate = projectileId > 0
+    ? findProjectileTemplateById(projectileData, projectileId)
+    : null;
+  const template = projectileTemplate || EMPTY_PREVIEW_PROJECTILE;
+
+  return sourceType === 'actor'
+    ? {
+        ...template,
+        sourceType,
+        sourceId,
+        targetType,
+        targetId,
+        weaponId: actorWeaponId || undefined,
+        skillId: skillId || undefined,
+      }
+    : {
+        ...template,
+        sourceType,
+        sourceId,
+        targetType,
+        targetId,
+        weaponId: undefined,
+        skillId: enemySkillId || undefined,
+      };
 };
 
 export const resolveThrowProjectileWtypeId = (systemData: unknown): number => {
