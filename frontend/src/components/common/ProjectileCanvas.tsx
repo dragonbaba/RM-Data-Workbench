@@ -112,6 +112,8 @@ const PREVIEW_BATTLER_SHIFT_X = 28;
 const PREVIEW_BATTLER_SHIFT_Y = 34;
 const DEFAULT_BATTLER_METRICS = { width: 96, height: 96 };
 const MAX_TEXTURE_CACHE_SIZE = 48;
+const TRAJECTORY_EASE_SAMPLE_MIN = 8;
+const TRAJECTORY_EASE_SAMPLE_MAX = 48;
 const TRAJECTORY_LABEL_STYLE = {
   fontFamily: 'Arial',
   fontSize: 12,
@@ -124,6 +126,18 @@ const clampValue = (value: number, min: number, max: number): number => {
   if (value < min) return min;
   if (value > max) return max;
   return value;
+};
+
+const resolveEasingFunction = (name: string | undefined): ((t: number) => number) => (
+  name ? (easingFunctions[name] || easingFunctions.linear) : easingFunctions.linear
+);
+
+const resolveTrajectorySampleCount = (deltaX: number, deltaY: number): number => {
+  const distance = Math.max(Math.abs(deltaX), Math.abs(deltaY));
+  const samples = Math.ceil(distance / 24);
+  if (samples < TRAJECTORY_EASE_SAMPLE_MIN) return TRAJECTORY_EASE_SAMPLE_MIN;
+  if (samples > TRAJECTORY_EASE_SAMPLE_MAX) return TRAJECTORY_EASE_SAMPLE_MAX;
+  return samples;
 };
 
 const alignSpriteToBattleBase = (sprite: PIXI.Sprite, baseX: number, baseY: number) => {
@@ -404,8 +418,6 @@ export const ProjectileCanvas = memo(({
       const segment = segments[i];
       const startPoint = points[i];
       const endPoint = points[i + 1];
-      const easeX = segment.easeX || segment.easing || 'linear';
-      const easeY = segment.easeY || segment.easing || 'linear';
       const deltaX = endPoint.x - startPoint.x;
       const deltaY = endPoint.y - startPoint.y;
       const durationMs = Math.max(segmentDurationToMs(segment.duration) / speedScale, 0.001);
@@ -417,8 +429,8 @@ export const ProjectileCanvas = memo(({
         deltaX,
         deltaY,
         rotation: Math.atan2(deltaY, deltaX),
-        easingX: easingFunctions[easeX] || easingFunctions.linear,
-        easingY: easingFunctions[easeY] || easingFunctions.linear,
+        easingX: resolveEasingFunction(segment.easeX || segment.easing),
+        easingY: resolveEasingFunction(segment.easeY || segment.easing),
       };
     }
     return plans;
@@ -582,13 +594,28 @@ export const ProjectileCanvas = memo(({
     // 绘制轨迹线
     graphics.lineStyle(3, 0x00d4ff, 0.8);
     graphics.moveTo(points[0].x, points[0].y);
-    for (let i = 1; i < points.length; i++) {
-      graphics.lineTo(points[i].x, points[i].y);
+    for (let i = 0; i < segments.length; i++) {
+      const segment = segments[i];
+      const startPoint = points[i];
+      const endPoint = points[i + 1];
+      const deltaX = endPoint.x - startPoint.x;
+      const deltaY = endPoint.y - startPoint.y;
+      const easingX = resolveEasingFunction(segment.easeX || segment.easing);
+      const easingY = resolveEasingFunction(segment.easeY || segment.easing);
+      const sampleCount = resolveTrajectorySampleCount(deltaX, deltaY);
+      for (let sample = 1; sample <= sampleCount; sample++) {
+        const progress = sample / sampleCount;
+        graphics.lineTo(
+          startPoint.x + deltaX * easingX(progress),
+          startPoint.y + deltaY * easingY(progress),
+        );
+      }
     }
 
     // 绘制节点
     const labels = trajectoryLabelPoolRef.current;
-    points.forEach((point, index) => {
+    for (let index = 0; index < points.length; index++) {
+      const point = points[index];
       graphics.beginFill(0x00d4ff);
       graphics.drawCircle(point.x, point.y, 6);
       graphics.endFill();
@@ -608,7 +635,7 @@ export const ProjectileCanvas = memo(({
       if (label.parent !== graphics) {
         graphics.addChild(label);
       }
-    });
+    }
   }, [template, hideTrajectoryLabels, resolveTrajectoryPoints]);
 
   useEffect(() => {

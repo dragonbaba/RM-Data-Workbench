@@ -9,6 +9,7 @@ import { registerEnhancements } from '../../services/MonacoEnhancements';
 import { useTheme } from '../../theme/ThemeManager';
 import { getScriptFilePath, loadScriptContent, saveScriptContent } from '../../services/ScriptOperations';
 import { hasLegacyTimestampScriptPath } from '../../services/ScriptPathCompat';
+import { EventSystem } from '../../core/EventSystem';
 
 // 编辑器选项常量 - 避免重复创建对象
 const EDITOR_OPTIONS = {
@@ -47,6 +48,7 @@ export const CodeEditorPanel = memo(() => {
   const [loadError, setLoadError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [editorReady, setEditorReady] = useState(false);
+  const [dirtyRevision, setDirtyRevision] = useState(0);
   const pendingLoadRef = useRef<{ key: string; storedPath: string; resolvedPath: string } | null>(null);
   const preloadErrorRef = useRef<Record<string, string>>({});
   const preloadedScriptManifestRef = useRef<Record<string, string> | null>(null);
@@ -61,6 +63,10 @@ export const CodeEditorPanel = memo(() => {
   const editorTheme = useMemo(
     () => resolveEditorThemeName(config.theme, config.themePreset),
     [config.theme, config.themePreset]
+  );
+  const isCurrentScriptDirty = useMemo(
+    () => Boolean(scriptFilePath && ScriptCacheManager.isDirty(scriptFilePath)),
+    [dirtyRevision, scriptFilePath],
   );
   const getLegacyPathError = useCallback((pathValue: string) => (
     `检测到旧版时间戳脚本路径，已不再兼容: ${pathValue}。请改为无时间戳文件名，例如 2_actionSequence.js`
@@ -236,6 +242,18 @@ export const CodeEditorPanel = memo(() => {
       void handleSave();
     };
   }, [handleSave]);
+
+  useEffect(() => {
+    const refreshDirtyState = () => setDirtyRevision((value) => value + 1);
+    EventSystem.on('script:dirty', refreshDirtyState);
+    EventSystem.on('script:clean', refreshDirtyState);
+    EventSystem.on('script:cache-cleared', refreshDirtyState);
+    return () => {
+      EventSystem.off('script:dirty', refreshDirtyState);
+      EventSystem.off('script:clean', refreshDirtyState);
+      EventSystem.off('script:cache-cleared', refreshDirtyState);
+    };
+  }, []);
 
   // 键盘快捷键 - 只注册一次，避免重复绑定
   useEffect(() => {
@@ -429,6 +447,9 @@ export const CodeEditorPanel = memo(() => {
             {scriptKeys.map((key) => {
               const isActive = key === currentScriptKey;
               const storedPath = scripts[key];
+              const pathValue = typeof storedPath === 'string' ? storedPath : '';
+              const resolvedPath = pathValue ? getScriptFilePath(pathValue) : '';
+              const isDirty = Boolean(resolvedPath && ScriptCacheManager.isDirty(resolvedPath));
               return (
                 <button
                   key={key}
@@ -483,6 +504,9 @@ export const CodeEditorPanel = memo(() => {
                 >
                   <div className="flex items-center justify-between">
                     <span className="truncate">{key}</span>
+                    {isDirty && (
+                      <span className="ml-2 shrink-0" style={{ color: 'var(--color-accent)' }}>*</span>
+                    )}
                   </div>
                 </button>
               );
@@ -499,7 +523,7 @@ export const CodeEditorPanel = memo(() => {
               <span style={{ color: 'var(--color-accent)' }}>代码编辑</span>
               {currentScriptKey && (
                 <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                  - {currentScriptKey}
+                  - {currentScriptKey}{isCurrentScriptDirty ? ' *' : ''}
                 </span>
               )}
               {scriptFilePath && (

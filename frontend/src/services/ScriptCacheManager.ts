@@ -60,6 +60,7 @@ class ScriptCacheManagerClass {
     }
 
     const existing = this.cache.get(filePath);
+    const wasDirty = existing ? isEntryDirty(existing) : false;
     const nextOriginalContent = originalContent ?? existing?.originalContent ?? content;
     const entry: ScriptCacheEntry = {
       content,
@@ -69,6 +70,12 @@ class ScriptCacheManagerClass {
     };
 
     this.cache.set(filePath, entry);
+    const nextDirty = isEntryDirty(entry);
+    if (nextDirty && !wasDirty) {
+      EventSystem.emit('script:dirty', filePath);
+    } else if (!nextDirty && wasDirty) {
+      EventSystem.emit('script:clean', filePath);
+    }
   }
 
   /**

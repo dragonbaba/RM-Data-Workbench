@@ -24,6 +24,8 @@
 - 脚本文件命名已固定为无时间戳形式，不再生成旧版带时间戳的文件名。
 - 旧版带时间戳脚本路径不会再被继续加载或保存。
 - 脚本 dirty 判定只以“当前内容 vs originalContent”为准。
+- 脚本 dirty 事件由 `ScriptCacheManager.set()` 在 clean/dirty 状态转换时发出，避免内容已进入脏缓存但 UI 没有收到 `script:dirty` 的情况。
+- 脚本列表与当前脚本标题显示 dirty 标记；保存当前脚本或 SaveAll 把缓存恢复为 clean 后，标记同步消失。
 - 程序化写入编辑器内容不会触发 dirty：
   - 切换脚本
   - 加载脚本

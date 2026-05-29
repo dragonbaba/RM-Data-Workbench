@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { ScriptCacheManager } from './ScriptCacheManager';
+import { EventSystem } from '../core/EventSystem';
 
 describe('ScriptCacheManager', () => {
   afterEach(() => {
@@ -28,5 +29,24 @@ describe('ScriptCacheManager', () => {
     ScriptCacheManager.set(filePath, 'export function run() {}', 'export function run() {}');
     expect(ScriptCacheManager.isDirty(filePath)).toBe(false);
     expect(ScriptCacheManager.getDirtyFiles()).toEqual([]);
+  });
+
+  it('内容脏状态变化时会发出 dirty 和 clean 事件', () => {
+    const filePath = 'D:/RMProjects/MyGame/scripts/2_actionSequence.js';
+    const events: string[] = [];
+    const onDirty = () => events.push('dirty');
+    const onClean = () => events.push('clean');
+    EventSystem.on('script:dirty', onDirty);
+    EventSystem.on('script:clean', onClean);
+
+    try {
+      ScriptCacheManager.set(filePath, 'changed', 'original');
+      ScriptCacheManager.set(filePath, 'saved', 'saved');
+
+      expect(events).toEqual(['dirty', 'clean']);
+    } finally {
+      EventSystem.off('script:dirty', onDirty);
+      EventSystem.off('script:clean', onClean);
+    }
   });
 });

@@ -134,3 +134,13 @@
   - `bun run test --run src/services/ProjectilePreviewUtils.test.ts src/services/ScriptCacheManager.test.ts` ✅
   - `bunx tsc --noEmit` ✅
   - `bun run build` ✅（保留既有 Vite 大 chunk 警告）
+
+## 十二、增量记录（2026-05-29，缓动轨迹线）
+- 弹道预览辅助轨迹线现在按每段 `easeX/easeY/easing` 采样绘制，不再只用直线连接关键节点。
+- 播放动画和轨迹线共用同一套 easing 函数解析逻辑，保证可视轨迹与实际弹道移动路径一致。
+- 采样数按段距离钳制在 8~48，避免长轨迹过粗糙，也避免绘制节点过多。
+- 节点圆点与编号仍显示在关键点位置，用于继续校准段端点。
+- 本次验证：
+  - `bun run test --run src/services/ProjectilePreviewUtils.test.ts` ✅
+  - `bunx tsc --noEmit` ✅
+  - `bun run build` ✅（保留既有 Vite 大 chunk 警告）

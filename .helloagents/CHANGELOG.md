@@ -22,6 +22,9 @@ All notable changes to this project are documented in this file.
 - **[弹道与保存防回归基线]**: 弹道预览轨迹现在按预览配置追溯 `weapon.attackSkillId -> skill.projectileId -> Projectiles.json` 或 `skill.projectileId -> Projectiles.json`，左侧弹道模板切换/编辑不再重置预览面板，也不再改变预览轨迹来源。 — by Zaun
   - 方案: [202605291430_projectile-preview-template-lookup](archive/2026-05/202605291430_projectile-preview-template-lookup/)
   - 决策: projectile-preview-template-lookup#D001(预览轨迹与左侧选中模板解耦)
+- **[弹道与保存防回归基线]**: 弹道预览辅助轨迹线改为按每段 `easeX/easeY/easing` 采样绘制，避免非线性缓动仍显示成直线折线；播放动画和轨迹线现在共用同一套 easing 解析逻辑。 — by Zaun
+  - 类型: 快速修改（无方案包）
+  - 文件: frontend/src/components/common/ProjectileCanvas.tsx
 - **[前后端交互与性能修复记录]**: 脚本 dirty 显示改为订阅 `ScriptCacheManager` 的 clean/dirty 状态转换事件，已有脚本编辑后会在脚本列表和标题显示未保存标记，保存后同步清除。 — by Zaun
   - 方案: [202605291430_projectile-preview-template-lookup](archive/2026-05/202605291430_projectile-preview-template-lookup/)
   - 决策: projectile-preview-template-lookup#D004(脚本 dirty 显示以 ScriptCacheManager 内容差异为事实源)
