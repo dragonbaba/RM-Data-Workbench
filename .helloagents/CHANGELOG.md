@@ -19,6 +19,9 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- **[前后端交互与性能修复记录]**: 修复右侧主面板在窗口缩放后被内容撑出屏幕的问题；主布局、主内容、面板宿主和脚本编辑器关键 flex 容器已补齐 `min-w-0/min-h-0/overflow-hidden`，脚本路径和错误文本改为截断显示，Monaco 容器可随窗口收缩。 — by Zaun
+  - 方案: [202605291216_right-panel-container-bounds](archive/2026-05/202605291216_right-panel-container-bounds/)
+  - 决策: right-panel-container-bounds#D001(用 flex 最小尺寸约束修复主布局溢出)
 - **[弹道与保存防回归基线]**: 弹道预览轨迹现在按预览配置追溯 `weapon.attackSkillId -> skill.projectileId -> Projectiles.json` 或 `skill.projectileId -> Projectiles.json`，左侧弹道模板切换/编辑不再重置预览面板，也不再改变预览轨迹来源。 — by Zaun
   - 方案: [202605291430_projectile-preview-template-lookup](archive/2026-05/202605291430_projectile-preview-template-lookup/)
   - 决策: projectile-preview-template-lookup#D001(预览轨迹与左侧选中模板解耦)

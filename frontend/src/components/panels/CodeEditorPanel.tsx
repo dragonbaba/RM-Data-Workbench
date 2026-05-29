@@ -422,13 +422,13 @@ export const CodeEditorPanel = memo(() => {
   }, [scriptFilePath]);
 
   return (
-    <div className="flex-1 flex" style={{ backgroundColor: 'var(--color-background)' }}>
+    <div className="flex-1 min-w-0 min-h-0 overflow-hidden flex" style={{ backgroundColor: 'var(--color-background)' }}>
       <div
-        className="flex-1 flex"
+        className="flex-1 min-w-0 min-h-0 overflow-hidden flex"
         style={{ backgroundColor: 'var(--color-background)' }}
       >
         <div
-          className="w-60 flex flex-col"
+          className="w-60 shrink-0 flex flex-col overflow-hidden"
           style={{
             backgroundColor: 'var(--color-surface)',
             borderRight: '1px solid var(--color-border)',
@@ -514,34 +514,34 @@ export const CodeEditorPanel = memo(() => {
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col">
           <div
-            className="px-4 py-3 flex items-center"
+            className="shrink-0 min-w-0 px-4 py-3 flex items-center"
             style={{ borderBottom: '1px solid var(--color-border)' }}
           >
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <span style={{ color: 'var(--color-accent)' }}>代码编辑</span>
+            <h2 className="min-w-0 text-lg font-semibold flex items-center gap-2">
+              <span className="shrink-0" style={{ color: 'var(--color-accent)' }}>代码编辑</span>
               {currentScriptKey && (
-                <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                <span className="shrink-0 text-sm" style={{ color: 'var(--color-text-muted)' }}>
                   - {currentScriptKey}{isCurrentScriptDirty ? ' *' : ''}
                 </span>
               )}
               {scriptFilePath && (
-                <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>({scriptFilePath})</span>
+                <span className="min-w-0 truncate text-xs" style={{ color: 'var(--color-text-muted)' }}>({scriptFilePath})</span>
               )}
               {isLoading && (
-                <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>加载中...</span>
+                <span className="shrink-0 text-xs" style={{ color: 'var(--color-text-muted)' }}>加载中...</span>
               )}
               {!editorReady && (
-                <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>编辑器初始化中...</span>
+                <span className="shrink-0 text-xs" style={{ color: 'var(--color-text-muted)' }}>编辑器初始化中...</span>
               )}
               {loadError && (
-                <span className="text-xs text-[#ffaa00]">{loadError}</span>
+                <span className="min-w-0 truncate text-xs text-[#ffaa00]">{loadError}</span>
               )}
             </h2>
           </div>
 
-          <div className="flex-1">
+          <div className="flex-1 min-w-0 min-h-0 overflow-hidden">
             <Editor
               height="100%"
               defaultLanguage="javascript"

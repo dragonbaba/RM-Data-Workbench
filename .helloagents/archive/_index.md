@@ -41,3 +41,4 @@
 | 202605021317 | note-to-property-mode | - | - | - | ✅完成 |
 | 202605090325 | weapon-range-repair-mode-preserve-protocol | - | - | - | ✅完成 |
 | 202605291430 | projectile-preview-template-lookup | - | - | - | ✅完成 |
+| 202605291216 | right-panel-container-bounds | - | - | - | ✅完成 |

@@ -15,7 +15,7 @@ const RefitPanel = lazy(() => import('../panels/RefitPanel'));
 const DropPanel = lazy(() => import('../panels/DropPanel'));
 
 const PanelFallback = () => (
-  <div className="flex-1 flex items-center justify-center bg-dark-900 text-gray-500">
+  <div className="flex-1 min-w-0 min-h-0 flex items-center justify-center bg-dark-900 text-gray-500">
     正在加载面板...
   </div>
 );
@@ -58,7 +58,7 @@ export function MainContent() {
     }
 
     return (
-      <div className="flex-1 flex items-center justify-center bg-dark-900">
+      <div className="flex-1 min-w-0 min-h-0 flex items-center justify-center bg-dark-900">
         <Empty
           description={
             <div className="text-center">
@@ -75,14 +75,15 @@ export function MainContent() {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-dark-900">
+    <div className="flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col bg-dark-900">
       {config.dataPath && (
-        <div className="flex items-center justify-between px-4 py-2 border-b border-[#30384d] bg-[#161b28]">
-          <div className="text-sm text-gray-400">
+        <div className="shrink-0 min-w-0 flex items-center justify-between gap-3 px-4 py-2 border-b border-[#30384d] bg-[#161b28]">
+          <div className="min-w-0 text-sm text-gray-400 truncate">
             全局工具
             {currentFile ? <span className="ml-3 text-gray-500">当前文件: {currentFile}</span> : null}
           </div>
           <Button
+            className="shrink-0"
             icon={<ToolOutlined />}
             size="small"
             onClick={() => EventSystem.emit('data:audit-repair-request')}
@@ -91,9 +92,11 @@ export function MainContent() {
           </Button>
         </div>
       )}
-      <Suspense fallback={<PanelFallback />}>
-        {uiMode === 'map' || currentMapData || currentData ? renderPanel() : renderEmptyState()}
-      </Suspense>
+      <div className="flex-1 min-w-0 min-h-0 overflow-hidden flex">
+        <Suspense fallback={<PanelFallback />}>
+          {uiMode === 'map' || currentMapData || currentData ? renderPanel() : renderEmptyState()}
+        </Suspense>
+      </div>
     </div>
   );
 }

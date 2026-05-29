@@ -8,6 +8,10 @@
 ## 当前交互链路
 - Wails runtime 事件统一进入前端状态层，再由 Zustand 驱动界面刷新。
 - `useFileOperations` 是当前未保存保护、模式切换、数据切换和 SaveAll 的主协调入口。
+- 主布局容器链固定要求：
+  - `MainLayout`、`MainContent`、面板宿主必须具备 `min-w-0/min-h-0`，并由外层 `overflow-hidden` 限制窗口边界。
+  - 右侧面板自身继续负责纵向滚动，主内容层不允许被 Monaco、长文件名或长标题撑出窗口。
+  - 脚本编辑器的左右分栏、标题栏和 Monaco 宿主必须保持 `min-w-0/min-h-0`；路径与加载错误文本使用截断显示。
 - `useFileOperations` 当前把外部文件监听确认链路拆成两层：
   - `BaseDataReloadService` 负责“哪些变化需要提示 / 需要统一重载当前上下文”
   - `ExternalDataChangeQueue` 负责“同一路径去重 / 会话内抑制 / 短时冷却聚合”
