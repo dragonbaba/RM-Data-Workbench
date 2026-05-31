@@ -52,7 +52,7 @@ const buildScriptSaveFailure = (
   const timestamp = new Date().toISOString();
   const errorText = error ? formatError(error) : '无';
   const summary = `${options.action}失败，文件未写入，编辑器内容已保留。`;
-  const log = buildSaveFailureLog('[MyNewEditor] 脚本保存失败日志', [
+  const log = buildSaveFailureLog('[RM Data Workbench] 脚本保存失败日志', [
     `时间: ${timestamp}`,
     `操作: ${options.action}`,
     `脚本键: ${options.scriptKey || '未知'}`,
@@ -72,7 +72,7 @@ const showScriptSaveFailure = async (failure: ScriptSaveFailure): Promise<void> 
   try {
     await appendEditorFailureLog(failure.log);
   } catch (logError) {
-    console.error('[MyNewEditor] 写入 log.txt 失败', logError);
+    console.error('[RM Data Workbench] 写入 log.txt 失败', logError);
   }
   await InputDialog.showLog({
     title: '脚本保存失败',

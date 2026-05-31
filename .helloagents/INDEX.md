@@ -1,9 +1,9 @@
 # HelloAGENTS 知识库索引
 
 ## 项目
-- 名称：MyNewEditor
+- 名称：RM Data Workbench
 - 类型：RPG Maker 数据扩展编辑器（Wails + Go + React + TypeScript）
-- 最近更新：2026-04-24
+- 最近更新：2026-05-31
 
 ## 入口文件
 - 项目上下文：`helloagents/context.md`

@@ -650,3 +650,8 @@ All notable changes to this project are documented in this file.
 - 验证：
   - `bunx tsc --noEmit`：通过
   - `bun run test --run src/services/NoteMetadataService.test.ts`：通过
+
+## 快速修改（2026-05-31，项目公开命名与开源许可）
+- **项目定位**: 将公开项目名从 `MyNewEditor` 调整为 `RM Data Workbench`，同步 README、Wails 应用名、窗口标题、网页标题、Go module 路径与日志前缀。
+- **开源许可**: 新增 MPL-2.0 `LICENSE` 与 `NOTICE`，分发时要求保留项目致谢信息。
+- 涉及文件：`README.md`、`wails.json`、`go.mod`、`main.go`、`app.go`、`backend/services/quest_service.go`、`frontend/index.html`、`frontend/src/hooks/useFileOperations.ts`、`frontend/src/services/ScriptOperations.ts`、`RM_DATA_WORKBENCH_TASKS.md`、`LICENSE`、`NOTICE`。

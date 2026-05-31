@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"MyNewEditor/backend/services"
+	"rm-data-workbench/backend/services"
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/menu/keys"
 	"github.com/wailsapp/wails/v2/pkg/runtime"

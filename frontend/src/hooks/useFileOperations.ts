@@ -79,7 +79,7 @@ const logDataSaveFailure = async (
   reason: string,
   error?: unknown,
 ) => {
-  const log = buildSaveFailureLog('[MyNewEditor] 数据保存失败日志', [
+  const log = buildSaveFailureLog('[RM Data Workbench] 数据保存失败日志', [
     `时间: ${new Date().toISOString()}`,
     `操作: ${action}`,
     `文件路径: ${filePath || '未知'}`,
@@ -89,7 +89,7 @@ const logDataSaveFailure = async (
   try {
     await appendEditorFailureLog(log);
   } catch (logError) {
-    console.error('[MyNewEditor] 写入 log.txt 失败', logError);
+    console.error('[RM Data Workbench] 写入 log.txt 失败', logError);
   }
 };
 

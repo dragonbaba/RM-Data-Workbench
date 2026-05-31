@@ -1,16 +1,16 @@
-# MyNewEditor 重构任务清单
+# RM Data Workbench 重构任务清单
 
-> 本文档用于跟踪从 MyEditor (Electron) 到 MyNewEditor (Wails) 的重构进度
+> 本文档用于跟踪从 MyEditor (Electron) 到 RM Data Workbench (Wails) 的重构进度
 > 
 > 创建时间: 2026-01-30
 > 原项目: D:\RMProjects\MyEditor (Electron + TypeScript)
-> 新项目: D:\RMProjects\MyNewEditor (Wails + Go + React)
+> 新项目: D:\RMProjects\RM Data Workbench (Wails + Go + React)
 
 ---
 
 ## 项目对比概览
 
-| 维度 | 原项目 (MyEditor) | 新项目 (MyNewEditor) | 状态 |
+| 维度 | 原项目 (MyEditor) | 新项目 (RM Data Workbench) | 状态 |
 |------|------------------|---------------------|------|
 | **技术栈** | Electron + TypeScript | Wails v2 + Go + React | 已迁移 |
 | **UI 框架** | 原生 DOM + Tailwind | React + Ant Design + Tailwind | 已迁移 |
