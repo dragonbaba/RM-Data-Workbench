@@ -1,3 +1,4 @@
+import { normalizeActorDataEntry } from './ActorPropertyService';
 import { normalizeEnemyDataEntry } from './EnemyPropertyService';
 import { normalizeEquipmentDataEntry } from './EquipmentPropertyService';
 import { EFFECTS_FILE_NAME, normalizeEffectIdList, normalizeGameEffectEntry } from './GameEffectService';
@@ -176,7 +177,8 @@ const normalizeEntryByFileName = (
   }
 
   if (fileName === ACTORS_FILE_NAME) {
-    const normalized = normalizePassiveStateHostEntry(entry) ?? entry;
+    const actorNormalized = normalizeActorDataEntry(entry) ?? entry;
+    const normalized = normalizePassiveStateHostEntry(actorNormalized) ?? actorNormalized;
     return ensureActorThrowProjectileOffset(normalized as Record<string, unknown>, systemData);
   }
 

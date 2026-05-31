@@ -200,6 +200,8 @@ describe('DataAuditService', () => {
       projectileOffset: createDefaultThrowProjectileOffset(),
       ownerParams: createDefaultOwnerParams(3),
       passiveStates: [],
+      isStaticImage: false,
+      isTank: false,
     });
 
     const classPayload = writes.find((item) => item.filePath.endsWith('Classes.json'))?.data as unknown[];
@@ -457,6 +459,8 @@ describe('DataAuditService', () => {
             projectileOffset: createDefaultThrowProjectileOffset(),
             ownerParams: createDefaultOwnerParams(),
             passiveStates: [],
+            isStaticImage: false,
+            isTank: false,
           }];
         }
         if (filePath.endsWith('Classes.json')) {
@@ -635,6 +639,7 @@ describe('DataAuditService', () => {
             levelScopeUp: 0,
             isBoss: false,
             allowBreak: false,
+            enableSv: false,
             canReaction: false,
             bounty: 0,
             attackAnimationId: 0,

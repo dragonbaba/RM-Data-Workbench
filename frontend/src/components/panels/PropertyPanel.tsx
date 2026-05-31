@@ -16,6 +16,12 @@ import {
   normalizeEnemyEditorValues,
 } from '../../services/EnemyPropertyService';
 import {
+  buildActorSaveData,
+  hasActorEditorChanges,
+  normalizeActorDataEntry,
+  normalizeActorEditorValues,
+} from '../../services/ActorPropertyService';
+import {
   buildSkillSaveData,
   ACTION_SEQUENCE_TYPE_ITEM,
   ACTION_SEQUENCE_TYPE_NORMAL,
@@ -423,11 +429,14 @@ const SKILL_NEED_TARGET_SELECT_FIELD_KEY = 'needTargetSelect';
 const SKILL_NEED_WEAPON_SELECT_FIELD_KEY = 'needWeaponSelect';
 const SKILL_COSTS_FIELD_KEY = 'skillCosts';
 const SKILL_EFFECT_SPEC_FIELD_KEY = 'skillEffectSpec';
+const ACTOR_IS_STATIC_IMAGE_FIELD_KEY = 'actorIsStaticImage';
+const ACTOR_IS_TANK_FIELD_KEY = 'actorIsTank';
 const ENEMY_CLASS_ID_FIELD_KEY = 'enemyClassId';
 const ENEMY_LEVEL_FIELD_KEY = 'enemyLevel';
 const ENEMY_LEVEL_SCOPE_FIELD_KEY = 'enemyLevelScope';
 const ENEMY_LEVEL_SCOPE_UP_FIELD_KEY = 'enemyLevelScopeUp';
 const ENEMY_IS_BOSS_FIELD_KEY = 'enemyIsBoss';
+const ENEMY_ENABLE_SV_FIELD_KEY = 'enemyEnableSv';
 const ENEMY_ALLOW_BREAK_FIELD_KEY = 'enemyAllowBreak';
 const ENEMY_CAN_REACTION_FIELD_KEY = 'enemyCanReaction';
 const ENEMY_BASE_WEAKNESS_GROUP_FIELD_KEY = 'enemyBaseWeaknessGroup';
@@ -1290,6 +1299,11 @@ export function PropertyPanel() {
       if (isWeaponItem || isArmorItem) {
         baseFormValues[QUALITY_LOCK_FIELD_KEY] = item.qualityLock === true;
       }
+      if (isActorFile) {
+        const actorValues = normalizeActorEditorValues(item);
+        baseFormValues[ACTOR_IS_STATIC_IMAGE_FIELD_KEY] = actorValues.isStaticImage;
+        baseFormValues[ACTOR_IS_TANK_FIELD_KEY] = actorValues.isTank;
+      }
       if (supportsCommonRange) {
         Object.assign(baseFormValues, getCommonRangeValues(item));
         baseFormValues[ORDER_EFFECTS_FIELD_KEY] = normalizeBattleOrderEffects(item.orderEffects);
@@ -1325,6 +1339,7 @@ export function PropertyPanel() {
         baseFormValues[ENEMY_LEVEL_SCOPE_FIELD_KEY] = enemyValues.levelScope;
         baseFormValues[ENEMY_LEVEL_SCOPE_UP_FIELD_KEY] = enemyValues.levelScopeUp;
         baseFormValues[ENEMY_IS_BOSS_FIELD_KEY] = enemyValues.isBoss;
+        baseFormValues[ENEMY_ENABLE_SV_FIELD_KEY] = enemyValues.enableSv;
         baseFormValues[ENEMY_ALLOW_BREAK_FIELD_KEY] = enemyValues.allowBreak;
         baseFormValues[ENEMY_CAN_REACTION_FIELD_KEY] = enemyValues.canReaction;
         baseFormValues[ENEMY_BOUNTY_FIELD_KEY] = enemyValues.bounty;
@@ -1406,7 +1421,7 @@ export function PropertyPanel() {
       setHasCustomChanges(pendingDraft?.hasCustomChanges ?? false);
       pendingDraftRef.current = null;
     }
-  }, [currentItem, currentItemIndex, equipExtensionsData, form, isArmorItem, isEnemyFile, isStateFile, isWeaponItem, skillsData, supportsCommonRange, supportsFlatBaseAttributes, supportsFlatFloatBaseAttributes, supportsHiddenAttackSkill, supportsOwnerElementRate, supportsOwnerParams, supportsPrice, supportsTemplateParams, systemData]);
+  }, [currentItem, currentItemIndex, equipExtensionsData, form, isActorFile, isArmorItem, isEnemyFile, isStateFile, isWeaponItem, skillsData, supportsCommonRange, supportsFlatBaseAttributes, supportsFlatFloatBaseAttributes, supportsHiddenAttackSkill, supportsOwnerElementRate, supportsOwnerParams, supportsPassiveStates, supportsPrice, supportsProjectileConfig, supportsTemplateParams, systemData]);
 
   useEffect(() => {
     if (!supportsCommonRange) {
@@ -1508,16 +1523,18 @@ export function PropertyPanel() {
       return;
     }
 
-    const normalized = isSkillFile
-      ? normalizeSkillDataEntry(sourceItem)
-      : isEnemyFile
-        ? normalizeEnemyDataEntry(sourceItem as RPGEnemy, skillsData)
-        : null;
+    const normalized = isActorFile
+      ? normalizeActorDataEntry(sourceItem)
+      : isSkillFile
+        ? normalizeSkillDataEntry(sourceItem)
+        : isEnemyFile
+          ? normalizeEnemyDataEntry(sourceItem as RPGEnemy, skillsData)
+          : null;
 
     if (!normalized) return;
     if (arePlainDataEqual(normalized, sourceItem)) return;
     updateCurrentItem(normalized);
-  }, [currentData, currentItemIndex, isEnemyFile, isSkillFile, currentItem, currentFilePath, skillsData]);
+  }, [currentData, currentItemIndex, isActorFile, isEnemyFile, isSkillFile, currentItem, currentFilePath, skillsData]);
 
   useEffect(() => {
     if ((!isWeaponItem && !isArmorItem) || !currentData || currentItemIndex < 0) {
@@ -1652,6 +1669,12 @@ export function PropertyPanel() {
           skillEffectSpec: values[SKILL_EFFECT_SPEC_FIELD_KEY],
         }
       : null;
+    const nextActorValues = isActorFile
+      ? {
+          isStaticImage: values[ACTOR_IS_STATIC_IMAGE_FIELD_KEY],
+          isTank: values[ACTOR_IS_TANK_FIELD_KEY],
+        }
+      : null;
     const nextEnemyValues = isEnemyFile
       ? {
           classId: values[ENEMY_CLASS_ID_FIELD_KEY],
@@ -1659,6 +1682,7 @@ export function PropertyPanel() {
           levelScope: values[ENEMY_LEVEL_SCOPE_FIELD_KEY],
           levelScopeUp: values[ENEMY_LEVEL_SCOPE_UP_FIELD_KEY],
           isBoss: values[ENEMY_IS_BOSS_FIELD_KEY],
+          enableSv: values[ENEMY_ENABLE_SV_FIELD_KEY],
           allowBreak: values[ENEMY_ALLOW_BREAK_FIELD_KEY],
           canReaction: values[ENEMY_CAN_REACTION_FIELD_KEY],
           bounty: values[ENEMY_BOUNTY_FIELD_KEY],
@@ -1768,6 +1792,7 @@ export function PropertyPanel() {
       || (isStateFile && !areStateChargeConfigsEqual(sourceItem.chargeConfig, nextStateChargeConfig ?? undefined))
       || (isTroopFile && !arePlainDataEqual(normalizeTroopMeetCondition(values['meetCondition']), (sourceItem as unknown as Record<string, unknown>).meetCondition))
       || (supportsProjectileConfig && nextSkillValues !== null && hasSkillEditorChanges(sourceItem, nextSkillValues, { isItem: isItemFile }))
+      || (isActorFile && nextActorValues !== null && hasActorEditorChanges(sourceItem, nextActorValues))
       || ((isWeaponItem || isArmorItem) && (sourceItem.qualityLock === true) !== nextQualityLock)
       || (isEnemyFile && nextEnemyValues !== null && hasEnemyEditorChanges(sourceItem as RPGEnemy, nextEnemyValues, skillsData));
     const nextEquipTypeId = isWeaponItem ? toIntOrZero(values[EQUIP_TYPE_FIELD_KEY]) : 0;
@@ -1830,6 +1855,9 @@ export function PropertyPanel() {
 
       if (isStateFile && nextStateWeaknessEffects == null) {
         delete (nextItem as RPGItem).weaknessStateEffects;
+      }
+      if (isActorFile && nextActorValues !== null) {
+        nextItem = buildActorSaveData(nextItem as RPGItem, nextActorValues);
       }
 
       if (isEnemyFile && nextEnemyValues !== null) {
@@ -3049,6 +3077,35 @@ export function PropertyPanel() {
 
         <NotePanel embedded />
 
+        {isActorFile ? (
+          <Card
+            title="角色扩展"
+            className="mb-4"
+          >
+            <div className="text-xs text-gray-500 mb-4">
+              这里直接维护角色顶层扩展字段。静态战斗图与战车身份不再依赖备注或 meta 标记；保存时会清理旧的 `meta.isStaticImage / meta.isTank`。
+            </div>
+            <div className="grid grid-cols-4 gap-x-4 gap-y-4">
+              <Form.Item
+                name={ACTOR_IS_STATIC_IMAGE_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">静态战斗图片</span>}
+                className="mb-0"
+                valuePropName="checked"
+              >
+                <Switch checkedChildren="静态" unCheckedChildren="序列帧" />
+              </Form.Item>
+              <Form.Item
+                name={ACTOR_IS_TANK_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">是否坦克</span>}
+                className="mb-0"
+                valuePropName="checked"
+              >
+                <Switch checkedChildren="坦克" unCheckedChildren="角色" />
+              </Form.Item>
+            </div>
+          </Card>
+        ) : null}
+
         {supportsProjectileConfig ? (
           <Card
             title="技能 / 物品弹道 / 迎击配置"
@@ -3530,6 +3587,14 @@ export function PropertyPanel() {
                 valuePropName="checked"
               >
                 <Switch checkedChildren="Boss" unCheckedChildren="普通" />
+              </Form.Item>
+              <Form.Item
+                name={ENEMY_ENABLE_SV_FIELD_KEY}
+                label={<span className="text-xs text-gray-400">动态侧视图</span>}
+                className="mb-0"
+                valuePropName="checked"
+              >
+                <Switch checkedChildren="启用" unCheckedChildren="静态" />
               </Form.Item>
               <Form.Item
                 name={ENEMY_ALLOW_BREAK_FIELD_KEY}

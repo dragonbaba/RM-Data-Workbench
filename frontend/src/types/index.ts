@@ -292,6 +292,8 @@ export interface RPGItem {
   etypeId?: number;
   equipSlots?: number[];
   equips?: number[];
+  isStaticImage?: boolean;
+  isTank?: boolean;
 }
 
 export interface EnemyDropEntry {
@@ -387,6 +389,7 @@ export interface RPGEnemy extends RPGItem {
   levelScope?: number;
   levelScopeUp?: number;
   isBoss?: boolean;
+  enableSv?: boolean;
   allowBreak?: boolean;
   canReaction?: boolean;
   baseWeaknessGroup?: EnemyWeaknessGroup;

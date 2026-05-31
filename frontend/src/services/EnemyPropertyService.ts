@@ -17,6 +17,7 @@ export const KNOWN_ENEMY_PROPERTY_KEYS = [
   'levelScope',
   'levelScopeUp',
   'isBoss',
+  'enableSv',
   'allowBreak',
   'canReaction',
   'bounty',
@@ -32,6 +33,7 @@ export interface EnemyEditorValues {
   levelScope: number;
   levelScopeUp: number;
   isBoss: boolean;
+  enableSv: boolean;
   allowBreak: boolean;
   canReaction: boolean;
   bounty: number;
@@ -47,6 +49,7 @@ export interface EnemyEditorInput {
   levelScope?: unknown;
   levelScopeUp?: unknown;
   isBoss?: unknown;
+  enableSv?: unknown;
   allowBreak?: unknown;
   canReaction?: unknown;
   bounty?: unknown;
@@ -308,6 +311,7 @@ export function normalizeEnemyEditorValues(
       levelScope: 0,
       levelScopeUp: 0,
       isBoss: false,
+      enableSv: false,
       allowBreak: false,
       canReaction: false,
       bounty: 0,
@@ -324,6 +328,9 @@ export function normalizeEnemyEditorValues(
     levelScope: toIntOrZero(enemy.levelScope),
     levelScopeUp: toIntOrZero(enemy.levelScopeUp),
     isBoss: toBooleanFlag(enemy.isBoss),
+    enableSv: Object.prototype.hasOwnProperty.call(enemy, 'enableSv')
+      ? toBooleanFlag(enemy.enableSv)
+      : isRecord(enemy.meta) && Object.prototype.hasOwnProperty.call(enemy.meta, 'Sv'),
     allowBreak: toBooleanFlag(enemy.allowBreak),
     canReaction: Object.prototype.hasOwnProperty.call(enemy, 'canReaction')
       ? toBooleanFlag(enemy.canReaction)
@@ -381,6 +388,7 @@ export function normalizeEnemyDataEntry(
     levelScope: normalized.levelScope,
     levelScopeUp: normalized.levelScopeUp,
     isBoss: normalized.isBoss,
+    enableSv: normalized.enableSv,
     allowBreak: normalized.allowBreak,
     canReaction: normalized.canReaction,
     bounty: normalized.bounty,
@@ -409,6 +417,7 @@ export function hasEnemyEditorChanges(
     || currentValues.levelScope !== toIntOrZero(nextValues.levelScope)
     || currentValues.levelScopeUp !== toIntOrZero(nextValues.levelScopeUp)
     || currentValues.isBoss !== toBooleanFlag(nextValues.isBoss)
+    || currentValues.enableSv !== toBooleanFlag(nextValues.enableSv)
     || currentValues.allowBreak !== toBooleanFlag(nextValues.allowBreak)
     || currentValues.canReaction !== toBooleanFlag(nextValues.canReaction)
     || currentValues.bounty !== toIntOrZero(nextValues.bounty)
@@ -435,6 +444,7 @@ export function buildEnemySaveData(
     levelScope: toIntOrZero(nextValues.levelScope),
     levelScopeUp: toIntOrZero(nextValues.levelScopeUp),
     isBoss: toBooleanFlag(nextValues.isBoss),
+    enableSv: toBooleanFlag(nextValues.enableSv),
     allowBreak: toBooleanFlag(nextValues.allowBreak),
     canReaction: toBooleanFlag(nextValues.canReaction),
     bounty: toIntOrZero(nextValues.bounty),

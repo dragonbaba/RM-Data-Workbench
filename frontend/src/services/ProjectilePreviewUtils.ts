@@ -207,13 +207,7 @@ export const resolveThrowProjectileWtypeId = (systemData: unknown): number => {
 
 export const shouldUseStaticActorPreviewFrame = (entry: unknown): boolean => {
   if (!entry || typeof entry !== 'object') return false;
-
-  const meta = (entry as RecordLike).meta;
-  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) {
-    return false;
-  }
-
-  return (meta as RecordLike).isStaticImage === true;
+  return (entry as RecordLike).isStaticImage === true;
 };
 
 export const resolveActorProjectileOffset = (actor: unknown, weapon: unknown): { x: number; y: number } => {

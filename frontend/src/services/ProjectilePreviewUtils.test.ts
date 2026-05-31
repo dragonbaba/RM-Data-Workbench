@@ -100,17 +100,18 @@ describe('ProjectilePreviewUtils', () => {
     expect(normalizeBattlerType('敌人', 'actor')).toBe('enemy');
   });
 
-  it('detects actor static preview flag from meta.isStaticImage', () => {
+  it('detects actor static preview flag from top-level isStaticImage', () => {
     expect(shouldUseStaticActorPreviewFrame({
       id: 1,
+      isStaticImage: true,
       meta: {
-        isStaticImage: true,
+        isStaticImage: false,
       },
     })).toBe(true);
     expect(shouldUseStaticActorPreviewFrame({
       id: 2,
       meta: {
-        isStaticImage: false,
+        isStaticImage: true,
       },
     })).toBe(false);
     expect(shouldUseStaticActorPreviewFrame({

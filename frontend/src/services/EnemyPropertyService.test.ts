@@ -13,6 +13,7 @@ describe('EnemyPropertyService', () => {
       level: 12,
       levelScope: 8,
       isBoss: true,
+      enableSv: true,
       allowBreak: true,
       canReaction: true,
       bounty: 3000,
@@ -25,6 +26,7 @@ describe('EnemyPropertyService', () => {
       level: 12,
       levelScope: 8,
       isBoss: true,
+      enableSv: true,
       allowBreak: true,
       canReaction: true,
       bounty: 3000,
@@ -47,6 +49,7 @@ describe('EnemyPropertyService', () => {
         level: 21,
         levelScope: 4,
         isBoss: true,
+        enableSv: true,
         allowBreak: true,
         canReaction: true,
         bounty: 5000,
@@ -60,6 +63,7 @@ describe('EnemyPropertyService', () => {
       level: 21,
       levelScope: 4,
       isBoss: true,
+      enableSv: true,
       allowBreak: true,
       canReaction: true,
       bounty: 5000,
@@ -78,6 +82,7 @@ describe('EnemyPropertyService', () => {
         level: 4,
         levelScope: 3,
         isBoss: false,
+        enableSv: false,
         allowBreak: false,
         canReaction: true,
         bounty: 0,
@@ -89,6 +94,7 @@ describe('EnemyPropertyService', () => {
         level: 4,
         levelScope: 3,
         isBoss: false,
+        enableSv: false,
         allowBreak: false,
         canReaction: true,
         bounty: 0,
@@ -96,6 +102,24 @@ describe('EnemyPropertyService', () => {
         reactionSkillId: 7,
       },
     )).toBe(false);
+  });
+
+  it('缺少 enableSv 时会根据旧 meta.Sv 推导默认值', () => {
+    expect(normalizeEnemyEditorValues({
+      id: 2,
+      name: '动态敌人',
+      meta: {
+        Sv: 'MonsterSv',
+      },
+    }).enableSv).toBe(true);
+    expect(normalizeEnemyEditorValues({
+      id: 3,
+      name: '静态敌人',
+      enableSv: false,
+      meta: {
+        Sv: 'MonsterSv',
+      },
+    }).enableSv).toBe(false);
   });
 
   it('缺少 canReaction 时会根据 reactionSkillId 推导默认值', () => {
@@ -172,6 +196,7 @@ describe('EnemyPropertyService', () => {
         levelScope: 0,
         isBoss: false,
         allowBreak: false,
+        enableSv: false,
         canReaction: false,
         bounty: 0,
         attackAnimationId: 0,
