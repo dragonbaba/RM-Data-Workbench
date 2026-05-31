@@ -2,6 +2,8 @@
 
 RM Data Workbench is a desktop editor for RPG Maker project data. It is built for game projects that have grown beyond the default RPG Maker database UI and need safer, faster editing for large JSON datasets, custom plugin schemas, and project-specific balance data.
 
+This is the Wails/Go/React rewrite of my earlier Electron RPG data editor, now opened as an OSS project.
+
 The project is a Wails v2 application: a Go backend provides filesystem, workspace, and persistence services, while a React + TypeScript frontend provides structured editors, Monaco-based raw JSON editing, and visual preview panels.
 
 ## Purpose
@@ -16,6 +18,10 @@ RM Data Workbench focuses on that workflow:
 - provide structured editing panels for common game-design tasks while keeping raw JSON editing available through Monaco Editor;
 - preserve project-local files on disk instead of moving data into an opaque database;
 - help migrate an earlier Electron-based editor to a smaller Wails + Go + React desktop application.
+
+## Screenshot
+
+![RM Data Workbench empty workspace](docs/screenshots/app-empty-state.png)
 
 ## Current capabilities
 
