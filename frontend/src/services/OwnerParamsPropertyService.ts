@@ -1,10 +1,13 @@
 import type {
+  OwnerBaseParamMap,
   OwnerExtraParamMap,
+  OwnerParamRateMap,
   OwnerParams,
   OwnerScalarMap,
   OwnerSpecialParamMap,
 } from '../types';
 import {
+  BASE_PARAM_KEYS,
   OWNER_EXTRA_PARAM_KEYS,
   OWNER_SCALAR_KEYS,
   OWNER_SPECIAL_PARAM_KEYS,
@@ -63,11 +66,15 @@ const buildOwnerExtraParamGroup = (value: unknown): OwnerExtraParamMap => {
 };
 
 export const buildRequiredOwnerParamsSaveData = (
+  baseParams: OwnerBaseParamMap | null,
+  paramRate: OwnerParamRateMap | null,
   extraParams: OwnerExtraParamMap | null,
   specialParams: OwnerSpecialParamMap | null,
   scalar: OwnerScalarMap | null,
   elementRate: number[] | null,
 ): OwnerParams => ({
+  baseParams: buildRequiredNumberGroup(baseParams, BASE_PARAM_KEYS.length) as OwnerBaseParamMap,
+  paramRate: buildRequiredNumberGroup(paramRate, BASE_PARAM_KEYS.length) as OwnerParamRateMap,
   extraParams: buildOwnerExtraParamGroup(extraParams),
   specialParams: buildRequiredNumberGroup(specialParams, OWNER_SPECIAL_PARAM_KEYS.length) as OwnerSpecialParamMap,
   scalar: buildRequiredNumberGroup(scalar, OWNER_SCALAR_KEYS.length) as OwnerScalarMap,

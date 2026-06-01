@@ -11,6 +11,7 @@ import { normalizeStateDataEntry } from './StateChargePropertyService';
 import { normalizeStandardDataForEditor } from './DataFileFormatService';
 import { EQUIP_EXTENSIONS_FILE_NAME, normalizeEquipExtensions } from './EquipExtensionsService';
 import {
+  BASE_PARAM_KEYS,
   OWNER_EXTRA_PARAM_KEYS,
   OWNER_SCALAR_KEYS,
   OWNER_SPECIAL_PARAM_KEYS,
@@ -343,24 +344,30 @@ const normalizeClassParamMatrix = (entry: Record<string, unknown>): Record<strin
   };
 };
 
-type LegacyOwnerGroupKey = 'extraParams' | 'specialParams' | 'scalar' | 'paramRate' | 'elementRate';
-type FixedOwnerGroupKey = 'extraParams' | 'specialParams' | 'scalar';
+type LegacyOwnerGroupKey = 'baseParams' | 'extraParams' | 'specialParams' | 'scalar' | 'paramRate' | 'elementRate';
+type FixedOwnerGroupKey = 'baseParams' | 'extraParams' | 'specialParams' | 'scalar' | 'paramRate';
 
 const OWNER_GROUP_KEYS = Object.freeze({
+  baseParams: BASE_PARAM_KEYS,
   extraParams: OWNER_EXTRA_PARAM_KEYS,
   specialParams: OWNER_SPECIAL_PARAM_KEYS,
   scalar: OWNER_SCALAR_KEYS,
+  paramRate: BASE_PARAM_KEYS,
 });
 const OWNER_GROUP_INDEX_MAP: Record<FixedOwnerGroupKey, Map<string, number>> = Object.freeze({
+  baseParams: new Map<string, number>(BASE_PARAM_KEYS.map((key, index) => [key, index])),
   extraParams: new Map<string, number>(OWNER_EXTRA_PARAM_KEYS.map((key, index) => [key, index])),
   specialParams: new Map<string, number>(OWNER_SPECIAL_PARAM_KEYS.map((key, index) => [key, index])),
   scalar: new Map<string, number>(OWNER_SCALAR_KEYS.map((key, index) => [key, index])),
+  paramRate: new Map<string, number>(BASE_PARAM_KEYS.map((key, index) => [key, index])),
 });
 
 interface MutableOwnerParams {
+  baseParams?: number[];
   extraParams?: number[];
   specialParams?: number[];
   scalar?: number[];
+  paramRate?: number[];
   elementRate?: number[];
 }
 
@@ -410,7 +417,8 @@ const collectLegacyOwnerEffects = (effectsData: unknown): Map<number, LegacyOwne
       const op = typeof row?.op === 'string' ? row.op : '';
       const value = toFiniteNumber(row?.value);
       if (
-        (group !== 'extraParams'
+        (group !== 'baseParams'
+          && group !== 'extraParams'
           && group !== 'specialParams'
           && group !== 'scalar'
           && group !== 'paramRate'
@@ -481,6 +489,8 @@ const getOwnerParamsRecord = (
     return {};
   }
   return {
+    baseParams: buildOwnerFixedGroupArray('baseParams', currentOwnerParams.baseParams),
+    paramRate: buildOwnerFixedGroupArray('paramRate', currentOwnerParams.paramRate),
     extraParams: buildOwnerFixedGroupArray('extraParams', currentOwnerParams.extraParams),
     specialParams: buildOwnerFixedGroupArray('specialParams', currentOwnerParams.specialParams),
     scalar: buildOwnerFixedGroupArray('scalar', currentOwnerParams.scalar),
@@ -534,9 +544,6 @@ const applyLegacyOwnerOp = (
     currentArray[elementId] = (toFiniteNumber(currentArray[elementId]) ?? 0) + op.value;
     return;
   }
-  if (op.group === 'paramRate') {
-    return;
-  }
   const groupKey = op.group as FixedOwnerGroupKey;
   const index = OWNER_GROUP_INDEX_MAP[groupKey].get(op.key);
   if (index == null) {
@@ -552,7 +559,7 @@ const normalizeOwnerParams = (
   allowElementRate: boolean,
 ): MutableOwnerParams => {
   const result: MutableOwnerParams = {};
-  const groupKeys: FixedOwnerGroupKey[] = ['extraParams', 'specialParams', 'scalar'];
+  const groupKeys: FixedOwnerGroupKey[] = ['baseParams', 'paramRate', 'extraParams', 'specialParams', 'scalar'];
   for (const groupKey of groupKeys) {
     const source = ownerParams[groupKey];
     const nextGroup = new Array(OWNER_GROUP_KEYS[groupKey].length).fill(0);

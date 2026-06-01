@@ -26,6 +26,7 @@ describe('EquipmentPropertyService', () => {
       name: '测试炮',
       floatParams: [0, 0, 0, 0, 0, 0, 0, 0],
       attackSkillId: 0,
+      interceptableMode: -1,
       attackElementId: 0,
       weaponImageId: 1,
       areaOverride: 0,
@@ -47,6 +48,15 @@ describe('EquipmentPropertyService', () => {
         { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
       ],
     });
+  });
+
+  it('会规范武器可被迎击覆盖模式', () => {
+    expect(normalizeEquipmentDataEntry({ id: 9, name: '禁迎击炮', interceptableMode: 0 }, { isWeapon: true }))
+      .toMatchObject({ interceptableMode: 0 });
+    expect(normalizeEquipmentDataEntry({ id: 10, name: '强制迎击炮', interceptableMode: 1 }, { isWeapon: true }))
+      .toMatchObject({ interceptableMode: 1 });
+    expect(normalizeEquipmentDataEntry({ id: 11, name: '旧值炮', interceptableMode: 7 }, { isWeapon: true }))
+      .toMatchObject({ interceptableMode: -1 });
   });
 
   it('会把缺失弹舱字段的副炮修复为无限弹药', () => {

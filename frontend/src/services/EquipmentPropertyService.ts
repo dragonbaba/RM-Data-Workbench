@@ -30,6 +30,7 @@ const DEFAULT_FLOAT_PARAM_LENGTH = 8;
 const TANK_HIDDEN_ATTACK_SKILL_EQUIP_TYPES = new Set([8, 9]);
 const AMMO_CAPACITY_FIELD_INDEX = 4;
 const TANK_SECONDARY_WEAPON_TYPE_ID = 2;
+const WEAPON_INTERCEPTABLE_MODES = new Set([-1, 0, 1]);
 
 const EMPTY_PARAM_TEMPLATE: ParamTemplate = Object.freeze({
   value: 0,
@@ -221,6 +222,12 @@ export const normalizeArmorElementRates = (value: unknown, systemData: unknown):
   return normalized;
 };
 
+const normalizeWeaponInterceptableMode = (value: unknown): -1 | 0 | 1 => {
+  if (value === undefined || value === null || value === '') return -1;
+  const mode = toIntOrZero(value);
+  return WEAPON_INTERCEPTABLE_MODES.has(mode) ? mode as -1 | 0 | 1 : -1;
+};
+
 export const normalizeArmorElementRateFloats = (value: unknown, systemData: unknown): number[] => {
   const fields = getElementRateFieldDefinitions(systemData);
   const source = Array.isArray(value) ? value : [];
@@ -283,6 +290,7 @@ export function normalizeEquipmentDataEntry(
   if (options.isWeapon) {
     const rangeValues = normalizeWeaponRangeValues(item);
     normalized.attackSkillId = Math.max(0, toIntOrZero(item.attackSkillId));
+    normalized.interceptableMode = normalizeWeaponInterceptableMode(item.interceptableMode);
     normalized.attackElementId = Math.max(0, toIntOrZero(item.attackElementId));
     normalized.weaponImageId = normalizeWeaponImageId(item.weaponImageId);
     delete normalized.elementRates;

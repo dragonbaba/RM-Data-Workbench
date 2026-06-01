@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { auditAndRepairDataFiles, toAuditSummaryText } from './DataAuditService';
 
 const createDefaultOwnerParams = (elementCount = 2) => ({
+  baseParams: [0, 0, 0, 0, 0, 0, 0, 0],
+  paramRate: [0, 0, 0, 0, 0, 0, 0, 0],
   extraParams: [0, 0, 0, 0, 0, 0],
   specialParams: [0, 0, 0, 0, 0, 0],
   scalar: [0],

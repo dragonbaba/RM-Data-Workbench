@@ -68,6 +68,7 @@ import {
   VEHICLE_PARAM_FIELDS,
 } from '../../services/EquipmentPropertyService';
 import {
+  BASE_PARAM_KEYS,
   OWNER_EXTRA_PARAM_KEYS,
   OWNER_SCALAR_KEYS,
   OWNER_SPECIAL_PARAM_KEYS,
@@ -81,7 +82,9 @@ import type {
   EquipUpgradeCostEntry,
   EquipUpgradeParamMap,
   EquipVehicleParamMap,
+  OwnerBaseParamMap,
   OwnerExtraParamMap,
+  OwnerParamRateMap,
   OwnerParams,
   OwnerScalarMap,
   OwnerSpecialParamMap,
@@ -119,7 +122,7 @@ interface PendingDraftState {
 }
 
 type FixedParamGroupKey = 'extraParams' | 'vehicleParams' | 'upgradeParams';
-type OwnerParamGroupKey = 'extraParams' | 'specialParams' | 'scalar';
+type OwnerParamGroupKey = 'baseParams' | 'paramRate' | 'extraParams' | 'specialParams' | 'scalar';
 
 interface FixedParamFieldDefinition {
   index: number;
@@ -141,6 +144,8 @@ interface OwnerParamFieldDefinition {
 }
 
 interface OwnerParamsFormValues {
+  baseParams?: number[];
+  paramRate?: number[];
   extraParams?: number[];
   specialParams?: number[];
   scalar?: number[];
@@ -216,6 +221,18 @@ const EMPTY_PARAM_TEMPLATE: ParamTemplate = Object.freeze({
   upgradeFloatValue: 0,
 });
 
+const OWNER_BASE_PARAM_FIELDS: OwnerParamFieldDefinition[] = BASE_PARAM_KEYS.map((key, index) => ({
+  index,
+  key,
+  label: BASE_ATTRIBUTES[index]?.fallbackLabel ?? key,
+}));
+
+const OWNER_PARAM_RATE_FIELDS: OwnerParamFieldDefinition[] = BASE_PARAM_KEYS.map((key, index) => ({
+  index,
+  key,
+  label: BASE_ATTRIBUTES[index]?.fallbackLabel ?? key,
+}));
+
 const OWNER_EXTRA_PARAM_FIELDS: OwnerParamFieldDefinition[] = [
   { index: 0, key: OWNER_EXTRA_PARAM_KEYS[0], label: '命中率' },
   { index: 1, key: OWNER_EXTRA_PARAM_KEYS[1], label: '回避率' },
@@ -273,6 +290,8 @@ const buildOwnerParamsFormValues = (
   systemData: unknown,
   supportsOwnerElementRate: boolean,
 ) => ({
+  baseParams: buildOwnerNumberGroupFormValues(ownerParams?.baseParams, OWNER_BASE_PARAM_FIELDS),
+  paramRate: buildOwnerNumberGroupFormValues(ownerParams?.paramRate, OWNER_PARAM_RATE_FIELDS),
   extraParams: buildOwnerNumberGroupFormValues(ownerParams?.extraParams, OWNER_EXTRA_PARAM_FIELDS),
   specialParams: buildOwnerNumberGroupFormValues(ownerParams?.specialParams, OWNER_SPECIAL_PARAM_FIELDS),
   scalar: buildOwnerNumberGroupFormValues(ownerParams?.scalar, OWNER_SCALAR_FIELDS),
@@ -282,16 +301,24 @@ const buildOwnerParamsFormValues = (
 });
 
 const buildOwnerParamsSaveData = (
+  baseParams: OwnerBaseParamMap | null,
+  paramRate: OwnerParamRateMap | null,
   extraParams: OwnerExtraParamMap | null,
   specialParams: OwnerSpecialParamMap | null,
   scalar: OwnerScalarMap | null,
   elementRate: number[] | null,
-): OwnerParams => buildRequiredOwnerParamsSaveData(extraParams, specialParams, scalar, elementRate);
+): OwnerParams => buildRequiredOwnerParamsSaveData(baseParams, paramRate, extraParams, specialParams, scalar, elementRate);
 
 const toIntOrZero = (value: unknown): number => {
   const n = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(n)) return 0;
   return Math.trunc(n);
+};
+
+const normalizeWeaponInterceptableMode = (value: unknown): -1 | 0 | 1 => {
+  if (value === undefined || value === null || value === '') return -1;
+  const mode = toIntOrZero(value);
+  return mode === 0 || mode === 1 ? mode : -1;
 };
 
 const toFloatOrZero = (value: unknown): number => {
@@ -376,6 +403,7 @@ const getFloatFieldKey = (key: string) => `${key}_float`;
 const EQUIP_TYPE_FIELD_KEY = 'etypeId';
 const PRICE_FIELD_KEY = 'price';
 const ATTACK_SKILL_FIELD_KEY = 'attackSkillId';
+const WEAPON_INTERCEPTABLE_MODE_FIELD_KEY = 'interceptableMode';
 const HIDDEN_ATTACK_SKILL_FIELD_KEY = 'hiddenAttackSkillId';
 const ATTACK_ELEMENT_FIELD_KEY = 'attackElementId';
 const WEAPON_IMAGE_ID_FIELD_KEY = 'weaponImageId';
@@ -424,6 +452,12 @@ const SKILL_REACTION_PRIORITY_FIELD_KEY = 'skillReactionPriority';
 const ACTION_SEQUENCE_TYPE_FIELD_KEY = 'actionSequenceType';
 const ACTION_SEQUENCE_SCRIPT_KEY_FIELD_KEY = 'actionSequenceScriptKey';
 const SKILL_WEAPON_ACTION_FIELD_KEY = 'weaponAction';
+const WEAPON_INTERCEPTABLE_MODE_OPTIONS = [
+  { value: -1, label: '沿用攻击技能设置' },
+  { value: 1, label: '强制可被迎击' },
+  { value: 0, label: '强制不可被迎击' },
+];
+
 const SKILL_LIMITS_FIELD_KEY = 'limits';
 const SKILL_NEED_TARGET_SELECT_FIELD_KEY = 'needTargetSelect';
 const SKILL_NEED_WEAPON_SELECT_FIELD_KEY = 'needWeaponSelect';
@@ -1285,6 +1319,7 @@ export function PropertyPanel() {
       if (isWeaponItem) {
         baseFormValues[EQUIP_TYPE_FIELD_KEY] = getWeaponEquipTypeAtIndex(equipExtensionsData, currentItemIndex);
         baseFormValues[ATTACK_SKILL_FIELD_KEY] = toIntOrZero(item.attackSkillId);
+        baseFormValues[WEAPON_INTERCEPTABLE_MODE_FIELD_KEY] = normalizeWeaponInterceptableMode(item.interceptableMode);
         baseFormValues[ATTACK_ELEMENT_FIELD_KEY] = toIntOrZero(item.attackElementId);
         baseFormValues[WEAPON_IMAGE_ID_FIELD_KEY] = Math.max(1, toIntOrZero(item.weaponImageId || 1));
         Object.assign(baseFormValues, getWeaponRangeValues(item));
@@ -1697,6 +1732,9 @@ export function PropertyPanel() {
       ? buildBattleOrderEffectsSaveData(values[ORDER_EFFECTS_FIELD_KEY])
       : null;
     const nextWeaponRangeValues = isWeaponItem ? normalizeWeaponRangeValues(values) : null;
+    const nextWeaponInterceptableMode = isWeaponItem
+      ? normalizeWeaponInterceptableMode(values[WEAPON_INTERCEPTABLE_MODE_FIELD_KEY])
+      : -1;
     const ownerValues = (values.ownerParams as OwnerParamsFormValues | undefined) ?? {};
     const nextPassiveStates = supportsPassiveStates
       ? buildPassiveStatesSaveData(values[PASSIVE_STATES_FIELD_KEY])
@@ -1713,6 +1751,12 @@ export function PropertyPanel() {
     const nextUpgradeCosts = supportsTemplateParams
       ? normalizeEquipUpgradeCosts(values[UPGRADE_COSTS_FIELD_KEY])
       : null;
+    const nextOwnerBaseParams = supportsOwnerParams
+      ? normalizeOwnerNumberGroupValues<OwnerBaseParamMap>(ownerValues.baseParams, OWNER_BASE_PARAM_FIELDS)
+      : null;
+    const nextOwnerParamRate = supportsOwnerParams
+      ? normalizeOwnerNumberGroupValues<OwnerParamRateMap>(ownerValues.paramRate, OWNER_PARAM_RATE_FIELDS)
+      : null;
     const nextOwnerExtraParams = supportsOwnerParams
       ? normalizeOwnerNumberGroupValues<OwnerExtraParamMap>(ownerValues.extraParams, OWNER_EXTRA_PARAM_FIELDS)
       : null;
@@ -1727,6 +1771,8 @@ export function PropertyPanel() {
       : null;
     const nextOwnerParams = supportsOwnerParams
       ? buildOwnerParamsSaveData(
+        nextOwnerBaseParams,
+        nextOwnerParamRate,
         nextOwnerExtraParams,
         nextOwnerSpecialParams,
         nextOwnerScalar,
@@ -1748,6 +1794,7 @@ export function PropertyPanel() {
       || (supportsFlatFloatBaseAttributes && !areNumberArraysEqual(sourceItem.floatParams, newFloatParams))
       || (supportsPrice && toIntOrZero(sourceItem.price) !== nextPrice)
       || (isWeaponItem && toIntOrZero(sourceItem.attackSkillId) !== nextAttackSkillId)
+      || (isWeaponItem && normalizeWeaponInterceptableMode(sourceItem.interceptableMode) !== nextWeaponInterceptableMode)
       || (supportsHiddenAttackSkill && toIntOrZero(sourceItem.hiddenAttackSkillId) !== nextHiddenAttackSkillId)
       || (isWeaponItem && toIntOrZero(sourceItem.attackElementId) !== nextAttackElementId)
       || (isWeaponItem && Math.max(1, toIntOrZero(sourceItem.weaponImageId || 1)) !== nextWeaponImageId)
@@ -1776,10 +1823,11 @@ export function PropertyPanel() {
       || (supportsTemplateParams && nextVehicleParams !== null && !areParamGroupsEqual(sourceItem.vehicleParams, nextVehicleParams, VEHICLE_PARAM_FIELDS))
       || (supportsTemplateParams && nextUpgradeParams !== null && !areParamGroupsEqual(sourceItem.upgradeParams, nextUpgradeParams, UPGRADE_PARAM_FIELDS))
       || (supportsTemplateParams && nextUpgradeCosts !== null && !arePlainDataEqual(normalizeEquipUpgradeCosts(sourceItem.upgradeCosts), nextUpgradeCosts))
+      || (supportsOwnerParams && nextOwnerBaseParams !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.baseParams, nextOwnerBaseParams, OWNER_BASE_PARAM_FIELDS))
+      || (supportsOwnerParams && nextOwnerParamRate !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.paramRate, nextOwnerParamRate, OWNER_PARAM_RATE_FIELDS))
       || (supportsOwnerParams && nextOwnerExtraParams !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.extraParams, nextOwnerExtraParams, OWNER_EXTRA_PARAM_FIELDS))
       || (supportsOwnerParams && nextOwnerSpecialParams !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.specialParams, nextOwnerSpecialParams, OWNER_SPECIAL_PARAM_FIELDS))
       || (supportsOwnerParams && nextOwnerScalar !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.scalar, nextOwnerScalar, OWNER_SCALAR_FIELDS))
-      || (supportsOwnerParams && sourceItem.ownerParams != null && Object.prototype.hasOwnProperty.call(sourceItem.ownerParams, 'paramRate'))
       || (supportsOwnerElementRate && nextOwnerElementRate !== null && !areFloatArraysEqual(normalizeOwnerElementRates(sourceItem.ownerParams?.elementRate, systemData), nextOwnerElementRate))
       || (!supportsOwnerElementRate && sourceItem.ownerParams != null && Object.prototype.hasOwnProperty.call(sourceItem.ownerParams, 'elementRate'))
       || (supportsOwnerParams && sourceItem.ownerParams == null)
@@ -1813,6 +1861,7 @@ export function PropertyPanel() {
         ...(supportsPrice ? { price: nextPrice } : {}),
         ...(isWeaponItem ? {
           attackSkillId: nextAttackSkillId,
+          interceptableMode: nextWeaponInterceptableMode,
           attackElementId: nextAttackElementId,
           weaponImageId: nextWeaponImageId,
         } : {}),
@@ -2365,6 +2414,8 @@ export function PropertyPanel() {
         {sectionTitle ? (
           <div className="mb-3 text-sm font-medium text-gray-200">{sectionTitle}</div>
         ) : null}
+        {renderOwnerParamCard('基础属性追加', 'baseParams', OWNER_BASE_PARAM_FIELDS, '这里维护 HP、驾驶等级、攻防速运等基础参数的直接加值，会在基础值进入倍率前累计。', 1)}
+        {renderOwnerParamCard('基础属性倍率追加', 'paramRate', OWNER_PARAM_RATE_FIELDS, '这里维护基础参数倍率的追加值；写 0.2 表示最终倍率额外 +20%，写 -0.2 表示额外 -20%。')}
         {renderOwnerParamCard('额外奖励', 'extraParams', OWNER_EXTRA_PARAM_FIELDS, ownerIntro)}
         {renderOwnerParamCard('特殊奖励', 'specialParams', OWNER_SPECIAL_PARAM_FIELDS, '这些字段会直接作用到仇恨、防御效率、恢复效果、药效、物理伤害和 HP 再生率。')}
         {renderOwnerParamCard('标量奖励', 'scalar', OWNER_SCALAR_FIELDS, '当前只保留经验获取率这类全局标量字段。')}
@@ -2990,6 +3041,20 @@ export function PropertyPanel() {
                     options={skillOptions}
                     className="w-full"
                     placeholder="选择攻击技能"
+                    showSearch
+                    optionFilterProp="label"
+                  />
+                </Form.Item>
+                <Form.Item
+                  key={WEAPON_INTERCEPTABLE_MODE_FIELD_KEY}
+                  name={WEAPON_INTERCEPTABLE_MODE_FIELD_KEY}
+                  label={<span className="text-xs text-gray-400">可被迎击</span>}
+                  className="mb-0"
+                >
+                  <Select
+                    options={WEAPON_INTERCEPTABLE_MODE_OPTIONS}
+                    className="w-full"
+                    placeholder="选择迎击覆盖方式"
                     showSearch
                     optionFilterProp="label"
                   />

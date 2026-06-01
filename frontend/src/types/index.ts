@@ -18,6 +18,7 @@ export type GameEffectOpGroup =
   | 'baseParamRate';
 
 export const BASE_PARAM_KEYS = ['mhp', 'mmp', 'atk', 'def', 'mat', 'mdf', 'agi', 'luk'] as const;
+export type OwnerBaseParamKey = typeof BASE_PARAM_KEYS[number];
 export const OWNER_PARAM_RATE_KEYS = BASE_PARAM_KEYS;
 export type GameEffectBaseParamKey = typeof BASE_PARAM_KEYS[number];
 
@@ -215,11 +216,15 @@ export const EQUIP_UPGRADE_PARAM_KEYS = ['times', 'atk', 'def'] as const;
 export type EquipExtraParamMap = ParamTemplate[];
 export type EquipVehicleParamMap = ParamTemplate[];
 export type EquipUpgradeParamMap = ParamTemplate[];
+export type OwnerBaseParamMap = number[];
+export type OwnerParamRateMap = number[];
 export type OwnerExtraParamMap = number[];
 export type OwnerSpecialParamMap = number[];
 export type OwnerScalarMap = number[];
 
 export interface OwnerParams {
+  baseParams?: OwnerBaseParamMap;
+  paramRate?: OwnerParamRateMap;
   extraParams?: OwnerExtraParamMap;
   specialParams?: OwnerSpecialParamMap;
   scalar?: OwnerScalarMap;
@@ -245,6 +250,7 @@ export interface RPGItem {
   customParams?: Record<string, { value?: number; floatValue?: number } | number>;
   scripts?: Record<string, string>;
   attackSkillId?: number;
+  interceptableMode?: -1 | 0 | 1;
   hiddenAttackSkillId?: number;
   attackElementId?: number;
   weaponImageId?: number;

@@ -7,6 +7,7 @@ import type { RPGItem } from '../../types';
 
 const WEAPONS_FILE_PATH = 'D:/Project/data/Weapons.json';
 const SKILLS_FILE_PATH = 'D:/Project/data/Skills.json';
+const ACTORS_FILE_PATH = 'D:/Project/data/Actors.json';
 
 const createWeapon = (overrides: Record<string, unknown> = {}) => ({
   id: 132,
@@ -17,7 +18,9 @@ const createWeapon = (overrides: Record<string, unknown> = {}) => ({
   vehicleParams: [],
   upgradeParams: [],
   ownerParams: {
+    baseParams: [0, 0, 0, 0, 0, 0, 0, 0],
     elementRate: [0],
+    paramRate: [0, 0, 0, 0, 0, 0, 0, 0],
     extraParams: [0, 0, 0, 0, 0, 0],
     scalar: [0],
     specialParams: [0, 0, 0, 0, 0, 0],
@@ -73,6 +76,25 @@ const createSkill = (id: number, overrides: Record<string, unknown> = {}): RPGIt
     durabilityChange: { mode: 'none', value: 0 },
     skillDurability: { halfBrokenSkipRate: 0 },
   },
+  ...overrides,
+} as unknown as RPGItem);
+
+const createActor = (overrides: Record<string, unknown> = {}): RPGItem => ({
+  id: 1,
+  name: '主角',
+  params: [100, 0, 10, 8, 0, 0, 12, 5],
+  ownerParams: {
+    baseParams: [0, 0, 17, 0, 0, 0, 0, 0],
+    paramRate: [0, 0, 0.2, 0, 0, 0, 0, 0],
+    elementRate: [0, 0, 0],
+    extraParams: [0, 0, 0, 0, 0, 0],
+    scalar: [0],
+    specialParams: [0, 0, 0, 0, 0, 0],
+  },
+  passiveStates: [],
+  effects: [],
+  isStaticImage: false,
+  isTank: false,
   ...overrides,
 } as unknown as RPGItem);
 
@@ -132,6 +154,24 @@ describe('PropertyPanel range initialization', () => {
         weaponImageId?: number;
       };
       expect(currentWeapon.weaponImageId).toBe(5);
+    });
+  });
+
+  it('角色属性面板会暴露并保存 owner 基础属性', async () => {
+    useEditorStore.getState().loadData([null, createActor()], ACTORS_FILE_PATH, 'data');
+
+    render(<PropertyPanel />);
+
+    await screen.findByText('角色扩展');
+    expect(screen.getByText('基础属性追加')).toBeInTheDocument();
+    expect(screen.getByText('基础属性倍率追加')).toBeInTheDocument();
+
+    const baseAtkInput = await screen.findByDisplayValue('17');
+    fireEvent.change(baseAtkInput, { target: { value: '19' } });
+
+    await waitFor(() => {
+      const currentActor = useEditorStore.getState().currentData?.[1] as RPGItem;
+      expect(currentActor.ownerParams?.baseParams?.[2]).toBe(19);
     });
   });
 

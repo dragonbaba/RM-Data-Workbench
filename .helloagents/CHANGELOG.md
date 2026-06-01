@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **[Owner Params 基础属性恢复]**: 属性面板新增 `ownerParams.baseParams / paramRate` 两组编辑入口，角色/职业/敌人/状态/武器/防具均可维护 owner 基础属性加值与倍率追加；`OwnerParamsPropertyService` 与 `DataAuditService` 修复模式同步补齐默认数组并保留 legacy `paramRate` 迁移。 — by Zaun
+  - 类型: 回退性修复（无方案包）
+  - 文件: `frontend/src/types/index.ts`, `frontend/src/components/panels/PropertyPanel.tsx`, `frontend/src/services/OwnerParamsPropertyService.ts`, `frontend/src/services/DataAuditService.ts`
+
+- **[武器可被迎击覆盖]**: 武器属性面板新增 `interceptableMode` 三态字段：沿用攻击技能设置、强制可被迎击、强制不可被迎击；修复模式会给武器补齐默认 `-1`，并把非法值收敛回沿用技能设置。 — by Zaun
+  - 类型: 功能新增（无方案包）
+  - 文件: `frontend/src/types/index.ts`, `frontend/src/components/panels/PropertyPanel.tsx`, `frontend/src/services/EquipmentPropertyService.ts`, `frontend/src/services/EquipmentPropertyService.test.ts`
+
 
 - **[敌群出现条件 meetCondition]**: 敌群属性面板新增出现条件模块，固定两个条件行：开关选择+Toggle、变量选择+操作符(>=/<=/===)+数值输入。新增 `TroopMeetCondition` 类型 + `TROOP_MEET_CONDITION_DEFAULT` 冻结常量；`DataAuditService` 修复模式自动补齐缺失字段，`EquipExtensions.json` 移除出审计目标。 — by Zaun
   - 文件: `frontend/src/types/index.ts`, `frontend/src/components/panels/PropertyPanel.tsx`, `frontend/src/services/DataAuditService.ts`, `frontend/src/services/DataAuditService.test.ts`
