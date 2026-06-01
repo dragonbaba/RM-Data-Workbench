@@ -1,3 +1,4 @@
+import { arePlainDataEqual } from './PlainDataCompare';
 export const EQUIP_EXTENSIONS_FILE_NAME = 'EquipExtensions.json';
 
 export interface EquipExtensionsData {
@@ -249,6 +250,144 @@ const completeRefitSlotTransitions = (slot: ActorRefitSlotRule): ActorRefitSlotR
   };
 };
 
+const TANK_WEAPON_EQUIP_TYPES = [10, 11, 12] as const;
+const TANK_ENGINE_EQUIP_TYPE = 7;
+const TANK_C_UNIT_EQUIP_TYPE = 8;
+const TANK_FIXED_EQUIP_TYPES_BY_SLOT: Record<number, number> = {
+  5: TANK_ENGINE_EQUIP_TYPE,
+  7: TANK_C_UNIT_EQUIP_TYPE,
+  9: 9,
+};
+
+const createNoneRefitCondition = (): RefitNoCondition => ({ kind: 'none' });
+
+const createDefaultRefitTransition = (
+  fromEquipTypeId: number,
+  toEquipTypeId: number,
+  goldCost: number,
+): RefitTransitionRule => ({
+  fromEquipTypeId,
+  toEquipTypeId,
+  goldCost,
+  conditions: [createNoneRefitCondition()],
+});
+
+const getDefaultTankWeaponRefitCosts = (actorIndex: number, slotIndex: number): [number, number, number] => {
+  const diff = Math.max(0, actorIndex - 16);
+  if (slotIndex <= 2) return [13700 + 800 * diff, 11600 + 700 * diff, 18500 + 1100 * diff];
+  if (slotIndex === 3) return [15300 + 800 * diff, 13000 + 700 * diff, 20700 + 1200 * diff];
+  return [17000 + 1000 * diff, 14400 + 800 * diff, 22900 + 1300 * diff];
+};
+
+const getDefaultTankRefitCostStep = (slotIndex: number, toEquipTypeId: number): number => {
+  if (slotIndex === 6) return 1600;
+  if (slotIndex === 8) return 1300;
+  if (toEquipTypeId === 12) return slotIndex === 3 ? 1200 : slotIndex === 4 ? 1300 : 1100;
+  if (toEquipTypeId === 11) return slotIndex === 4 ? 800 : 700;
+  return slotIndex === 4 ? 1000 : 800;
+};
+
+const createDefaultWeaponRefitTransitions = (actorIndex: number, slotIndex: number, fromEquipTypeId: number): RefitTransitionRule[] => {
+  const [toMainCost, toSubCost, toSeCost] = getDefaultTankWeaponRefitCosts(actorIndex, slotIndex);
+  const targetCosts = new Map<number, number>([
+    [10, toMainCost],
+    [11, toSubCost],
+    [12, toSeCost],
+  ]);
+  const transitions: RefitTransitionRule[] = [];
+  if (fromEquipTypeId > 0) {
+    for (const fromTypeId of TANK_WEAPON_EQUIP_TYPES) {
+      for (const toTypeId of TANK_WEAPON_EQUIP_TYPES) {
+        if (fromTypeId === toTypeId) continue;
+        transitions.push(createDefaultRefitTransition(fromTypeId, toTypeId, targetCosts.get(toTypeId) ?? 0));
+      }
+    }
+    return transitions;
+  }
+  transitions.push(
+    createDefaultRefitTransition(0, 10, toMainCost),
+    createDefaultRefitTransition(0, 11, toSubCost),
+    createDefaultRefitTransition(0, 12, toSeCost),
+  );
+  for (const fromTypeId of TANK_WEAPON_EQUIP_TYPES) {
+    for (const toTypeId of TANK_WEAPON_EQUIP_TYPES) {
+      if (fromTypeId === toTypeId) continue;
+      transitions.push(createDefaultRefitTransition(fromTypeId, toTypeId, targetCosts.get(toTypeId) ?? 0));
+    }
+  }
+  return transitions;
+};
+
+const createDefaultTankRefitSlotRule = (
+  actorIndex: number,
+  slotIndex: number,
+  fromEquipTypeId: number,
+): ActorRefitSlotRule => {
+  const fixedTypeId = TANK_FIXED_EQUIP_TYPES_BY_SLOT[slotIndex];
+  if (fixedTypeId !== undefined && fromEquipTypeId === fixedTypeId) {
+    return createDefaultActorRefitSlotRule(slotIndex, fixedTypeId);
+  }
+  if (slotIndex === 6) {
+    return {
+      slotIndex,
+      fromEquipTypeId: 0,
+      transitions: [createDefaultRefitTransition(0, TANK_ENGINE_EQUIP_TYPE, 26500 + 1600 * Math.max(0, actorIndex - 16))],
+    };
+  }
+  if (slotIndex === 8) {
+    return {
+      slotIndex,
+      fromEquipTypeId: 0,
+      transitions: [createDefaultRefitTransition(0, TANK_C_UNIT_EQUIP_TYPE, 22700 + 1300 * Math.max(0, actorIndex - 16))],
+    };
+  }
+  return {
+    slotIndex,
+    fromEquipTypeId: asInt(fromEquipTypeId),
+    transitions: createDefaultWeaponRefitTransitions(actorIndex, slotIndex, asInt(fromEquipTypeId)),
+  };
+};
+
+const createDefaultTankActorRefitRuleSet = (actorIndex: number, equipSlots: number[] | null | undefined): ActorRefitRuleSet => ({
+  slots: normalizeNumberArray(equipSlots).map((fromEquipTypeId, slotIndex) => (
+    createDefaultTankRefitSlotRule(actorIndex, slotIndex, fromEquipTypeId)
+  )),
+});
+
+const hasAnyRefitTransition = (ruleSet: ActorRefitRuleSet | null): boolean => {
+  if (!ruleSet) return false;
+  return ruleSet.slots.some((slot) => slot.transitions.length > 0);
+};
+
+const clampRefitRuleSetCostsAfterPreviousActor = (
+  ruleSet: ActorRefitRuleSet,
+  previousRuleSet: ActorRefitRuleSet | null,
+): ActorRefitRuleSet => {
+  if (!previousRuleSet) return ruleSet;
+  const previousCostByTransition = new Map<string, number>();
+  previousRuleSet.slots.forEach((slot) => {
+    slot.transitions.forEach((transition) => {
+      previousCostByTransition.set(
+        `${slot.slotIndex}:${transition.fromEquipTypeId}:${transition.toEquipTypeId}`,
+        transition.goldCost,
+      );
+    });
+  });
+  if (previousCostByTransition.size === 0) return ruleSet;
+  return {
+    slots: ruleSet.slots.map((slot) => ({
+      ...slot,
+      transitions: slot.transitions.map((transition) => {
+        const previousCost = previousCostByTransition.get(`${slot.slotIndex}:${transition.fromEquipTypeId}:${transition.toEquipTypeId}`);
+        if (previousCost === undefined) return transition;
+        const minCost = previousCost + getDefaultTankRefitCostStep(slot.slotIndex, transition.toEquipTypeId);
+        if (transition.goldCost >= minCost) return transition;
+        return { ...transition, goldCost: minCost };
+      }),
+    })),
+  };
+};
+
 const normalizeActorRefitRuleSet = (value: unknown): ActorRefitRuleSet => {
   const source = asRecord(value);
   const rawSlots = Array.isArray(source?.slots) ? source.slots : [];
@@ -259,13 +398,27 @@ const normalizeActorRefitRuleSet = (value: unknown): ActorRefitRuleSet => {
   return { slots };
 };
 
-const normalizeIndexedActorRefitRules = (value: unknown, expectedLength: number): IndexedActorRefitRuleSets => {
+const normalizeIndexedActorRefitRules = (
+  value: unknown,
+  expectedLength: number,
+  actorEquipSlots: Array<number[] | null> = [],
+  tankActorIndexes: readonly number[] = [],
+): IndexedActorRefitRuleSets => {
   const source = Array.isArray(value) ? value : [];
   const result: Array<ActorRefitRuleSet | null> = new Array(expectedLength).fill(null);
+  const tankActorSet = new Set(tankActorIndexes);
   result[0] = null;
 
   for (let index = 1; index < expectedLength; index++) {
-    result[index] = normalizeActorRefitRuleSet(source[index]);
+    const normalized = normalizeActorRefitRuleSet(source[index]);
+    if (tankActorSet.has(index) && !hasAnyRefitTransition(normalized)) {
+      result[index] = clampRefitRuleSetCostsAfterPreviousActor(
+        createDefaultTankActorRefitRuleSet(index, actorEquipSlots[index]),
+        result[index - 1],
+      );
+    } else {
+      result[index] = normalized;
+    }
   }
 
   return result as IndexedActorRefitRuleSets;
@@ -283,6 +436,7 @@ export const normalizeEquipExtensions = (
   value: unknown,
   actorCount: number,
   weaponCount: number,
+  tankActorIndexes: readonly number[] = [],
 ): NormalizedEquipExtensionsResult => {
   const source = asRecord(value);
   const fallback = createDefaultEquipExtensions(actorCount, weaponCount);
@@ -294,15 +448,16 @@ export const normalizeEquipExtensions = (
     };
   }
 
+  const actorEquipSlots = normalizeIndexedNumberLists(source.actorEquipSlots, actorCount);
   const data: EquipExtensionsData = {
     weaponEquipTypes: normalizeIndexedNumbers(source.weaponEquipTypes, weaponCount),
     systemWeaponEquipTypes: Array.from(new Set(normalizeNumberArray(source.systemWeaponEquipTypes).filter((item) => item > 0))),
-    actorEquipSlots: normalizeIndexedNumberLists(source.actorEquipSlots, actorCount),
+    actorEquipSlots,
     actorEquips: normalizeIndexedNumberLists(source.actorEquips, actorCount),
-    actorRefitRules: normalizeIndexedActorRefitRules(source.actorRefitRules, actorCount),
+    actorRefitRules: normalizeIndexedActorRefitRules(source.actorRefitRules, actorCount, actorEquipSlots, tankActorIndexes),
   };
 
-  const changed = JSON.stringify(data) !== JSON.stringify(source);
+  const changed = !arePlainDataEqual(source, data);
   return { data, changed };
 };
 

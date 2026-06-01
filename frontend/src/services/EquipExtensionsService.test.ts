@@ -39,6 +39,18 @@ describe('EquipExtensionsService', () => {
     });
   });
 
+  it('does not mark normalized data changed when only object key order differs', () => {
+    const result = normalizeEquipExtensions({
+      actorRefitRules: [null, { slots: [] }],
+      actorEquips: [null, []],
+      actorEquipSlots: [null, []],
+      systemWeaponEquipTypes: [],
+      weaponEquipTypes: [null],
+    }, 2, 1);
+
+    expect(result.changed).toBe(false);
+  });
+
   it('normalizes actor refit rules with transitions and conditions', () => {
     const result = normalizeEquipExtensions({
       weaponEquipTypes: [null],
@@ -129,6 +141,49 @@ describe('EquipExtensionsService', () => {
       expect.objectContaining({ fromEquipTypeId: 10, toEquipTypeId: 12, goldCost: 1500 }),
       expect.objectContaining({ fromEquipTypeId: 11, toEquipTypeId: 10, goldCost: 1000 }),
       expect.objectContaining({ fromEquipTypeId: 12, toEquipTypeId: 10, goldCost: 1000 }),
+    ]));
+  });
+
+  it('fills missing tank actor refit rules from the default monotonic template', () => {
+    const result = normalizeEquipExtensions({
+      weaponEquipTypes: [null],
+      systemWeaponEquipTypes: [],
+      actorEquipSlots: [
+        null,
+        [0, 0, 0, 0, 0, 7, 0, 8, 0, 9],
+        [10, 0, 0, 0, 0, 7, 0, 8, 0, 9],
+        [0, 0, 0, 0, 0, 7, 0, 8, 0, 9],
+      ],
+      actorEquips: [null, [], [], []],
+      actorRefitRules: [null, {
+        slots: [{
+          slotIndex: 0,
+          fromEquipTypeId: 0,
+          transitions: [{
+            fromEquipTypeId: 10,
+            toEquipTypeId: 12,
+            goldCost: 20000,
+            conditions: [{ kind: 'none' }],
+          }],
+        }],
+      }, {
+        slots: [
+          { slotIndex: 0, fromEquipTypeId: 10, transitions: [] },
+          { slotIndex: 1, fromEquipTypeId: 0, transitions: [] },
+          { slotIndex: 5, fromEquipTypeId: 7, transitions: [] },
+        ],
+      }, { slots: [] }],
+    }, 4, 1, [2, 3]);
+
+    const actor2Slot0Transitions = result.data.actorRefitRules[2]?.slots[0].transitions || [];
+    expect(actor2Slot0Transitions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ fromEquipTypeId: 10, toEquipTypeId: 11, goldCost: 11600 }),
+      expect.objectContaining({ fromEquipTypeId: 10, toEquipTypeId: 12, goldCost: 21100 }),
+    ]));
+    expect(result.data.actorRefitRules[2]?.slots[5].transitions).toEqual([]);
+    expect(result.data.actorRefitRules[3]?.slots[0].transitions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ fromEquipTypeId: 0, toEquipTypeId: 10, goldCost: 13700 }),
+      expect.objectContaining({ fromEquipTypeId: 10, toEquipTypeId: 12, goldCost: 22200 }),
     ]));
   });
 

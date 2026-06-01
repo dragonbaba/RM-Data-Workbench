@@ -674,6 +674,15 @@ const ensureActorThrowProjectileOffset = (
   return nextEntry;
 };
 
+const collectTankActorIndexes = (actorsData: unknown[]): number[] => {
+  const result: number[] = [];
+  for (let index = 1; index < actorsData.length; index++) {
+    const actor = asRecord(actorsData[index]);
+    if (actor?.isTank === true) result.push(index);
+  }
+  return result;
+};
+
 const migrateLegacyOwnerEffectsOnEntry = (
   entry: unknown,
   legacyOwnerEffects: Map<number, LegacyOwnerEffectEntry>,
@@ -797,6 +806,34 @@ export async function auditAndRepairDataFiles(
     });
   }
 
+  const equipExtensionsPath = joinPath(dataPath, EQUIP_EXTENSIONS_FILE_NAME);
+  const rawEquipExtensions = await deps.readJson(equipExtensionsPath);
+  const tankActorIndexes = collectTankActorIndexes(normalizedActorsData);
+  const normalizedEquipExtensions = normalizeEquipExtensions(
+    rawEquipExtensions,
+    normalizedActorsData.length,
+    normalizedWeaponsData.length,
+    tankActorIndexes,
+  );
+  const rawEquipRecord = asRecord(rawEquipExtensions);
+  const rawRefitRules = Array.isArray(rawEquipRecord?.actorRefitRules) ? rawEquipRecord.actorRefitRules : [];
+  let repairedEquipExtensionEntries = 0;
+  for (const actorIndex of tankActorIndexes) {
+    if (!arePlainDataEqual(rawRefitRules[actorIndex], normalizedEquipExtensions.data.actorRefitRules[actorIndex])) {
+      repairedEquipExtensionEntries++;
+    }
+  }
+  if (normalizedEquipExtensions.changed) {
+    await deps.writeJson(equipExtensionsPath, normalizedEquipExtensions.data);
+  }
+  results.push({
+    fileName: EQUIP_EXTENSIONS_FILE_NAME,
+    filePath: equipExtensionsPath,
+    checkedEntries: tankActorIndexes.length,
+    repairedEntries: repairedEquipExtensionEntries,
+    changed: normalizedEquipExtensions.changed,
+  });
+
   return {
     checkedFiles: results.length,
     repairedFiles: results.filter((item) => item.changed).length,
@@ -819,5 +856,6 @@ export const toAuditSummaryText = (summary: DataAuditSummary): string => {
 };
 
 export const isAuditTargetFile = (fileName: string) => {
-  return AUDIT_TARGET_FILE_NAMES.includes(fileName as typeof AUDIT_TARGET_FILE_NAMES[number]);
+  return fileName === EQUIP_EXTENSIONS_FILE_NAME
+    || AUDIT_TARGET_FILE_NAMES.includes(fileName as typeof AUDIT_TARGET_FILE_NAMES[number]);
 };

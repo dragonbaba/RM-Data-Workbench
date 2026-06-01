@@ -190,10 +190,10 @@ describe('DataAuditService', () => {
       }),
     });
 
-    expect(summary.checkedFiles).toBe(11);
-    expect(summary.repairedFiles).toBe(10);
+    expect(summary.checkedFiles).toBe(12);
+    expect(summary.repairedFiles).toBe(11);
     expect(summary.repairedEntries).toBe(12);
-    expect(writes).toHaveLength(10);
+    expect(writes).toHaveLength(11);
 
     const actorPayload = writes.find((item) => item.filePath.endsWith('Actors.json'))?.data as unknown[];
     expect(actorPayload[1]).toMatchObject({

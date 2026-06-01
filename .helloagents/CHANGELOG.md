@@ -61,6 +61,14 @@ All notable changes to this project are documented in this file.
 - **[装备模式与系统规则]**: `EquipExtensionsService.normalizeEquipExtensions()` 现在会补齐改造模式同槽位正数装备类型的互相转换 transition；新增规则按目标类型已有 transition 复制金币价格与条件，保证保存/修复后的 `EquipExtensions.json` 允许战车槽位改造后继续改造。 — by Zaun
   - 文件: `frontend/src/services/EquipExtensionsService.ts`, `frontend/src/services/EquipExtensionsService.test.ts`
 
+- **[装备模式与系统规则]**: 修复模式重新纳入 `EquipExtensions.json` 检查；当角色带 `isTank` 标识但 `actorRefitRules` 缺失或无 transition 时，会按 `actorEquipSlots` 生成默认战车改造模板，并保证同类 transition 价格随 actorId 单调递增、不低于前一角色。 — by Zaun
+  - 类型: 修复模式增强（无方案包）
+  - 文件: `frontend/src/services/EquipExtensionsService.ts`, `frontend/src/services/DataAuditService.ts`, `frontend/src/services/EquipExtensionsService.test.ts`, `frontend/src/services/DataAuditService.test.ts`
+
+- **[装备模式与系统规则]**: 修复 `EquipExtensions.json` 修复模式每次都被误判为已修改的问题；规范化比较改为结构相等而非 `JSON.stringify` 文本顺序比较，避免仅因对象键顺序不同就重复写回。 — by Zaun
+  - 类型: 回归修复（无方案包）
+  - 文件: `frontend/src/services/EquipExtensionsService.ts`, `frontend/src/services/EquipExtensionsService.test.ts`
+
 - **[装备模式与系统规则]**: 修复武器范围修复模式误改协议的问题；`RangePropertyService` 与 `EquipmentPropertyService` 现在保留有效 `areaMode/shapeType/areaTargetCount/repeatTime`，只补齐缺失或非法字段，`DataAuditService` 回归覆盖扇形、圆形、受控线形、贯穿和全体模式，避免 `132 散射弩` 这类扇形武器被修成圆形，也避免 `areaMode=3/4` 被误当普通范围重建。 — by Zaun
   - 方案: [202605090325_weapon-range-repair-mode-preserve-protocol](archive/2026-05/202605090325_weapon-range-repair-mode-preserve-protocol/)
   - 决策: weapon-range-repair-mode-preserve-protocol#D001(修复模式保留有效协议)

@@ -62,6 +62,7 @@
   - `frontend/src/services/EquipDataService.ts` 提供装备类型、武器型类型索引和候选装备列表的纯函数派生。
 - `frontend/src/services/EquipExtensionsService.ts` 负责扩展文件默认结构、规范化和按角色/武器索引读取。
 - `frontend/src/services/EquipExtensionsService.ts` 的 `normalizeEquipExtensions()` 负责补齐改造模式数据：同一槽位内已经配置到的正数装备类型会生成互相转换 transition，新增规则按目标类型已有 transition 复制 `goldCost` 与 `conditions`，让游戏运行时保持简单的 `slotIndex/from/to` 显式读取。
+- 修复模式通过 `DataAuditService` 把 `EquipExtensions.json` 纳入检查；当 `Actors.json` 中角色 `isTank === true` 且该角色 `actorRefitRules` 缺失或没有任何 transition 时，会按 `actorEquipSlots[actorId]` 生成默认战车改造模板。模板价格随 actorId 单调递增，并对同一 `slotIndex/from/to` transition 不低于前一角色，避免后续新增战车缺少改造数据。
   - 派生逻辑不依赖 React，可独立做单元测试。
 - `RefitPanel` 只展示当前槽位类型对应的 `fromEquipTypeId` 转换目标；同槽位里的其它互转规则作为数据保留，不在当前槽位视图中重复铺开，也不会在保存时被改写来源类型。
 
