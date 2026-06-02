@@ -26,6 +26,9 @@ All notable changes to this project are documented in this file.
   - 决策: fixed-map-weather#D001(固定地图天气由 TimeSystem 管理)
 
 ### Fixed
+- **[任务目标累计语义]**: 任务面板的“累计获取”开关收敛到原版数量型目标，仅变量值、金钱、杀怪数、收集物品、武器、防具可切换累计/非累计；开关目标不再显示该选项。新增回归测试覆盖可显示类型与开关隐藏语义。 — by Zaun
+  - 类型: 回归修复（无方案包）
+  - 文件: `frontend/src/components/panels/QuestPanel.tsx`, `frontend/src/components/panels/QuestPanel.test.ts`
 
 - **[前后端交互与性能修复记录]**: 修复右侧主面板在窗口缩放后被内容撑出屏幕的问题；主布局、主内容、面板宿主和脚本编辑器关键 flex 容器已补齐 `min-w-0/min-h-0/overflow-hidden`，脚本路径和错误文本改为截断显示，Monaco 容器可随窗口收缩。 — by Zaun
   - 方案: [202605291216_right-panel-container-bounds](archive/2026-05/202605291216_right-panel-container-bounds/)

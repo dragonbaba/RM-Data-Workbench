@@ -62,6 +62,8 @@ const OPERATORS = ['>', '>=', '<', '<=', '===', '!=='];
 const VARIABLE_OPERATORS = ['+', '-', '*', '/', '='];
 const OPERATOR_OPTIONS = OPERATORS.map((op) => ({ value: op, label: op }));
 const VARIABLE_OPERATOR_OPTIONS = VARIABLE_OPERATORS.map((op) => ({ value: op, label: op }));
+export const canObjectiveUseCalculateType = (type: number): boolean =>
+  type === 1 || type === 2 || type === 3 || type === 4 || type === 6 || type === 7;
 
 type SwitchActionKey = 'startSwitches' | 'switches';
 type VariableActionKey = 'startVariables' | 'variables';
@@ -1248,12 +1250,14 @@ export function QuestPanel() {
                         />
                       </>
                     )}
-                    <Checkbox
-                      checked={obj.calculateType}
-                      onChange={(e) => updateObjective(index, { calculateType: e.target.checked })}
-                    >
-                      累计计算
-                    </Checkbox>
+                    {canObjectiveUseCalculateType(obj.type) && (
+                      <Checkbox
+                        checked={obj.calculateType !== false}
+                        onChange={(e) => updateObjective(index, { calculateType: e.target.checked })}
+                      >
+                        累计获取
+                      </Checkbox>
+                    )}
                     <Input
                       value={obj.description}
                       onChange={(e) => updateObjective(index, { description: e.target.value })}
