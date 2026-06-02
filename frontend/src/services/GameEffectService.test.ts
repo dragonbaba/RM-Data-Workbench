@@ -56,6 +56,7 @@ describe('GameEffectService', () => {
     const ownerParamDefinition = getGameEffectTypeDefinition('pair_same_cunit_owner_bonus');
     const equipCountDefinition = getGameEffectTypeDefinition('equip_count_bonus');
     const equipSetDefinition = getGameEffectTypeDefinition('equip_id_set_bonus');
+    const cunitDefinition = getGameEffectTypeDefinition('single_cunit_bonus');
 
     expect(ownerParamDefinition.selectorMode).toBe('none');
     expect(ownerParamDefinition.argsMode).toBe('count+ops');
@@ -68,6 +69,14 @@ describe('GameEffectService', () => {
       'specialParams',
       'baseParamRate',
     ]);
+
+    expect(cunitDefinition.label).toBe('C 装携带奖励');
+    expect(cunitDefinition.example.description).toEqual([
+      '每个装备中的 C 装置会独立应用自身携带的属性奖励',
+      '可随多个 C 装叠加',
+    ]);
+    expect(cunitDefinition.selectorMode).toBe('none');
+    expect(cunitDefinition.argsMode).toBe('ops');
 
     expect(equipCountDefinition.selectorMode).toBe('equip');
     expect(equipCountDefinition.selectorFields).toEqual(['etypeIds', 'wtypeIds', 'atypeIds']);
