@@ -613,7 +613,7 @@ export const TROOP_MEET_CONDITION_DEFAULT: Readonly<TroopMeetCondition> = Object
 });
 
 export interface AppState {
-  currentData: (RPGItem | RPGEnemy | RPGQuest | ProjectileTemplate | null)[] | null;
+  currentData: (RPGItem | RPGEnemy | RPGQuest | ProjectileTemplate | GameEffectEntry | null)[] | null;
   currentMapData: RPGMap | null;
   currentMapInfos: RPGMapInfo[];
   currentMapId: number | null;
@@ -621,7 +621,7 @@ export interface AppState {
   currentFilePath: string;
   currentFileType: FileType;
   currentItemIndex: number;
-  currentItem: RPGItem | RPGEnemy | RPGQuest | ProjectileTemplate | RPGMap | null;
+  currentItem: RPGItem | RPGEnemy | RPGQuest | ProjectileTemplate | GameEffectEntry | RPGMap | null;
   currentScriptKey: string;
   config: EditorConfig;
   uiMode: EditorMode;

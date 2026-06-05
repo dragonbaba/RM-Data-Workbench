@@ -26,6 +26,10 @@ All notable changes to this project are documented in this file.
   - 决策: fixed-map-weather#D001(固定地图天气由 TimeSystem 管理)
 
 ### Fixed
+- **[效果模式保存全部草稿刷新]**: 保存当前文件/保存全部前会广播 `editor:flush-pending-draft`，效果面板收到后立即清掉延迟自动保存计时器并把当前草稿同步进 `currentData` 缓存；修复连续修改多个效果后，保存全部每次只落盘一个效果并只清掉一个 dirty 索引的问题。新增回归测试覆盖保存前强制 flush 时当前效果与既有脏索引一起保留。 — by Zaun
+  - 类型: 快速修复（无方案包）
+  - 文件: `frontend/src/components/panels/EffectPanel.tsx`, `frontend/src/hooks/useFileOperations.ts`, `frontend/src/core/EventSystem.ts`, `frontend/src/types/index.ts`, `frontend/src/stores/editorStore.ts`, `frontend/src/components/panels/EffectPanel.test.tsx`
+
 - **[任务目标累计语义]**: 任务面板的“累计获取”开关收敛到原版数量型目标，仅变量值、金钱、杀怪数、收集物品、武器、防具可切换累计/非累计；开关目标不再显示该选项。新增回归测试覆盖可显示类型与开关隐藏语义。 — by Zaun
   - 类型: 回归修复（无方案包）
   - 文件: `frontend/src/components/panels/QuestPanel.tsx`, `frontend/src/components/panels/QuestPanel.test.ts`

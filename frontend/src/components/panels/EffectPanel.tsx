@@ -133,6 +133,7 @@ export function EffectPanel() {
     opRows: EffectOpRow[];
   } | null>(null);
   const autoSaveSkipRef = useRef(0);
+  const autoSaveTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const refreshReferences = (payload?: unknown) => {
@@ -258,8 +259,8 @@ export function EffectPanel() {
     const nextEffect = createGameEffectTemplate(effectType, systemData);
     nextEffect.id = nextId;
     const nextData = [...currentData];
-    nextData[nextId] = nextEffect as any;
-    loadData(nextData as any[], currentFilePath || '', currentFileType);
+    nextData[nextId] = nextEffect;
+    loadData(nextData, currentFilePath || '', currentFileType);
     if (currentFilePath) {
       markFileDirty(currentFilePath);
       markItemDirty(currentFilePath, nextId);
@@ -271,8 +272,8 @@ export function EffectPanel() {
   const handleDeleteEffect = () => {
     if (!currentData || currentItemIndex <= 0 || !effect) return;
     const nextData = [...currentData];
-    nextData[currentItemIndex] = null as any;
-    loadData(nextData as any[], currentFilePath || '', currentFileType);
+    nextData[currentItemIndex] = null;
+    loadData(nextData, currentFilePath || '', currentFileType);
     if (currentFilePath) {
       markFileDirty(currentFilePath);
       markItemDirty(currentFilePath, currentItemIndex);
@@ -355,11 +356,11 @@ export function EffectPanel() {
     }
     normalized.id = effect.id || currentItemIndex;
     const nextData = [...currentData];
-    nextData[currentItemIndex] = normalized as any;
+    nextData[currentItemIndex] = normalized;
     if (silent) {
       autoSaveSkipRef.current++;
     }
-    loadData(nextData as any[], currentFilePath || '', currentFileType);
+    loadData(nextData, currentFilePath || '', currentFileType);
     if (currentFilePath) {
       markFileDirty(currentFilePath);
       markItemDirty(currentFilePath, currentItemIndex);
@@ -381,13 +382,36 @@ export function EffectPanel() {
   };
 
   useEffect(() => {
+    const flushPendingDraft = () => {
+      if (autoSaveTimerRef.current !== null) {
+        window.clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+      if (hasChanges) {
+        persistEffectChanges(true);
+      }
+    };
+
+    EventSystem.on('editor:flush-pending-draft', flushPendingDraft);
+    return () => {
+      EventSystem.off('editor:flush-pending-draft', flushPendingDraft);
+    };
+  }, [hasChanges, effect, descriptionText, opRows, currentData, currentItemIndex, currentFilePath, systemData]);
+
+  useEffect(() => {
     if (!hasChanges) {
       return;
     }
-    const timer = window.setTimeout(() => {
+    autoSaveTimerRef.current = window.setTimeout(() => {
+      autoSaveTimerRef.current = null;
       persistEffectChanges(true);
     }, 160);
-    return () => window.clearTimeout(timer);
+    return () => {
+      if (autoSaveTimerRef.current !== null) {
+        window.clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+    };
   }, [hasChanges, effect, descriptionText, opRows, currentData, currentItemIndex, currentFilePath, systemData]);
 
   if (!isEffectsFile) {

@@ -4,7 +4,7 @@ import { InputDialog } from '../components/common/InputDialog';
 import { ToastManager } from '../components/common/ToastManager';
 import { EventSystem } from '../core/EventSystem';
 import { useEditorStore } from '../stores/editorStore';
-import type { FileType, RPGMapInfo } from '../types';
+import type { EditorMode, FileType, GameEffectEntry, RPGItem, RPGMapInfo, RPGQuest, ProjectileTemplate } from '../types';
 import {
   buildDataReloadBatchConfirmMessage,
   extractFileName,
@@ -33,6 +33,29 @@ interface WorkspacePayload {
   workspacePath: string;
   projectName: string;
 }
+
+type StandardDataEntry = RPGItem | RPGQuest | ProjectileTemplate | GameEffectEntry | null;
+
+const toStandardDataEntries = (data: unknown[]): StandardDataEntry[] => (
+  data as unknown as StandardDataEntry[]
+);
+
+const isEditorMode = (value: string): value is EditorMode => {
+  switch (value) {
+    case 'script':
+    case 'property':
+    case 'effect':
+    case 'projectile':
+    case 'quest':
+    case 'map':
+    case 'equip':
+    case 'refit':
+    case 'drop':
+      return true;
+    default:
+      return false;
+  }
+};
 
 const DATA_MENU_LABELS: Record<string, string> = {
   actors: 'Actors.json',
@@ -139,6 +162,10 @@ const normalizeScriptPaths = (data: unknown[]) => {
   }
 };
 
+const flushPendingEditorDrafts = () => {
+  EventSystem.emit('editor:flush-pending-draft');
+};
+
 const getCurrentPayload = () => {
   const state = useEditorStore.getState();
   if (state.currentFileType === 'map') {
@@ -243,7 +270,7 @@ export function useFileOperations() {
 
     normalizeScriptPaths(normalized);
     await ensureScriptRootFromFile(filePath);
-    useEditorStore.getState().loadData(normalized as any[], filePath, fileType);
+    useEditorStore.getState().loadData(toStandardDataEntries(normalized), filePath, fileType);
     await SetCurrentFile(filePath);
     EventSystem.emit('data:file-loaded', { fileName, filePath, type: fileType });
     return true;
@@ -335,7 +362,7 @@ export function useFileOperations() {
 
       normalizeScriptPaths(normalizedData);
       await ensureScriptRootFromFile(filePath);
-      useEditorStore.getState().loadData(normalizedData as any[], filePath, fileType);
+      useEditorStore.getState().loadData(toStandardDataEntries(normalizedData), filePath, fileType);
       await SetCurrentFile(filePath);
     } catch (error) {
       console.error('Failed to open file:', error);
@@ -343,6 +370,7 @@ export function useFileOperations() {
   };
 
   const saveFile = async (): Promise<boolean> => {
+    flushPendingEditorDrafts();
     const state = useEditorStore.getState();
     const { currentFilePath } = state;
     const currentPayload = getCurrentPayload();
@@ -376,6 +404,7 @@ export function useFileOperations() {
   };
 
   const saveAllFiles = async (): Promise<{ savedCount: number; failedCount: number }> => {
+    flushPendingEditorDrafts();
     const { currentFilePath, dirtyFiles } = useEditorStore.getState();
     const currentPayload = getCurrentPayload();
     const dirtyScriptFiles = ScriptCacheManager.getDirtyFiles();
@@ -861,7 +890,9 @@ export function useFileOperations() {
       }
 
       if (nextMode !== 'equip' && nextMode !== 'refit') {
-        useEditorStore.getState().setMode(nextMode as any);
+        if (isEditorMode(nextMode)) {
+          useEditorStore.getState().setMode(nextMode);
+        }
         return;
       }
 
@@ -886,7 +917,7 @@ export function useFileOperations() {
         return;
       }
 
-      useEditorStore.getState().setMode(nextMode as any);
+      useEditorStore.getState().setMode(nextMode);
     });
 
     const disposeScriptCreate = EventsOn('script:create', () => {

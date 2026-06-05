@@ -32,6 +32,7 @@ export type AppEvent =
   | 'theme:changed'
   | 'config:updated'
   | 'editor:ready'
+  | 'editor:flush-pending-draft'
   | 'editor:content-changed'
   | 'panel:shown'
   | 'panel:hidden'

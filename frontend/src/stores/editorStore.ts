@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { AppState, EditorConfig, EditorMode, FileType, RPGItem, RPGMap, RPGMapInfo, RPGQuest, ProjectileTemplate } from '../types';
+import { AppState, EditorConfig, EditorMode, FileType, GameEffectEntry, RPGItem, RPGMap, RPGMapInfo, RPGQuest, ProjectileTemplate } from '../types';
 import { EventSystem } from '../core/EventSystem';
 import { DataLoaderService } from '../services/DataLoaderService';
 import { BACKSLASH_REGEXP, WINDOWS_DRIVE_REGEXP } from '../constants/regexp';
@@ -102,7 +102,7 @@ const saveDirtyItemIndexes = (dirtyItemIndexes: Record<string, number[]>) => {
 interface EditorStore extends AppState {
   // 基础操作
   setMode: (mode: EditorMode) => void;
-  loadData: (data: (RPGItem | RPGQuest | ProjectileTemplate | null)[], filePath: string, fileType: FileType) => void;
+  loadData: (data: (RPGItem | RPGQuest | ProjectileTemplate | GameEffectEntry | null)[], filePath: string, fileType: FileType) => void;
   loadMapBrowser: (mapInfos: RPGMapInfo[]) => void;
   setMapInfos: (mapInfos: RPGMapInfo[]) => void;
   loadMapData: (mapData: RPGMap, filePath: string, mapId: number) => void;
@@ -432,18 +432,21 @@ export const useEditorStore = create<EditorStore>()(
       // 添加版本控制
       version: 1,
       // 迁移函数
-      migrate: (persistedState: any, version: number) => {
+      migrate: (persistedState: unknown, version: number) => {
+        const persisted = persistedState && typeof persistedState === 'object'
+          ? persistedState as { config?: Partial<EditorConfig> }
+          : {};
         if (version === 0) {
           // 从旧版本迁移
           return {
-            ...persistedState,
+            ...persisted,
             config: {
               ...defaultConfig,
-              ...persistedState.config,
+              ...persisted.config,
             },
           };
         }
-        return persistedState;
+        return persisted;
       },
     }
   )
