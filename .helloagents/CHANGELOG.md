@@ -25,6 +25,12 @@ All notable changes to this project are documented in this file.
   - 方案: [202605180123_fixed-map-weather](D:/RMProjects/MyGame/.helloagents/archive/2026-05/202605180123_fixed-map-weather/)
   - 决策: fixed-map-weather#D001(固定地图天气由 TimeSystem 管理)
 
+### Changed
+- **[奖励加成线性结算]**: 图鉴挑战 `dropRate/gold/exp` 从乘数切为严格加成字段 `dropRateBonus/goldBonus/expBonus`；周目经验/金钱/掉率插件参数同步改为加成语义；战斗结算改为 `1 + 图鉴挑战加成 + 周目加成 + 团队加成` 线性累加，并批量迁移 MyGame 旧数据。 — by Zaun
+  - 类型: 破坏性协议切换（无兼容）
+  - 文件: `frontend/src/types/index.ts`, `frontend/src/components/panels/DropPanel.tsx`, `frontend/src/components/panels/PropertyPanel.tsx`, `frontend/src/services/*`, `D:/RMProjects/MyGame/js/plugins/Zaun_GameVariable.js`, `D:/RMProjects/MyGame/js/plugins/Zaun_GameUnit.js`, `D:/RMProjects/MyGame/js/plugins/Zaun_SceneBattle.js`, `D:/RMProjects/MyGame/data/*.json`
+  - 平衡: 线性加成按 `0.1→0.03 / 0.2→0.06 / 0.3→0.09 / >=0.4→0.12` 收敛，所有经验/掉率/金币奖励加成数据上限不超过 `0.12`。
+
 ### Fixed
 - **[效果模式保存全部草稿刷新]**: 保存当前文件/保存全部前会广播 `editor:flush-pending-draft`，效果面板收到后立即清掉延迟自动保存计时器并把当前草稿同步进 `currentData` 缓存；修复连续修改多个效果后，保存全部每次只落盘一个效果并只清掉一个 dirty 索引的问题。新增回归测试覆盖保存前强制 flush 时当前效果与既有脏索引一起保留。 — by Zaun
   - 类型: 快速修复（无方案包）

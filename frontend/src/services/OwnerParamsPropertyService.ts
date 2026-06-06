@@ -34,11 +34,15 @@ const clampOwnerProbabilityValue = (value: unknown): number => {
   return numeric;
 };
 
-const buildRequiredNumberGroup = (value: unknown, length: number): number[] => {
+const buildRequiredNumberGroup = (value: unknown, length: number, defaults: readonly number[] = []): number[] => {
   const source = Array.isArray(value) ? value : [];
   const result = new Array<number>(length);
   for (let index = 0; index < length; index++) {
-    result[index] = toFloatOrZero(source[index]);
+    if (source[index] === undefined || source[index] === null || source[index] === '') {
+      result[index] = defaults[index] ?? 0;
+    } else {
+      result[index] = toFloatOrZero(source[index]);
+    }
   }
   return result;
 };
@@ -77,6 +81,6 @@ export const buildRequiredOwnerParamsSaveData = (
   paramRate: buildRequiredNumberGroup(paramRate, BASE_PARAM_KEYS.length) as OwnerParamRateMap,
   extraParams: buildOwnerExtraParamGroup(extraParams),
   specialParams: buildRequiredNumberGroup(specialParams, OWNER_SPECIAL_PARAM_KEYS.length) as OwnerSpecialParamMap,
-  scalar: buildRequiredNumberGroup(scalar, OWNER_SCALAR_KEYS.length) as OwnerScalarMap,
+  scalar: buildRequiredNumberGroup(scalar, OWNER_SCALAR_KEYS.length, [0, 0]) as OwnerScalarMap,
   ...(elementRate ? { elementRate: buildElementRateGroup(elementRate) } : {}),
 });

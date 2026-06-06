@@ -51,7 +51,7 @@ export interface GameEffectVehicleParamOp extends GameEffectBaseOp {
 
 export interface GameEffectScalarOp extends GameEffectBaseOp {
   group: 'scalar';
-  key: 'expRate';
+  key: 'expRate' | 'dropRate';
 }
 
 export interface GameEffectSpecialParamOp extends GameEffectBaseOp {
@@ -185,7 +185,7 @@ export type OwnerExtraParamKey = typeof OWNER_EXTRA_PARAM_KEYS[number];
 export const OWNER_SPECIAL_PARAM_KEYS = ['tgr', 'grd', 'rec', 'pha', 'pdr', 'hrg'] as const;
 export type OwnerSpecialParamKey = typeof OWNER_SPECIAL_PARAM_KEYS[number];
 
-export const OWNER_SCALAR_KEYS = ['expRate'] as const;
+export const OWNER_SCALAR_KEYS = ['expRate', 'dropRate'] as const;
 export type OwnerScalarKey = typeof OWNER_SCALAR_KEYS[number];
 
 export type OwnerParamRateKey = typeof OWNER_PARAM_RATE_KEYS[number];
@@ -333,9 +333,9 @@ export interface EnemyBookChallengeStar {
   levelRequirement: number;
   baseParamRate: number;
   passiveStates: number[];
-  dropRateMultiplier: number;
-  goldMultiplier: number;
-  expMultiplier: number;
+  dropRateBonus: number;
+  goldBonus: number;
+  expBonus: number;
   extraRewards: EnemyBookChallengeExtraReward[];
 }
 

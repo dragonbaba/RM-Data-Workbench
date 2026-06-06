@@ -8,14 +8,14 @@ describe('OwnerParamsPropertyService', () => {
       [0, 0, 0, 0, 0, 0, 0, 0],
       [0, 0, 0, 0, 0, 0],
       [0, 0, 0, 0, 0, 0],
-      [0],
+      [0, 0],
       [0, 0, 0],
     )).toEqual({
       baseParams: [0, 0, 0, 0, 0, 0, 0, 0],
       paramRate: [0, 0, 0, 0, 0, 0, 0, 0],
       extraParams: [0, 0, 0, 0, 0, 0],
       specialParams: [0, 0, 0, 0, 0, 0],
-      scalar: [0],
+      scalar: [0, 0],
       elementRate: [0, 0, 0],
     });
   });
@@ -26,7 +26,7 @@ describe('OwnerParamsPropertyService', () => {
       paramRate: [0, 0, 0, 0, 0, 0, 0, 0],
       extraParams: [0, 0, 0, 0, 0, 0],
       specialParams: [0, 0, 0, 0, 0, 0],
-      scalar: [0],
+      scalar: [0, 0],
     });
   });
 
@@ -43,7 +43,31 @@ describe('OwnerParamsPropertyService', () => {
       paramRate: [0, 0, 0, 0, 0, 0, 0, 0],
       extraParams: [100, 0, 0.9, 0.5, 100, 2],
       specialParams: [0, 0, 0, 0, 0, 0],
-      scalar: [0],
+      scalar: [0, 0],
+    });
+  });
+
+  it('团队奖励标量会保留经验和掉落加成', () => {
+    expect(buildRequiredOwnerParamsSaveData(
+      null,
+      null,
+      null,
+      null,
+      [0.5],
+      null,
+    )).toMatchObject({
+      scalar: [0.5, 0],
+    });
+
+    expect(buildRequiredOwnerParamsSaveData(
+      null,
+      null,
+      null,
+      null,
+      [0.25, 1.5],
+      null,
+    )).toMatchObject({
+      scalar: [0.25, 1.5],
     });
   });
 });

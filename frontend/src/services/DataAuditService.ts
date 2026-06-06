@@ -354,6 +354,9 @@ const OWNER_GROUP_KEYS = Object.freeze({
   scalar: OWNER_SCALAR_KEYS,
   paramRate: BASE_PARAM_KEYS,
 });
+const OWNER_GROUP_DEFAULTS: Partial<Record<FixedOwnerGroupKey, readonly number[]>> = Object.freeze({
+  scalar: [0, 0],
+});
 const OWNER_GROUP_INDEX_MAP: Record<FixedOwnerGroupKey, Map<string, number>> = Object.freeze({
   baseParams: new Map<string, number>(BASE_PARAM_KEYS.map((key, index) => [key, index])),
   extraParams: new Map<string, number>(OWNER_EXTRA_PARAM_KEYS.map((key, index) => [key, index])),
@@ -446,12 +449,13 @@ const buildOwnerFixedGroupArray = (
   value: unknown,
 ): number[] => {
   const keys = OWNER_GROUP_KEYS[groupKey];
-  const nextValues = new Array(keys.length).fill(0);
+  const defaults = OWNER_GROUP_DEFAULTS[groupKey] ?? [];
+  const nextValues = new Array(keys.length).fill(0).map((_, index) => defaults[index] ?? 0);
   if (Array.isArray(value)) {
     for (let index = 0; index < keys.length; index++) {
       nextValues[index] = groupKey === 'extraParams'
         ? normalizeOwnerExtraParamValue(keys[index], value[index])
-        : (toFiniteNumber(value[index]) ?? 0);
+        : (toFiniteNumber(value[index]) ?? defaults[index] ?? 0);
     }
   } else {
     const record = asRecord(value);
@@ -461,7 +465,7 @@ const buildOwnerFixedGroupArray = (
     for (let index = 0; index < keys.length; index++) {
       nextValues[index] = groupKey === 'extraParams'
         ? normalizeOwnerExtraParamValue(keys[index], record[keys[index]])
-        : (toFiniteNumber(record[keys[index]]) ?? 0);
+        : (toFiniteNumber(record[keys[index]]) ?? defaults[index] ?? 0);
     }
   }
   return nextValues;
@@ -507,6 +511,10 @@ const ensureOwnerFixedGroup = (
     return group;
   }
   group = new Array(OWNER_GROUP_KEYS[groupKey].length).fill(0);
+  const defaults = OWNER_GROUP_DEFAULTS[groupKey] ?? [];
+  for (let index = 0; index < group.length; index++) {
+    group[index] = defaults[index] ?? 0;
+  }
   ownerParams[groupKey] = group;
   return group;
 };
@@ -562,11 +570,12 @@ const normalizeOwnerParams = (
   const groupKeys: FixedOwnerGroupKey[] = ['baseParams', 'paramRate', 'extraParams', 'specialParams', 'scalar'];
   for (const groupKey of groupKeys) {
     const source = ownerParams[groupKey];
+    const defaults = OWNER_GROUP_DEFAULTS[groupKey] ?? [];
     const nextGroup = new Array(OWNER_GROUP_KEYS[groupKey].length).fill(0);
     for (let index = 0; index < nextGroup.length; index++) {
       nextGroup[index] = groupKey === 'extraParams'
         ? normalizeOwnerExtraParamValue(OWNER_GROUP_KEYS[groupKey][index], source?.[index])
-        : (toFiniteNumber(source?.[index]) ?? 0);
+        : (toFiniteNumber(source?.[index]) ?? defaults[index] ?? 0);
     }
     result[groupKey] = nextGroup;
   }

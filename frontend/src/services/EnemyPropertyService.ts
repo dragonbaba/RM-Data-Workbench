@@ -195,9 +195,9 @@ const createDefaultEnemyBookChallengeStar = (index = 0): EnemyBookChallengeStar 
   levelRequirement: 0,
   baseParamRate: 1,
   passiveStates: [],
-  dropRateMultiplier: 1,
-  goldMultiplier: 1,
-  expMultiplier: 1,
+  dropRateBonus: 0,
+  goldBonus: 0,
+  expBonus: 0,
   extraRewards: [],
 });
 
@@ -243,9 +243,9 @@ const normalizeEnemyBookChallengeStar = (value: unknown, index: number): EnemyBo
     levelRequirement: Math.max(0, toIntOrZero(value.levelRequirement)),
     baseParamRate: Math.max(0, Number(value.baseParamRate) || 1),
     passiveStates: normalizePassiveStates(value.passiveStates),
-    dropRateMultiplier: Math.max(0, Number(value.dropRateMultiplier) || 1),
-    goldMultiplier: Math.max(0, Number(value.goldMultiplier) || 1),
-    expMultiplier: Math.max(0, Number(value.expMultiplier) || 1),
+    dropRateBonus: Math.max(0, Number(value.dropRateBonus) || 0),
+    goldBonus: Math.max(0, Number(value.goldBonus) || 0),
+    expBonus: Math.max(0, Number(value.expBonus) || 0),
     extraRewards,
   };
 };

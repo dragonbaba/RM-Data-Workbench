@@ -204,6 +204,10 @@ describe('GameEffectService', () => {
     ]);
     expect(getKeyOptions('equip_id_set_bonus', 'baseParams', systemData)).toContainEqual({ value: 'mhp', label: '最大生命值' });
     expect(getKeyOptions('equip_id_set_bonus', 'baseParamRate', systemData)).toContainEqual({ value: 'mhp', label: '体力' });
+    expect(getKeyOptions('equip_id_set_bonus', 'scalar')).toEqual([
+      { value: 'expRate', label: '团队经验加成' },
+      { value: 'dropRate', label: '团队掉落加成' },
+    ]);
     expect(getKeyOptions('single_cunit_bonus', 'specialParams')).toContainEqual({ value: 'hrg', label: 'HP 再生率' });
     expect(getOpOptions()).toEqual([
       { value: 'add', label: '加算' },
@@ -228,6 +232,10 @@ describe('GameEffectService', () => {
     expect(validateEffectOpRows('equip_count_bonus', [{ group: 'scalar', key: 'expRate', op: 'add', value: 1 }])).toEqual({
       valid: false,
       message: '当前模板不允许使用分组 scalar',
+    });
+    expect(validateEffectOpRows('equip_id_set_bonus', [{ group: 'scalar', key: 'dropRate', op: 'mul', value: 2 }])).toEqual({
+      valid: false,
+      message: '团队经验/掉落加成只允许加算',
     });
     expect(validateEffectOpRows('single_engine_bonus', [{ group: 'vehicleParams', key: 'loadValue', op: 'add', value: Number.NaN }])).toEqual({
       valid: false,
@@ -300,7 +308,7 @@ describe('GameEffectService', () => {
       args: {
         weaponIds: [1],
         armorIds: [2, 5, 10],
-        ops: [{ group: 'scalar', key: 'expRate', op: 'mul', value: 2 }],
+        ops: [{ group: 'scalar', key: 'dropRate', op: 'add', value: 0.2 }],
         requiredCount: 0,
       },
     }, systemData)).toEqual({ valid: true });
@@ -310,7 +318,7 @@ describe('GameEffectService', () => {
       args: {
         weaponIds: '1',
         armorIds: [2],
-        ops: [{ group: 'scalar', key: 'expRate', op: 'mul', value: 2 }],
+        ops: [{ group: 'scalar', key: 'dropRate', op: 'add', value: 0.2 }],
         requiredCount: 0,
       },
     }, systemData)).toEqual({ valid: false, message: 'args.weaponIds 必须是数字数组' });

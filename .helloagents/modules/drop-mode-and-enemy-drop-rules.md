@@ -40,9 +40,9 @@
   - 修改 `isRare`
   - 修改 `dropId`
 - 图鉴挑战掉落支持：
-  - 修改星级 `dropRateMultiplier`
-  - 修改星级 `goldMultiplier`
-  - 修改星级 `expMultiplier`
+  - 修改星级 `dropRateBonus`
+  - 修改星级 `goldBonus`
+  - 修改星级 `expBonus`
   - 新增、删除和修改 `extraRewards`
 - 条目编辑直接写入前端缓存，统一交给现有 SaveAll / 保存链路落盘。
 - 当前面板布局固定为四列：
@@ -66,9 +66,9 @@
 ## 图鉴挑战掉落规则
 - 图鉴挑战掉落仍保存到当前敌人的 `bookChallenge` 顶层结构，不新增独立数据源。
 - 掉落模式只维护 `enemy.bookChallenge.stars[]` 中的掉落相关字段：
-  - `dropRateMultiplier`
-  - `goldMultiplier`
-  - `expMultiplier`
+  - `dropRateBonus`
+  - `goldBonus`
+  - `expBonus`
   - `extraRewards`
 - 属性模式继续维护图鉴挑战的非掉落字段：
   - `challengeTroopId`
@@ -77,6 +77,11 @@
   - `levelRequirement`
   - `baseParamRate`
   - `passiveStates`
+- `dropRateBonus` / `goldBonus` / `expBonus` 均为加成值，不再是乘数：
+  - `0 = 无加成`
+  - `0.1 = +10%`
+  - 结算按 `1 + 图鉴挑战加成 + 周目加成 + 团队加成` 线性累加。
+  - 数据平衡上限为 `0.12`，推荐从 `0.03` 起步；加法来源叠加必须严格控量。
 - `extraRewards` 的条目结构固定为：
   - `rewardType`
   - `dataId`

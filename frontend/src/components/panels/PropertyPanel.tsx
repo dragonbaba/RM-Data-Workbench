@@ -252,25 +252,36 @@ const OWNER_SPECIAL_PARAM_FIELDS: OwnerParamFieldDefinition[] = [
 ];
 
 const OWNER_SCALAR_FIELDS: OwnerParamFieldDefinition[] = [
-  { index: 0, key: OWNER_SCALAR_KEYS[0], label: '经验获取率' },
+  { index: 0, key: OWNER_SCALAR_KEYS[0], label: '团队经验加成' },
+  { index: 1, key: OWNER_SCALAR_KEYS[1], label: '团队掉落加成' },
 ];
+const OWNER_SCALAR_DEFAULTS = [0, 0] as const;
 
 const buildOwnerNumberGroupFormValues = (
   groupValue: number[] | undefined,
   fields: OwnerParamFieldDefinition[],
+  defaults: readonly number[] = [],
 ) => {
   const source = Array.isArray(groupValue) ? groupValue : [];
-  return fields.map((field) => toFloatOrZero(source[field.index]));
+  return fields.map((field) => {
+    const value = source[field.index];
+    return value === undefined || value === null
+      ? (defaults[field.index] ?? 0)
+      : toFloatOrZero(value);
+  });
 };
 
 const normalizeOwnerNumberGroupValues = <T extends number[]>(
   value: unknown,
   fields: OwnerParamFieldDefinition[],
+  defaults: readonly number[] = [],
 ): T => {
   const source = Array.isArray(value) ? value : [];
   const result = new Array(fields.length);
   for (let index = 0; index < fields.length; index++) {
-    result[index] = toFloatOrZero(source[index]);
+    result[index] = source[index] === undefined || source[index] === null || source[index] === ''
+      ? (defaults[index] ?? 0)
+      : toFloatOrZero(source[index]);
   }
   return result as T;
 };
@@ -279,7 +290,8 @@ const areOwnerNumberGroupsEqual = (
   left: unknown,
   right: number[],
   fields: OwnerParamFieldDefinition[],
-) => arePlainDataEqual(normalizeOwnerNumberGroupValues(left, fields), right);
+  defaults: readonly number[] = [],
+) => arePlainDataEqual(normalizeOwnerNumberGroupValues(left, fields, defaults), right);
 
 const normalizeOwnerElementRates = (value: unknown, systemData: unknown): number[] => {
   return normalizeArmorElementRates(value, systemData);
@@ -294,7 +306,7 @@ const buildOwnerParamsFormValues = (
   paramRate: buildOwnerNumberGroupFormValues(ownerParams?.paramRate, OWNER_PARAM_RATE_FIELDS),
   extraParams: buildOwnerNumberGroupFormValues(ownerParams?.extraParams, OWNER_EXTRA_PARAM_FIELDS),
   specialParams: buildOwnerNumberGroupFormValues(ownerParams?.specialParams, OWNER_SPECIAL_PARAM_FIELDS),
-  scalar: buildOwnerNumberGroupFormValues(ownerParams?.scalar, OWNER_SCALAR_FIELDS),
+  scalar: buildOwnerNumberGroupFormValues(ownerParams?.scalar, OWNER_SCALAR_FIELDS, OWNER_SCALAR_DEFAULTS),
   ...(supportsOwnerElementRate
     ? { elementRate: normalizeOwnerElementRates(ownerParams?.elementRate, systemData) }
     : {}),
@@ -772,9 +784,9 @@ const createEmptyEnemyChallengeStar = (index = 0): EnemyBookChallengeStar => ({
   levelRequirement: 0,
   baseParamRate: 1,
   passiveStates: [],
-  dropRateMultiplier: 1,
-  goldMultiplier: 1,
-  expMultiplier: 1,
+  dropRateBonus: 0,
+  goldBonus: 0,
+  expBonus: 0,
   extraRewards: [],
 });
 
@@ -1764,7 +1776,7 @@ export function PropertyPanel() {
       ? normalizeOwnerNumberGroupValues<OwnerSpecialParamMap>(ownerValues.specialParams, OWNER_SPECIAL_PARAM_FIELDS)
       : null;
     const nextOwnerScalar = supportsOwnerParams
-      ? normalizeOwnerNumberGroupValues<OwnerScalarMap>(ownerValues.scalar, OWNER_SCALAR_FIELDS)
+      ? normalizeOwnerNumberGroupValues<OwnerScalarMap>(ownerValues.scalar, OWNER_SCALAR_FIELDS, OWNER_SCALAR_DEFAULTS)
       : null;
     const nextOwnerElementRate = supportsOwnerElementRate
       ? normalizeOwnerElementRates(ownerValues.elementRate, systemData)
@@ -1827,7 +1839,7 @@ export function PropertyPanel() {
       || (supportsOwnerParams && nextOwnerParamRate !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.paramRate, nextOwnerParamRate, OWNER_PARAM_RATE_FIELDS))
       || (supportsOwnerParams && nextOwnerExtraParams !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.extraParams, nextOwnerExtraParams, OWNER_EXTRA_PARAM_FIELDS))
       || (supportsOwnerParams && nextOwnerSpecialParams !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.specialParams, nextOwnerSpecialParams, OWNER_SPECIAL_PARAM_FIELDS))
-      || (supportsOwnerParams && nextOwnerScalar !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.scalar, nextOwnerScalar, OWNER_SCALAR_FIELDS))
+      || (supportsOwnerParams && nextOwnerScalar !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.scalar, nextOwnerScalar, OWNER_SCALAR_FIELDS, OWNER_SCALAR_DEFAULTS))
       || (supportsOwnerElementRate && nextOwnerElementRate !== null && !areFloatArraysEqual(normalizeOwnerElementRates(sourceItem.ownerParams?.elementRate, systemData), nextOwnerElementRate))
       || (!supportsOwnerElementRate && sourceItem.ownerParams != null && Object.prototype.hasOwnProperty.call(sourceItem.ownerParams, 'elementRate'))
       || (supportsOwnerParams && sourceItem.ownerParams == null)
@@ -2418,7 +2430,7 @@ export function PropertyPanel() {
         {renderOwnerParamCard('基础属性倍率追加', 'paramRate', OWNER_PARAM_RATE_FIELDS, '这里维护基础参数倍率的追加值；写 0.2 表示最终倍率额外 +20%，写 -0.2 表示额外 -20%。')}
         {renderOwnerParamCard('额外奖励', 'extraParams', OWNER_EXTRA_PARAM_FIELDS, ownerIntro)}
         {renderOwnerParamCard('特殊奖励', 'specialParams', OWNER_SPECIAL_PARAM_FIELDS, '这些字段会直接作用到仇恨、防御效率、恢复效果、药效、物理伤害和 HP 再生率。')}
-        {renderOwnerParamCard('标量奖励', 'scalar', OWNER_SCALAR_FIELDS, '当前只保留经验获取率这类全局标量字段。')}
+        {renderOwnerParamCard('标量奖励', 'scalar', OWNER_SCALAR_FIELDS, '团队经验加成和团队掉落加成只做加法累加：0 表示无加成，0.1 表示 +10%，战斗结算按 1 + 各来源加成计算。')}
         {supportsOwnerElementRate ? renderOwnerElementRateCard(ownerElementIntro) : null}
       </>
     );
@@ -2504,7 +2516,7 @@ export function PropertyPanel() {
         className="mb-4"
       >
         <div className="text-xs text-gray-500 mb-4">
-          这里只维护 `enemy.bookChallenge` 的挑战入口和星级属性。掉落倍率、金币/经验倍率和额外奖励请在掉落模式统一维护。
+          这里只维护 `enemy.bookChallenge` 的挑战入口和星级属性。掉率、金币、经验加成和额外奖励请在掉落模式统一维护。
           运行时只有已击败的 Boss 才能在图鉴里发起挑战，Boss 只要配置了挑战敌群和星级，就会自动开放挑战。
         </div>
         {!watchedEnemyIsBoss ? (

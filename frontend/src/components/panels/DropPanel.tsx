@@ -58,9 +58,9 @@ const toDropChance = (value: unknown) => {
   return Math.min(100, Math.max(0, numeric));
 };
 
-const toChallengeMultiplier = (value: unknown) => {
+const toChallengeBonus = (value: unknown) => {
   const numeric = typeof value === 'number' ? value : Number(value);
-  if (!Number.isFinite(numeric) || numeric <= 0) return 1;
+  if (!Number.isFinite(numeric) || numeric < 0) return 0;
   return numeric;
 };
 
@@ -391,15 +391,15 @@ export function DropPanel() {
   const updateChallengeStarDrop = useCallback((starIndex: number, updates: Partial<EnemyBookChallengeStar>) => {
     updateChallengeStarAt(starIndex, (star) => ({
       ...star,
-      dropRateMultiplier: updates.dropRateMultiplier !== undefined
-        ? toChallengeMultiplier(updates.dropRateMultiplier)
-        : star.dropRateMultiplier,
-      goldMultiplier: updates.goldMultiplier !== undefined
-        ? toChallengeMultiplier(updates.goldMultiplier)
-        : star.goldMultiplier,
-      expMultiplier: updates.expMultiplier !== undefined
-        ? toChallengeMultiplier(updates.expMultiplier)
-        : star.expMultiplier,
+      dropRateBonus: updates.dropRateBonus !== undefined
+        ? toChallengeBonus(updates.dropRateBonus)
+        : star.dropRateBonus,
+      goldBonus: updates.goldBonus !== undefined
+        ? toChallengeBonus(updates.goldBonus)
+        : star.goldBonus,
+      expBonus: updates.expBonus !== undefined
+        ? toChallengeBonus(updates.expBonus)
+        : star.expBonus,
     }));
   }, [updateChallengeStarAt]);
 
@@ -579,7 +579,7 @@ export function DropPanel() {
 
       <Card title="图鉴挑战掉落" className="mt-4">
         <div className="text-xs text-gray-500 mb-4">
-          这里维护 `enemy.bookChallenge.stars[]` 中的掉落倍率、金币/经验倍率和额外奖励。挑战敌群、星级、挑战消耗和被动状态仍在属性模式维护。
+          这里维护 `enemy.bookChallenge.stars[]` 中的掉率、金币、经验加成和额外奖励。0 表示无加成，0.1 表示 +10%，最终按 1 + 各来源加成累加。挑战敌群、星级、挑战消耗和被动状态仍在属性模式维护。
         </div>
         {challengeStars.length === 0 ? (
           <div className="py-10 text-center text-gray-500">
@@ -596,35 +596,35 @@ export function DropPanel() {
               >
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end mb-4">
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">掉率倍率</label>
+                    <label className="block text-xs text-gray-400 mb-1">掉率加成</label>
                     <InputNumber
-                      value={star.dropRateMultiplier}
+                      value={star.dropRateBonus}
                       min={0}
                       step={0.1}
                       className="w-full"
-                      onChange={(value) => updateChallengeStarDrop(starIndex, { dropRateMultiplier: value ?? 1 })}
+                      onChange={(value) => updateChallengeStarDrop(starIndex, { dropRateBonus: value ?? 0 })}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">金币倍率</label>
+                    <label className="block text-xs text-gray-400 mb-1">金币加成</label>
                     <InputNumber
-                      value={star.goldMultiplier}
+                      value={star.goldBonus}
                       min={0}
                       step={0.1}
                       className="w-full"
-                      onChange={(value) => updateChallengeStarDrop(starIndex, { goldMultiplier: value ?? 1 })}
+                      onChange={(value) => updateChallengeStarDrop(starIndex, { goldBonus: value ?? 0 })}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">经验倍率</label>
+                    <label className="block text-xs text-gray-400 mb-1">经验加成</label>
                     <InputNumber
-                      value={star.expMultiplier}
+                      value={star.expBonus}
                       min={0}
                       step={0.1}
                       className="w-full"
-                      onChange={(value) => updateChallengeStarDrop(starIndex, { expMultiplier: value ?? 1 })}
+                      onChange={(value) => updateChallengeStarDrop(starIndex, { expBonus: value ?? 0 })}
                     />
                   </div>
                 </div>

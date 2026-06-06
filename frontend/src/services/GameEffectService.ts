@@ -64,7 +64,7 @@ const EXTRA_PARAM_KEYS = ['hitRate', 'critRate', 'critDamage', 'evadeRate', 'int
 const OWNER_VEHICLE_PARAM_KEYS = ['loadValue', 'carryValue'] as const;
 const PAIR_CUNIT_EQUIP_VEHICLE_PARAM_KEYS = ['actionRepeat'] as const;
 const ACTION_REPEAT_KEYS = ['actionRepeat'] as const;
-const SCALAR_KEYS = ['expRate'] as const;
+const SCALAR_KEYS = ['expRate', 'dropRate'] as const;
 const SPECIAL_PARAM_KEYS = ['tgr', 'grd', 'rec', 'pha', 'pdr', 'hrg'] as const;
 const OP_OPTIONS: EffectOption<GameEffectOpKind>[] = [
   { value: 'add', label: '加算' },
@@ -127,7 +127,8 @@ const VEHICLE_PARAM_LABELS: Record<string, string> = {
   carryValue: '承重量',
 };
 const SCALAR_LABELS: Record<string, string> = {
-  expRate: '经验获取率',
+  expRate: '团队经验加成',
+  dropRate: '团队掉落加成',
 };
 const SPECIAL_PARAM_LABELS: Record<string, string> = {
   tgr: '仇恨',
@@ -652,6 +653,9 @@ export const validateEffectOpRows = (
     }
     if (!isEffectOpKind(row.op)) {
       return { valid: false, message: `第 ${index + 1} 条操作的 op 无效` };
+    }
+    if (row.group === 'scalar' && row.op !== 'add') {
+      return { valid: false, message: '团队经验/掉落加成只允许加算' };
     }
     if (!isFiniteNumber(row.value)) {
       return { valid: false, message: `第 ${index + 1} 条操作的 value 不是合法数字` };

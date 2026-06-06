@@ -6,7 +6,7 @@ const createDefaultOwnerParams = (elementCount = 2) => ({
   paramRate: [0, 0, 0, 0, 0, 0, 0, 0],
   extraParams: [0, 0, 0, 0, 0, 0],
   specialParams: [0, 0, 0, 0, 0, 0],
-  scalar: [0],
+  scalar: [0, 0],
   elementRate: new Array(elementCount).fill(0),
 });
 
@@ -384,7 +384,7 @@ describe('DataAuditService', () => {
       weaponImageId: 1,
       ownerParams: {
         extraParams: [0, 0, 0, 0, 0, 0],
-        scalar: [0],
+        scalar: [0, 0],
         specialParams: [0, 0, 0, 0, 0, 0],
       },
       passiveStates: [],
@@ -399,7 +399,7 @@ describe('DataAuditService', () => {
       passiveStates: [],
       upgradeCosts: [],
       ownerParams: {
-        scalar: [0.1],
+        scalar: [0.1, 0],
       },
     });
     expect(armorPayload[2]).toMatchObject({
@@ -407,7 +407,7 @@ describe('DataAuditService', () => {
       hiddenAttackSkillId: 23,
       ownerParams: {
         extraParams: [0, 0, 0, 0, 0, 0],
-        scalar: [0],
+        scalar: [0, 0],
         specialParams: [0, 0, 0, 0, 0, 0],
       },
       passiveStates: [],
@@ -810,7 +810,7 @@ describe('DataAuditService', () => {
             ownerParams: {
               extraParams: [150, -5, 0.9, 0.5, 120, 2],
               specialParams: [0, 0, 0, 0, 0, 0],
-              scalar: [0],
+              scalar: [0, 0],
               elementRate: [0, 0, 0],
             },
             passiveStates: [],
