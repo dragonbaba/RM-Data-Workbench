@@ -7,6 +7,7 @@ import type {
   RPGItem,
 } from '../types';
 import { extractSystemRecord } from './DataFileFormatService';
+import { normalizeEquipmentQualityFields } from './EquipmentQualityProtocolService';
 import { normalizeWeaponRangeValues } from './RangePropertyService';
 import {
   EQUIP_EXTRA_PARAM_KEYS,
@@ -274,7 +275,7 @@ export function normalizeEquipmentDataEntry(
     }
     normalized.upgradeParams = normalizeParamGroup<EquipUpgradeParamMap>(item.upgradeParams, UPGRADE_PARAM_FIELDS);
     normalized.upgradeCosts = normalizeEquipUpgradeCosts(item.upgradeCosts);
-    normalized.qualityLock = item.qualityLock === true;
+    Object.assign(normalized, normalizeEquipmentQualityFields(item));
   }
 
   if (options.isArmor) {

@@ -36,6 +36,7 @@ describe('EquipmentPropertyService', () => {
       repeatTime: 1,
       repeatTimeFloat: 0,
       qualityLock: false,
+      qualityLevel: 0,
       upgradeCosts: [],
       vehicleParams: [
         { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
@@ -100,6 +101,31 @@ describe('EquipmentPropertyService', () => {
     expect(normalized?.vehicleParams?.[4]?.value).toBe(-1);
   });
 
+  it('会规范装备锁定品质等级到 0-6', () => {
+    expect(normalizeEquipmentDataEntry(
+      { id: 13, name: '负品质炮', qualityLock: true, qualityLevel: -3 },
+      { isWeapon: true },
+    )).toMatchObject({
+      qualityLock: true,
+      qualityLevel: 0,
+    });
+
+    expect(normalizeEquipmentDataEntry(
+      { id: 14, name: '高品质炮', qualityLevel: 99 },
+      { isWeapon: true },
+    )).toMatchObject({
+      qualityLock: false,
+      qualityLevel: 6,
+    });
+
+    expect(normalizeEquipmentDataEntry(
+      { id: 15, name: '字符串品质甲', qualityLevel: '4.8' },
+      { isArmor: true, systemData: { elements: ['', '通常'] } },
+    )).toMatchObject({
+      qualityLevel: 4,
+    });
+  });
+
   it('会按系统元素数量补齐防具元素字段', () => {
     const systemData = {
       elements: ['', '通常', '火炎', '冷气'],
@@ -140,6 +166,7 @@ describe('EquipmentPropertyService', () => {
       etypeId: 8,
       hiddenAttackSkillId: 0,
       qualityLock: true,
+      qualityLevel: 0,
       floatParams: [0, 0, 0, 0, 0, 0, 0, 0],
       elementRates: [0, 0, 0],
       elementRateFloats: [0, 0, 0],

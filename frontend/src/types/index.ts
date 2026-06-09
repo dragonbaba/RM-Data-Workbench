@@ -293,6 +293,7 @@ export interface RPGItem {
   elementRates?: number[];
   elementRateFloats?: number[];
   qualityLock?: boolean;
+  qualityLevel?: number;
   wtypeId?: number;
   atypeId?: number;
   etypeId?: number;

@@ -45,6 +45,12 @@
     - `successRate` 是该目标强化等级的基础成功率百分比，范围 `0-100`，缺失时按旧公式 `100 / 目标强化等级` 补齐；
     - 金币和必需物品属于普通强化消耗，失败也消耗；保底物品仅在玩家选择保底强化时消耗，并使本次成功率视为 100%；
     - 缺失 `upgradeCosts` 时，标准化链和修复模式统一补为空数组。
+  - `PropertyPanel` 会在武器、防具属性模式下维护顶级 `qualityLock + qualityLevel`：
+    - `qualityLock` 为布尔值，表示游戏内新生成独立装备实例是否锁定品质。
+    - `qualityLevel` 是整数等级，固定 clamp 到 `0-6`，缺失或非法值归一为 `0`。
+    - 属性面板初始化、变更判断和保存写回统一调用 `EquipmentQualityProtocolService` 的归一化规则。
+    - `EquipmentPropertyService.normalizeEquipmentDataEntry()` 与 `DataAuditService` 修复模式会为 `Weapons.json`、`Armors.json` 补齐并收敛这两个字段。
+    - 游戏运行时规则为：显式实例品质优先；未显式传入时，锁定品质读取基础装备 `qualityLevel`，未锁定品质一律随机。`0` 是合法品质等级，不是无品质兜底。
   - 下拉选项来源于 `System.json.equipTypes`。
   - 武器装备类型不再写回 RPG Maker 原生 `etypeId`，统一写入 `EquipExtensions.json.weaponEquipTypes[weaponIndex]`。
   - 这样可以避免 RPG Maker 编辑器重写原生 `etypeId` 时污染扩展装备逻辑。

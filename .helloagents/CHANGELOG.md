@@ -5,6 +5,10 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **[装备品质等级锁定协议]**: 武器、防具属性模式新增顶级 `qualityLevel`，与既有 `qualityLock` 组成固定品质协议；`EquipmentQualityProtocolService` 集中执行 `0-6` clamp，属性面板保存链、`EquipmentPropertyService` 标准化和 `DataAuditService` 修复模式统一补齐并收敛该字段。 — by Zaun
+  - 方案: [202606092124_equipment-quality-level-contract](D:/RMProjects/MyGame/.helloagents/archive/2026-06/202606092124_equipment-quality-level-contract/)
+  - 决策: equipment-quality-level-contract#D001(集中归一化服务)
+  - 文件: `frontend/src/services/EquipmentQualityProtocolService.ts`, `frontend/src/services/EquipmentPropertyService.ts`, `frontend/src/components/panels/PropertyPanel.tsx`, `frontend/src/types/index.ts`
 - **[Owner Params 基础属性恢复]**: 属性面板新增 `ownerParams.baseParams / paramRate` 两组编辑入口，角色/职业/敌人/状态/武器/防具均可维护 owner 基础属性加值与倍率追加；`OwnerParamsPropertyService` 与 `DataAuditService` 修复模式同步补齐默认数组并保留 legacy `paramRate` 迁移。 — by Zaun
   - 类型: 回退性修复（无方案包）
   - 文件: `frontend/src/types/index.ts`, `frontend/src/components/panels/PropertyPanel.tsx`, `frontend/src/services/OwnerParamsPropertyService.ts`, `frontend/src/services/DataAuditService.ts`

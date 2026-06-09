@@ -28,6 +28,7 @@ const createWeapon = (overrides: Record<string, unknown> = {}) => ({
   passiveStates: [],
   effects: [],
   qualityLock: false,
+  qualityLevel: 0,
   price: 0,
   areaOverride: 1,
   areaMode: 2,
@@ -154,6 +155,26 @@ describe('PropertyPanel range initialization', () => {
         weaponImageId?: number;
       };
       expect(currentWeapon.weaponImageId).toBe(5);
+    });
+  });
+
+  it('武器基础属性会显示并保存锁定品质等级', async () => {
+    useEditorStore.getState().loadData([null, createWeapon({ qualityLock: true, qualityLevel: 2 })], WEAPONS_FILE_PATH, 'data');
+
+    render(<PropertyPanel />);
+
+    await screen.findByText('锁定品质等级');
+    const qualityInput = document.querySelector('#qualityLevel') as HTMLInputElement | null;
+    if (qualityInput === null) throw new Error('qualityLevel input not found');
+    fireEvent.change(qualityInput, { target: { value: '5' } });
+
+    await waitFor(() => {
+      const currentWeapon = useEditorStore.getState().currentData?.[1] as {
+        qualityLock?: boolean;
+        qualityLevel?: number;
+      };
+      expect(currentWeapon.qualityLock).toBe(true);
+      expect(currentWeapon.qualityLevel).toBe(5);
     });
   });
 

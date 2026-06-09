@@ -67,6 +67,7 @@ import {
   UPGRADE_PARAM_FIELDS,
   VEHICLE_PARAM_FIELDS,
 } from '../../services/EquipmentPropertyService';
+import { normalizeEquipmentQualityLevel } from '../../services/EquipmentQualityProtocolService';
 import {
   BASE_PARAM_KEYS,
   OWNER_EXTRA_PARAM_KEYS,
@@ -428,6 +429,7 @@ const TARGET_LIFE_STATE_FIELD_KEY = 'targetLifeState';
 const TARGET_TYPE_FIELD_KEY = 'targetType';
 const SELECT_MODE_FIELD_KEY = 'selectMode';
 const AREA_MODE_FIELD_KEY = 'areaMode';
+const QUALITY_LEVEL_FIELD_KEY = 'qualityLevel';
 const SHAPE_TYPE_FIELD_KEY = 'shapeType';
 const AREA_TARGET_COUNT_FIELD_KEY = 'areaTargetCount';
 const SHAPE_PARAMS_FIELD_KEY = 'shapeParams';
@@ -1351,6 +1353,7 @@ export function PropertyPanel() {
         baseFormValues[ACTOR_IS_STATIC_IMAGE_FIELD_KEY] = actorValues.isStaticImage;
         baseFormValues[ACTOR_IS_TANK_FIELD_KEY] = actorValues.isTank;
       }
+        baseFormValues[QUALITY_LEVEL_FIELD_KEY] = normalizeEquipmentQualityLevel(item.qualityLevel);
       if (supportsCommonRange) {
         Object.assign(baseFormValues, getCommonRangeValues(item));
         baseFormValues[ORDER_EFFECTS_FIELD_KEY] = normalizeBattleOrderEffects(item.orderEffects);
@@ -1701,6 +1704,9 @@ export function PropertyPanel() {
           skillProjectileTag: values[SKILL_PROJECTILE_TAG_FIELD_KEY],
           reactionSuccessRate: values[SKILL_REACTION_SUCCESS_RATE_FIELD_KEY],
           reactionPriority: values[SKILL_REACTION_PRIORITY_FIELD_KEY],
+    const nextQualityLevel = (isWeaponItem || isArmorItem)
+      ? normalizeEquipmentQualityLevel(values[QUALITY_LEVEL_FIELD_KEY])
+      : 0;
           actionSequenceType: values[ACTION_SEQUENCE_TYPE_FIELD_KEY],
           actionSequenceScriptKey: values[ACTION_SEQUENCE_SCRIPT_KEY_FIELD_KEY],
           targetType: values[TARGET_TYPE_FIELD_KEY],
@@ -1860,6 +1866,7 @@ export function PropertyPanel() {
     if (shouldUpdateItem) {
       pendingDraftRef.current = hasCustomChanges
         ? {
+      || ((isWeaponItem || isArmorItem) && normalizeEquipmentQualityLevel(sourceItem.qualityLevel) !== nextQualityLevel)
             customFields: customFields.map((field) => ({ ...field })),
             effectIds: effectIds.slice(),
             hasBaseChanges: false,
@@ -1893,7 +1900,7 @@ export function PropertyPanel() {
           baseWeaknessGroup: nextEnemyBaseWeaknessGroup,
           dynamicWeaknessGroups: nextEnemyDynamicWeaknessGroups ?? [],
         } : {}),
-        ...((isWeaponItem || isArmorItem) ? { qualityLock: nextQualityLock } : {}),
+        ...((isWeaponItem || isArmorItem) ? { qualityLock: nextQualityLock, qualityLevel: nextQualityLevel } : {}),
         ...(supportsCommonRange && nextCommonRangeValues ? nextCommonRangeValues : {}),
         ...(supportsCommonRange && nextOrderEffects ? { orderEffects: nextOrderEffects as BattleOrderEffects } : {}),
         ...(isWeaponItem && nextWeaponRangeValues ? nextWeaponRangeValues : {}),
@@ -3132,15 +3139,32 @@ export function PropertyPanel() {
               </Form.Item>
             ) : null}
             {(isWeaponItem || isArmorItem) ? (
-              <Form.Item
-                key={QUALITY_LOCK_FIELD_KEY}
-                name={QUALITY_LOCK_FIELD_KEY}
-                label={<span className="text-xs text-gray-400">品质锁定</span>}
-                className="mb-0"
-                valuePropName="checked"
-              >
-                <Switch checkedChildren="锁定" unCheckedChildren="随机" />
-              </Form.Item>
+              <>
+                <Form.Item
+                  key={QUALITY_LOCK_FIELD_KEY}
+                  name={QUALITY_LOCK_FIELD_KEY}
+                  label={<span className="text-xs text-gray-400">品质锁定</span>}
+                  className="mb-0"
+                  valuePropName="checked"
+                >
+                  <Switch checkedChildren="锁定" unCheckedChildren="随机" />
+                </Form.Item>
+                <Form.Item
+                  key={QUALITY_LEVEL_FIELD_KEY}
+                  name={QUALITY_LEVEL_FIELD_KEY}
+                  label={<span className="text-xs text-gray-400">锁定品质等级</span>}
+                  className="mb-0"
+                >
+                  <InputNumber
+                    min={0}
+                    max={6}
+                    precision={0}
+                    step={1}
+                    className="w-full"
+                    placeholder="0-6"
+                  />
+                </Form.Item>
+              </>
             ) : null}
             </div>
           ) : (

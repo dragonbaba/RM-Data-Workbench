@@ -120,7 +120,7 @@ describe('DataAuditService', () => {
       ]],
       ['D:/Project/data/Weapons.json', [
         null,
-        { id: 1, name: '主炮' },
+        { id: 1, name: '主炮', qualityLevel: 99 },
       ]],
       ['D:/Project/data/EquipExtensions.json', {
         weaponEquipTypes: [null, 'bad'],
@@ -142,7 +142,7 @@ describe('DataAuditService', () => {
       }],
       ['D:/Project/data/Armors.json', [
         null,
-        { id: 1, name: '测试C装', etypeId: 8, hiddenAttackSkillId: 17, effects: [1] },
+        { id: 1, name: '测试C装', etypeId: 8, hiddenAttackSkillId: 17, effects: [1], qualityLevel: -2 },
         { id: 2, name: '测试底盘', etypeId: 9, hiddenAttackSkillId: 23 },
       ]],
       ['D:/Project/data/Projectiles.json', [
@@ -382,6 +382,8 @@ describe('DataAuditService', () => {
     expect(weaponPayload[1]).toMatchObject({
       id: 1,
       weaponImageId: 1,
+      qualityLock: false,
+      qualityLevel: 6,
       ownerParams: {
         extraParams: [0, 0, 0, 0, 0, 0],
         scalar: [0, 0],
@@ -395,6 +397,8 @@ describe('DataAuditService', () => {
     expect(armorPayload[1]).toMatchObject({
       etypeId: 8,
       hiddenAttackSkillId: 17,
+      qualityLock: false,
+      qualityLevel: 0,
       effects: [],
       passiveStates: [],
       upgradeCosts: [],
@@ -405,6 +409,8 @@ describe('DataAuditService', () => {
     expect(armorPayload[2]).toMatchObject({
       etypeId: 9,
       hiddenAttackSkillId: 23,
+      qualityLock: false,
+      qualityLevel: 0,
       ownerParams: {
         extraParams: [0, 0, 0, 0, 0, 0],
         scalar: [0, 0],
