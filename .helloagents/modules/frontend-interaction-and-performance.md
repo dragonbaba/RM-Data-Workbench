@@ -188,6 +188,13 @@
   - `Actors / Enemies / Weapons / Armors` → `params`
   - `Weapons / Armors` → `floatParams`
 - `Classes` 不再经过平面基础属性保存链；职业基础属性必须保持 `params[8][100]` 的等级矩阵协议。
+- `Classes.json` 属性模式会在基础属性卡片后显示“拓展等级”面板：
+  - 数据来源固定为 `ClassLevelExtensions.json`；
+  - 顶部只读显示当前职业 `Classes.json.params[paramId][99]` 的 99 级基准；
+  - 面板维护最大等级、经验四参数（基础值、补正值、增加度1、增加度2）以及每项基础属性的最大等级目标值；
+  - 8 项基础属性可分别选择成长模式：标准、早熟、晚熟、线性；
+  - 100 级到最大等级的经验和属性由 `ClassLevelExtensionsService.buildClassLevelPreview()` 自动派生，面板只读预览，不再逐级手动新增；
+  - 编辑曲线配置只更新 `ClassLevelExtensions.json` 缓存，并只标脏该扩展文件，不改写 `Classes.json.params`。
 - `Skills / Items / States` 当前不允许再挂顶层 `params / floatParams`。
 - 内部字段键未改，显示名称只是从系统词条动态派生。
 - 只有 `Weapons / Armors` 会显示“{属性名}波动”字段；角色/敌人不再写 `floatParams`。
@@ -249,6 +256,7 @@
 - `frontend/src/components/panels/EffectPanel.tsx`
 - `frontend/src/components/panels/DropPanel.tsx`
 - `frontend/src/components/panels/PropertyPanel.tsx`
+- `frontend/src/components/panels/ClassLevelExtensionsPanel.tsx`
 - `frontend/src/components/layout/MainContent.tsx`
 - `frontend/src/components/layout/LeftPanel.tsx`
 - `frontend/src/components/common/ProjectileCanvas.tsx`
@@ -267,6 +275,8 @@
 - `bunx tsc --noEmit` ✅（2026-05-02）
 - `bun run build` ✅（2026-05-02，保留既有 Vite 大 chunk 警告）
 - `bunx vitest run src/services/BaseDataReloadService.test.ts src/services/NoteMetadataService.test.ts src/components/panels/PropertyPanel.test.tsx` ✅（2026-05-02，保留既有 Ant Design `headStyle/bodyStyle` 废弃警告）
+- `bun run test --run src/services/ClassLevelExtensionsService.test.ts src/services/DataLoaderService.test.ts src/services/BaseDataReloadService.test.ts src/components/panels/ClassLevelExtensionsPanel.test.tsx src/components/panels/PropertyPanel.test.tsx` ✅（2026-06-12，职业曲线拓展等级面板）
+- `bunx tsc --noEmit` ✅（2026-06-12，职业曲线拓展等级面板）
 - `go test ./...` ✅（2026-05-02）
 - `bunx tsc --noEmit` ✅
 - `bunx vitest run src/services/EquipmentPropertyService.test.ts src/components/panels/PropertyPanel.test.tsx src/services/DataAuditService.test.ts` ✅

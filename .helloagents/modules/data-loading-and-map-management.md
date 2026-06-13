@@ -16,6 +16,13 @@
   - 运行时由 MyGame 的 `Zaun_TimeSystem` 消费该字段，编辑器只负责字段编辑和保存。
 - `System.json` 仍以编辑器内部兼容包装参与普通编辑链路，但保存前必须解包回真实对象。
 - `EquipExtensions.json` 会被确保存在，并进入缓存与保存链路。
+- `ClassLevelExtensions.json` 是职业 99+ 拓展等级的独立 object JSON：
+  - 启动预载在普通数据库 manifest 和 `EquipExtensions.json` 之后执行 `ensureClassLevelExtensionsLoaded()`；
+  - 当前协议版本为 `schemaVersion: 2`，每个职业维护 `maxLevel`、`expParams[4]` 和 8 项 `paramCurves[]`；
+  - 缺失文件会按当前 `Classes.json` 职业数量创建规范结构并缓存，默认经验四参数来自职业 `expParams`，默认属性目标来自职业 99 级矩阵值；
+  - 已存在但不规范的文件只在内存中规范化缓存，不会在加载阶段静默写回磁盘；
+  - 旧版 `schemaVersion: 1` 的 `levels[]` 会在读取时迁移为曲线配置：最高拓展等级作为 `maxLevel`，最高等级的 8 项属性作为目标值；
+  - 保存由 `dirtyFiles` 驱动，当前 `Classes.json` 保存时会附带已脏的 `ClassLevelExtensions.json`。
 - `editorStore` 维护普通数据态与地图态：
   - 普通数据使用 `currentData/currentItem/currentItemIndex`
   - 地图使用 `currentMapInfos/currentMapData/currentMapId`
@@ -47,6 +54,8 @@
   - `System.json`
   - `Skills.json`
   - `EquipExtensions.json`
+- 职业属性/备注模式当前依赖白名单必须包含：
+  - `ClassLevelExtensions.json`
 - 掉落模式当前依赖白名单必须包含：
   - `Enemies.json`
   - `Items.json`
@@ -126,6 +135,7 @@
 - 前端：
 - `frontend/src/services/DataLoaderService.ts`
 - `frontend/src/services/BaseDataReloadService.ts`
+- `frontend/src/services/ClassLevelExtensionsService.ts`
 - `frontend/src/services/ExternalDataChangeQueue.ts`
 - `frontend/src/services/GameEffectService.ts`
 - `frontend/src/hooks/useFileOperations.ts`
@@ -143,6 +153,8 @@
 - 掉落模式的引用候选仍完全依赖缓存数据，不会额外发明独立掉落索引层。
 - 效果协议当前按严格模板执行，不保留旧字段兼容层。
 - 非法效果项会在归一化时被清理，因此知识库与数据规范应始终以当前模板协议为准。
+- `ClassLevelExtensions.json` 不属于普通数组数据链，不能交给 `normalizeStandardDataForEditor()`；新增加载、reload、watch 或保存逻辑时必须走专用 object JSON 分支。
+- `Classes.json.params` 仍保持 RPG Maker 原始 8×100 等级矩阵，99 级以后成长只在 `ClassLevelExtensions.json` 中保存曲线配置；具体等级经验和属性是编辑器/运行时按曲线派生的预览值，不写回 `Classes.json.params`。
 
 ## 近期验证
 - `bunx tsc --noEmit` ✅
@@ -152,6 +164,9 @@
 - `bunx vitest run src/services/ExternalDataChangeQueue.test.ts src/services/BaseDataReloadService.test.ts` ✅
 - `bun run test --run src/services/BaseDataReloadService.test.ts` ✅
 - `bun run test --run src/services/GameEffectService.test.ts` ✅
+- `bun run test --run src/services/ClassLevelExtensionsService.test.ts src/services/DataLoaderService.test.ts src/services/BaseDataReloadService.test.ts src/components/panels/ClassLevelExtensionsPanel.test.tsx src/components/panels/PropertyPanel.test.tsx` ✅（2026-06-12，职业 99+ 曲线拓展等级）
+- `bunx tsc --noEmit` ✅（2026-06-12，职业 99+ 曲线拓展等级）
+- `go test ./backend/services` ✅（2026-06-12，职业 99+ 拓展等级 watcher）
 - `bun run build` ✅
 - `go test ./...` ✅
 - `go build ./...` ✅

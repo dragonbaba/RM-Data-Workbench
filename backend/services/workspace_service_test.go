@@ -13,6 +13,7 @@ func TestIsBaseWatchedDataFile(t *testing.T) {
 		expected bool
 	}{
 		{name: "Actors.json", expected: true},
+		{name: "ClassLevelExtensions.json", expected: true},
 		{name: "EquipExtensions.json", expected: true},
 		{name: "MapInfos.json", expected: true},
 		{name: "Map001.json", expected: false},
@@ -139,4 +140,14 @@ func TestOptionalDataFilesIncludeEquipExtensions(t *testing.T) {
 	}
 
 	t.Fatalf("expected EquipExtensions.json to be listed in OptionalDataFiles")
+}
+
+func TestOptionalDataFilesIncludeClassLevelExtensions(t *testing.T) {
+	for _, fileName := range OptionalDataFiles {
+		if fileName == "ClassLevelExtensions.json" {
+			return
+		}
+	}
+
+	t.Fatalf("expected ClassLevelExtensions.json to be listed in OptionalDataFiles")
 }

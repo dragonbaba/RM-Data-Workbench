@@ -85,6 +85,7 @@ const OWNER_PROBABILITY_EXTRA_PARAM_KEYS = new Set([
   'critRate',
   'interceptRate',
 ]);
+const OWNER_ELEMENT_RATE_MIN = -0.7;
 
 const CLASS_PARAM_COUNT = 8;
 const CLASS_PARAM_LEVEL_COUNT = 100;
@@ -288,6 +289,10 @@ const toFiniteNumber = (value: unknown): number | null => {
   return Number.isFinite(nextValue) ? nextValue : null;
 };
 
+const normalizeOwnerElementRateValue = (value: unknown): number => {
+  return Math.max(OWNER_ELEMENT_RATE_MIN, toFiniteNumber(value) ?? 0);
+};
+
 const toFiniteInteger = (value: unknown): number | null => {
   const numeric = toFiniteNumber(value);
   return numeric == null ? null : Math.trunc(numeric);
@@ -479,7 +484,7 @@ const buildOwnerElementRateArray = (
   const length = Math.max(1, elementCount, source.length);
   const nextValues = new Array(length).fill(0);
   for (let index = 0; index < length; index++) {
-    nextValues[index] = toFiniteNumber(source[index]) ?? 0;
+    nextValues[index] = normalizeOwnerElementRateValue(source[index]);
   }
   return nextValues;
 };
@@ -528,7 +533,7 @@ const ensureOwnerElementRateGroup = (
     if (group.length < elementCount) {
       group.length = elementCount;
       for (let index = 0; index < group.length; index++) {
-        group[index] = toFiniteNumber(group[index]) ?? 0;
+        group[index] = normalizeOwnerElementRateValue(group[index]);
       }
     }
     return group;
@@ -549,7 +554,7 @@ const applyLegacyOwnerOp = (
       return;
     }
     const currentArray = ensureOwnerElementRateGroup(ownerParams, Math.max(elementCount, elementId + 1));
-    currentArray[elementId] = (toFiniteNumber(currentArray[elementId]) ?? 0) + op.value;
+    currentArray[elementId] = normalizeOwnerElementRateValue((toFiniteNumber(currentArray[elementId]) ?? 0) + op.value);
     return;
   }
   const groupKey = op.group as FixedOwnerGroupKey;
@@ -585,7 +590,7 @@ const normalizeOwnerParams = (
     const elementRateLength = Math.max(1, elementCount, rawElementRate?.length ?? 0);
     const nextElementRate = new Array(elementRateLength).fill(0);
     for (let index = 0; index < nextElementRate.length; index++) {
-      nextElementRate[index] = toFiniteNumber(rawElementRate?.[index]) ?? 0;
+      nextElementRate[index] = normalizeOwnerElementRateValue(rawElementRate?.[index]);
     }
     result.elementRate = nextElementRate;
   }

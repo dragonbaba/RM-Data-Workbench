@@ -164,6 +164,7 @@ func isBaseWatchedDataFile(fileName string) bool {
 		"animations.json",
 		"armors.json",
 		"classes.json",
+		"classlevelextensions.json",
 		"commonevents.json",
 		"effects.json",
 		"equipextensions.json",
@@ -637,4 +638,5 @@ var OptionalDataFiles = []string{
 	"Projectiles.json",
 	"MapInfos.json",
 	"EquipExtensions.json",
+	"ClassLevelExtensions.json",
 }

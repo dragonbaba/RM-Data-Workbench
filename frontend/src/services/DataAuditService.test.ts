@@ -846,4 +846,58 @@ describe('DataAuditService', () => {
       },
     });
   });
+
+  it('会把 ownerParams 元素抗性下限修复到 -0.7', async () => {
+    const writes: Array<{ filePath: string; data: unknown }> = [];
+    await auditAndRepairDataFiles('D:/Project/data', {
+      readJson: vi.fn(async (filePath: string) => {
+        if (filePath.endsWith('System.json')) {
+          return {
+            elements: ['', '通常', '火炎', '冷气'],
+            weaponTypes: ['', '主炮', '副炮', 'SE', '人类通用武器', '猎人武器', '机械师武器', '战士武器', '摔跤手武器', '护士武器', '实验体改造人武器', '艺术家武器', '波奇武器'],
+          };
+        }
+        if (filePath.endsWith('Enemies.json')) {
+          return [null, {
+            id: 1,
+            name: '异常抗性敌人',
+            ownerParams: {
+              ...createDefaultOwnerParams(4),
+              elementRate: [0, -1, -5, -0.4],
+            },
+            effects: [1],
+            passiveStates: [],
+          }];
+        }
+        if (filePath.endsWith('Effects.json')) {
+          return [null, {
+            effectType: 'owner_element_rate_bonus',
+            config: {
+              args: {
+                ops: [{ group: 'elementRate', key: '2', op: 'add', value: -5 }],
+              },
+            },
+          }];
+        }
+        return [null, {
+          id: 1,
+          name: '已规范',
+          ownerParams: createDefaultOwnerParams(4),
+          passiveStates: [],
+        }];
+      }),
+      writeJson: vi.fn(async (filePath: string, data: unknown) => {
+        writes.push({ filePath, data: JSON.parse(JSON.stringify(data)) });
+        return null;
+      }),
+    });
+
+    const enemyPayload = writes.find((item) => item.filePath.endsWith('Enemies.json'))?.data as unknown[];
+    expect(enemyPayload[1]).toMatchObject({
+      ownerParams: {
+        elementRate: [0, -0.7, -0.7, -0.4],
+      },
+      effects: [],
+    });
+  });
 });

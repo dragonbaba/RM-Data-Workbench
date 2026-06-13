@@ -10,6 +10,12 @@ import {
   normalizeEquipExtensions,
   type EquipExtensionsData,
 } from './EquipExtensionsService';
+import {
+  CLASS_LEVEL_EXTENSIONS_FILE_NAME,
+  createDefaultClassLevelExtensions,
+  normalizeClassLevelExtensions,
+  type ClassLevelExtensionsData,
+} from './ClassLevelExtensionsService';
 
 const DATA_FILE_MANIFEST = [
   'Actors.json',
@@ -230,6 +236,37 @@ class DataLoaderServiceClass {
     return normalized.data;
   }
 
+  async ensureClassLevelExtensionsLoaded(
+    dataPath?: string,
+    options: { force?: boolean } = {},
+  ): Promise<ClassLevelExtensionsData | null> {
+    const resolvedDataPath = dataPath || this.dataPath;
+    if (!resolvedDataPath) return null;
+
+    this.setDataPath(resolvedDataPath);
+
+    const filePath = joinPath(resolvedDataPath, CLASS_LEVEL_EXTENSIONS_FILE_NAME);
+    if (!options.force && this.isCachedAtPath(filePath, CLASS_LEVEL_EXTENSIONS_FILE_NAME)) {
+      return this.getCachedData<ClassLevelExtensionsData>(filePath);
+    }
+
+    const classesData = await this.loadStandardFile('Classes.json', resolvedDataPath);
+    const classCount = Array.isArray(classesData) ? classesData.length : 1;
+    const exists = await FileExists(filePath);
+
+    if (!exists) {
+      const payload = createDefaultClassLevelExtensions(classCount, classesData);
+      await WriteJSON(filePath, payload);
+      this.cacheData(filePath, CLASS_LEVEL_EXTENSIONS_FILE_NAME, payload);
+      return payload;
+    }
+
+    const rawData = await ReadJSON(filePath);
+    const normalized = normalizeClassLevelExtensions(rawData, classCount, classesData);
+    this.cacheData(filePath, CLASS_LEVEL_EXTENSIONS_FILE_NAME, normalized.data);
+    return normalized.data;
+  }
+
   async reloadFile(filePath: string, options: { emitEvent?: boolean } = {}): Promise<ReloadedFileResult> {
     const normalizedPath = this.normalizePath(filePath);
     const fileName = this.getFileName(normalizedPath);
@@ -260,6 +297,20 @@ class DataLoaderServiceClass {
 
     if (fileName.toLowerCase() === EQUIP_EXTENSIONS_FILE_NAME.toLowerCase()) {
       const extensions = await this.ensureEquipExtensionsLoaded(this.getDirectoryPath(normalizedPath), { force: true });
+      if (emitEvent) {
+        EventSystem.emit('data:file-loaded', { fileName, filePath: normalizedPath, type: 'data' });
+      }
+      return {
+        filePath: normalizedPath,
+        fileName,
+        fileType: 'data',
+        kind: 'standard',
+        payload: extensions,
+      };
+    }
+
+    if (fileName.toLowerCase() === CLASS_LEVEL_EXTENSIONS_FILE_NAME.toLowerCase()) {
+      const extensions = await this.ensureClassLevelExtensionsLoaded(this.getDirectoryPath(normalizedPath), { force: true });
       if (emitEvent) {
         EventSystem.emit('data:file-loaded', { fileName, filePath: normalizedPath, type: 'data' });
       }
@@ -473,6 +524,17 @@ class DataLoaderServiceClass {
       }
     } catch {
       failed.push(EQUIP_EXTENSIONS_FILE_NAME);
+    }
+
+    try {
+      const classLevelExtensions = await this.ensureClassLevelExtensionsLoaded(resolvedDataPath, { force: shouldForce });
+      if (classLevelExtensions) {
+        loaded.push(CLASS_LEVEL_EXTENSIONS_FILE_NAME);
+      } else {
+        failed.push(CLASS_LEVEL_EXTENSIONS_FILE_NAME);
+      }
+    } catch {
+      failed.push(CLASS_LEVEL_EXTENSIONS_FILE_NAME);
     }
 
     EventSystem.emit('data:manifest-loaded', { loaded, missing, failed });

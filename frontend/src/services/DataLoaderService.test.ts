@@ -41,6 +41,168 @@ describe('DataLoaderService', () => {
       systemWeaponEquipTypes: [10, 11],
       actorEquipSlots: [null, [10]],
       actorEquips: [null, [1]],
+      actorRefitRules: [null, { slots: [] }],
+    });
+    expect(WriteJSON).not.toHaveBeenCalled();
+  });
+
+  it('缺失 ClassLevelExtensions.json 时会按当前职业数量创建空文件', async () => {
+    vi.mocked(FileExists).mockImplementation(async (filePath: string) => {
+      return filePath.endsWith('Classes.json');
+    });
+
+    vi.mocked(ReadJSON).mockImplementation(async (filePath: string) => {
+      if (filePath.endsWith('Classes.json')) {
+        return [
+          null,
+          {
+            id: 1,
+            name: '猎人',
+            expParams: [30, 20, 30, 30],
+            params: Array.from({ length: 8 }, (_, index) => {
+              const levels = new Array(100).fill(0);
+              levels[99] = (index + 1) * 10;
+              return levels;
+            }),
+          },
+          {
+            id: 2,
+            name: '机械师',
+            expParams: [40, 30, 40, 40],
+            params: Array.from({ length: 8 }, (_, index) => {
+              const levels = new Array(100).fill(0);
+              levels[99] = (index + 1) * 20;
+              return levels;
+            }),
+          },
+        ];
+      }
+      return null;
+    });
+
+    const extensions = await DataLoaderService.ensureClassLevelExtensionsLoaded('D:/Project/data', { force: true });
+
+    expect(extensions).toEqual({
+      schemaVersion: 2,
+      classes: [
+        null,
+        {
+          maxLevel: 100,
+          expParams: [30, 20, 30, 30],
+          paramCurves: [
+            { target: 10, mode: 'standard' },
+            { target: 20, mode: 'standard' },
+            { target: 30, mode: 'standard' },
+            { target: 40, mode: 'standard' },
+            { target: 50, mode: 'standard' },
+            { target: 60, mode: 'standard' },
+            { target: 70, mode: 'standard' },
+            { target: 80, mode: 'standard' },
+          ],
+        },
+        {
+          maxLevel: 100,
+          expParams: [40, 30, 40, 40],
+          paramCurves: [
+            { target: 20, mode: 'standard' },
+            { target: 40, mode: 'standard' },
+            { target: 60, mode: 'standard' },
+            { target: 80, mode: 'standard' },
+            { target: 100, mode: 'standard' },
+            { target: 120, mode: 'standard' },
+            { target: 140, mode: 'standard' },
+            { target: 160, mode: 'standard' },
+          ],
+        },
+      ],
+    });
+    expect(WriteJSON).toHaveBeenCalledWith('D:/Project/data/ClassLevelExtensions.json', extensions);
+  });
+
+  it('加载已有 ClassLevelExtensions.json 时不会把规范化结果静默写回磁盘', async () => {
+    vi.mocked(FileExists).mockImplementation(async (filePath: string) => {
+      return filePath.endsWith('Classes.json')
+        || filePath.endsWith('ClassLevelExtensions.json');
+    });
+
+    vi.mocked(ReadJSON).mockImplementation(async (filePath: string) => {
+      if (filePath.endsWith('Classes.json')) {
+        return [
+          null,
+          {
+            id: 1,
+            name: '猎人',
+            expParams: [30, 20, 30, 30],
+            params: Array.from({ length: 8 }, (_, index) => {
+              const levels = new Array(100).fill(0);
+              levels[99] = (index + 1) * 10;
+              return levels;
+            }),
+          },
+          {
+            id: 2,
+            name: '机械师',
+            expParams: [40, 30, 40, 40],
+            params: Array.from({ length: 8 }, (_, index) => {
+              const levels = new Array(100).fill(0);
+              levels[99] = (index + 1) * 20;
+              return levels;
+            }),
+          },
+        ];
+      }
+      if (filePath.endsWith('ClassLevelExtensions.json')) {
+        return {
+          schemaVersion: 99,
+          classes: [
+            null,
+            {
+              levels: [
+                { level: 99, exp: 10, params: [1] },
+                { level: 100, exp: 123.9, params: [1, 2] },
+              ],
+            },
+          ],
+        };
+      }
+      return null;
+    });
+
+    const extensions = await DataLoaderService.ensureClassLevelExtensionsLoaded('D:/Project/data', { force: true });
+
+    expect(extensions).toEqual({
+      schemaVersion: 2,
+      classes: [
+        null,
+        {
+          maxLevel: 100,
+          expParams: [30, 20, 30, 30],
+          paramCurves: [
+            { target: 1, mode: 'standard' },
+            { target: 2, mode: 'standard' },
+            { target: 0, mode: 'standard' },
+            { target: 0, mode: 'standard' },
+            { target: 0, mode: 'standard' },
+            { target: 0, mode: 'standard' },
+            { target: 0, mode: 'standard' },
+            { target: 0, mode: 'standard' },
+          ],
+        },
+        {
+          maxLevel: 100,
+          expParams: [40, 30, 40, 40],
+          paramCurves: [
+            { target: 20, mode: 'standard' },
+            { target: 40, mode: 'standard' },
+            { target: 60, mode: 'standard' },
+            { target: 80, mode: 'standard' },
+            { target: 100, mode: 'standard' },
+            { target: 120, mode: 'standard' },
+            { target: 140, mode: 'standard' },
+            { target: 160, mode: 'standard' },
+          ],
+        },
+      ],
     });
     expect(WriteJSON).not.toHaveBeenCalled();
   });

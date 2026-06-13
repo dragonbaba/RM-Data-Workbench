@@ -71,6 +71,7 @@ const DROP_DEPENDENCY_FILES = new Set([
 import { BACKSLASH_REGEXP, MAP_ID_REGEXP, WINDOWS_DRIVE_REGEXP } from '../constants/regexp';
 
 const PROPERTY_DEPENDENCY_FILES = new Map<string, Set<string>>([
+  ['classes.json', new Set(['classlevelextensions.json'])],
   ['weapons.json', new Set(['system.json', 'skills.json', 'equipextensions.json'])],
   ['skills.json', new Set(['projectiles.json'])],
 ]);
@@ -97,6 +98,7 @@ export const isReloadableDataFile = (fileName: string): boolean => {
     'animations.json',
     'armors.json',
     'classes.json',
+    'classlevelextensions.json',
     'commonevents.json',
     'equipextensions.json',
     'enemies.json',

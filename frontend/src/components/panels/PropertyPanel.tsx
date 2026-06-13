@@ -8,6 +8,7 @@ import { DataLoaderService } from '../../services/DataLoaderService';
 import { EventSystem } from '../../core/EventSystem';
 import { getEquipTypeOptions, getSystemRecord } from '../../services/EquipDataService';
 import { EQUIP_EXTENSIONS_FILE_NAME, getWeaponEquipTypeAtIndex, type EquipExtensionsData } from '../../services/EquipExtensionsService';
+import { CLASS_LEVEL_EXTENSIONS_FILE_NAME, type ClassLevelExtensionsData } from '../../services/ClassLevelExtensionsService';
 import {
   buildEnemySaveData,
   getEnemyReferenceValue,
@@ -58,6 +59,7 @@ import {
 import { buildRequiredOwnerParamsSaveData } from '../../services/OwnerParamsPropertyService';
 import { EnemyActionOverridesCard } from './EnemyActionOverridesCard';
 import { NotePanel } from './NotePanel';
+import { ClassLevelExtensionsPanel } from './ClassLevelExtensionsPanel';
 import {
   EXTRA_PARAM_FIELDS,
   normalizeArmorElementRateFloats,
@@ -294,8 +296,14 @@ const areOwnerNumberGroupsEqual = (
   defaults: readonly number[] = [],
 ) => arePlainDataEqual(normalizeOwnerNumberGroupValues(left, fields, defaults), right);
 
+const OWNER_ELEMENT_RATE_MIN = -0.7;
+
 const normalizeOwnerElementRates = (value: unknown, systemData: unknown): number[] => {
-  return normalizeArmorElementRates(value, systemData);
+  const rates = normalizeArmorElementRates(value, systemData);
+  for (let index = 0; index < rates.length; index++) {
+    if (rates[index] < OWNER_ELEMENT_RATE_MIN) rates[index] = OWNER_ELEMENT_RATE_MIN;
+  }
+  return rates;
 };
 
 const buildOwnerParamsFormValues = (
@@ -423,13 +431,13 @@ const WEAPON_IMAGE_ID_FIELD_KEY = 'weaponImageId';
 const ELEMENT_RATES_FIELD_KEY = 'elementRates';
 const ELEMENT_RATE_FLOATS_FIELD_KEY = 'elementRateFloats';
 const QUALITY_LOCK_FIELD_KEY = 'qualityLock';
+const QUALITY_LEVEL_FIELD_KEY = 'qualityLevel';
 const UPGRADE_COSTS_FIELD_KEY = 'upgradeCosts';
 const TARGET_CAMP_FIELD_KEY = 'targetCamp';
 const TARGET_LIFE_STATE_FIELD_KEY = 'targetLifeState';
 const TARGET_TYPE_FIELD_KEY = 'targetType';
 const SELECT_MODE_FIELD_KEY = 'selectMode';
 const AREA_MODE_FIELD_KEY = 'areaMode';
-const QUALITY_LEVEL_FIELD_KEY = 'qualityLevel';
 const SHAPE_TYPE_FIELD_KEY = 'shapeType';
 const AREA_TARGET_COUNT_FIELD_KEY = 'areaTargetCount';
 const SHAPE_PARAMS_FIELD_KEY = 'shapeParams';
@@ -1074,6 +1082,10 @@ export function PropertyPanel() {
     () => DataLoaderService.getCachedDataByName<EquipExtensionsData>(EQUIP_EXTENSIONS_FILE_NAME),
     [referenceRevision],
   );
+  const classLevelExtensionsData = useMemo(
+    () => DataLoaderService.getCachedDataByName<ClassLevelExtensionsData>(CLASS_LEVEL_EXTENSIONS_FILE_NAME),
+    [referenceRevision],
+  );
   const effectsData = useMemo(
     () => DataLoaderService.getCachedDataByName<unknown[]>(EFFECTS_FILE_NAME),
     [referenceRevision],
@@ -1258,6 +1270,10 @@ export function PropertyPanel() {
     return DataLoaderService.getFilePathByName(EQUIP_EXTENSIONS_FILE_NAME)
       || joinPath(getDirectoryPath(currentFilePath), EQUIP_EXTENSIONS_FILE_NAME);
   }, [currentFilePath, referenceRevision]);
+  const classLevelExtensionsFilePath = useMemo(() => {
+    return DataLoaderService.getFilePathByName(CLASS_LEVEL_EXTENSIONS_FILE_NAME)
+      || joinPath(getDirectoryPath(currentFilePath), CLASS_LEVEL_EXTENSIONS_FILE_NAME);
+  }, [currentFilePath, referenceRevision]);
   const normalizedEffectIds = useMemo(
     () => normalizeEffectIdList(effectIds),
     [effectIds],
@@ -1277,6 +1293,7 @@ export function PropertyPanel() {
         ? String((payload as { fileName?: unknown }).fileName || '').toLowerCase()
         : '';
       if (!fileName || [
+        CLASS_LEVEL_EXTENSIONS_FILE_NAME.toLowerCase(),
         EQUIP_EXTENSIONS_FILE_NAME.toLowerCase(),
         SYSTEM_FILE_NAME.toLowerCase(),
         SKILLS_FILE_NAME.toLowerCase(),
@@ -1315,6 +1332,19 @@ export function PropertyPanel() {
   }, [currentFilePath, isWeaponItem]);
 
   useEffect(() => {
+    if (!isClassFile || !currentFilePath) {
+      return;
+    }
+
+    const dataPath = getDirectoryPath(currentFilePath);
+    void DataLoaderService.ensureClassLevelExtensionsLoaded(dataPath, { force: true }).then((loaded) => {
+      if (loaded) {
+        setReferenceRevision((value) => value + 1);
+      }
+    });
+  }, [currentFilePath, isClassFile]);
+
+  useEffect(() => {
     if (currentItem) {
       const item = currentItem as RPGItem;
       const baseFormValues: Record<string, unknown> = {};
@@ -1347,13 +1377,13 @@ export function PropertyPanel() {
       }
       if (isWeaponItem || isArmorItem) {
         baseFormValues[QUALITY_LOCK_FIELD_KEY] = item.qualityLock === true;
+        baseFormValues[QUALITY_LEVEL_FIELD_KEY] = normalizeEquipmentQualityLevel(item.qualityLevel);
       }
       if (isActorFile) {
         const actorValues = normalizeActorEditorValues(item);
         baseFormValues[ACTOR_IS_STATIC_IMAGE_FIELD_KEY] = actorValues.isStaticImage;
         baseFormValues[ACTOR_IS_TANK_FIELD_KEY] = actorValues.isTank;
       }
-        baseFormValues[QUALITY_LEVEL_FIELD_KEY] = normalizeEquipmentQualityLevel(item.qualityLevel);
       if (supportsCommonRange) {
         Object.assign(baseFormValues, getCommonRangeValues(item));
         baseFormValues[ORDER_EFFECTS_FIELD_KEY] = normalizeBattleOrderEffects(item.orderEffects);
@@ -1698,15 +1728,15 @@ export function PropertyPanel() {
     const nextQualityLock = (isWeaponItem || isArmorItem)
       ? values[QUALITY_LOCK_FIELD_KEY] === true
       : false;
+    const nextQualityLevel = (isWeaponItem || isArmorItem)
+      ? normalizeEquipmentQualityLevel(values[QUALITY_LEVEL_FIELD_KEY])
+      : 0;
     const nextSkillValues = supportsProjectileConfig
       ? {
           projectileId: values[SKILL_PROJECTILE_ID_FIELD_KEY],
           skillProjectileTag: values[SKILL_PROJECTILE_TAG_FIELD_KEY],
           reactionSuccessRate: values[SKILL_REACTION_SUCCESS_RATE_FIELD_KEY],
           reactionPriority: values[SKILL_REACTION_PRIORITY_FIELD_KEY],
-    const nextQualityLevel = (isWeaponItem || isArmorItem)
-      ? normalizeEquipmentQualityLevel(values[QUALITY_LEVEL_FIELD_KEY])
-      : 0;
           actionSequenceType: values[ACTION_SEQUENCE_TYPE_FIELD_KEY],
           actionSequenceScriptKey: values[ACTION_SEQUENCE_SCRIPT_KEY_FIELD_KEY],
           targetType: values[TARGET_TYPE_FIELD_KEY],
@@ -1860,13 +1890,13 @@ export function PropertyPanel() {
       || (supportsProjectileConfig && nextSkillValues !== null && hasSkillEditorChanges(sourceItem, nextSkillValues, { isItem: isItemFile }))
       || (isActorFile && nextActorValues !== null && hasActorEditorChanges(sourceItem, nextActorValues))
       || ((isWeaponItem || isArmorItem) && (sourceItem.qualityLock === true) !== nextQualityLock)
+      || ((isWeaponItem || isArmorItem) && normalizeEquipmentQualityLevel(sourceItem.qualityLevel) !== nextQualityLevel)
       || (isEnemyFile && nextEnemyValues !== null && hasEnemyEditorChanges(sourceItem as RPGEnemy, nextEnemyValues, skillsData));
     const nextEquipTypeId = isWeaponItem ? toIntOrZero(values[EQUIP_TYPE_FIELD_KEY]) : 0;
 
     if (shouldUpdateItem) {
       pendingDraftRef.current = hasCustomChanges
         ? {
-      || ((isWeaponItem || isArmorItem) && normalizeEquipmentQualityLevel(sourceItem.qualityLevel) !== nextQualityLevel)
             customFields: customFields.map((field) => ({ ...field })),
             effectIds: effectIds.slice(),
             hasBaseChanges: false,
@@ -2412,7 +2442,7 @@ export function PropertyPanel() {
               label={<span className="text-xs text-gray-400">{field.label}</span>}
               className="mb-0"
             >
-              <InputNumber step={0.01} className="w-full" />
+              <InputNumber min={OWNER_ELEMENT_RATE_MIN} step={0.01} className="w-full" />
             </Form.Item>
           ))}
         </div>
@@ -2427,7 +2457,7 @@ export function PropertyPanel() {
     const ownerIntro = isWeaponItem || isArmorItem
       ? '这里维护装备穿上后加给宿主的固定奖励；装备自身属性仍然在本页其他区块维护。'
       : '这里维护宿主固有的固定战斗奖励，运行时会直接累计到 owner 静态字段。';
-    const ownerElementIntro = '这里维护宿主受到对应元素时的元素属性率增量。正数表示更脆，受到该元素伤害增加；负数表示抗性，受到该元素伤害减少。写 0.2 表示最终元素率额外 +20%，写 -0.2 表示额外 -20%。';
+    const ownerElementIntro = '这里维护宿主受到对应元素时的元素属性率增量。正数表示更脆，受到该元素伤害增加；负数表示抗性，受到该元素伤害减少。写 0.2 表示最终元素率额外 +20%，写 -0.2 表示额外 -20%；保存会阻止低于 -0.7 的异常抗性。';
     return (
       <>
         {sectionTitle ? (
@@ -3175,6 +3205,19 @@ export function PropertyPanel() {
             </div>
           )}
         </Card>
+
+        {isClassFile ? (
+          <ClassLevelExtensionsPanel
+            classEntry={currentItem}
+            classIndex={currentItemIndex}
+            filePath={classLevelExtensionsFilePath}
+            data={classLevelExtensionsData}
+            attributeLabels={baseAttributeDisplayFields.map(({ label }) => label)}
+            markFileDirty={markFileDirty}
+            markItemDirty={markItemDirty}
+            onChanged={() => setReferenceRevision((value) => value + 1)}
+          />
+        ) : null}
 
         <NotePanel embedded />
 

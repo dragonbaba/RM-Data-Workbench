@@ -22,6 +22,7 @@ import { ScriptCacheManager } from '../services/ScriptCacheManager';
 import { copyScript, createScript, deleteAllScripts, deleteScript, renameScript, saveAllScripts, saveCurrentScript, saveScript } from '../services/ScriptOperations';
 import { ScriptPathManager } from '../services/ScriptPathManager';
 import { EQUIP_EXTENSIONS_FILE_NAME } from '../services/EquipExtensionsService';
+import { CLASS_LEVEL_EXTENSIONS_FILE_NAME } from '../services/ClassLevelExtensionsService';
 import { ExternalDataChangeQueue } from '../services/ExternalDataChangeQueue';
 import { BACKSLASH_REGEXP, MAP_ID_REGEXP, TRAILING_PATH_SEPARATORS_REGEXP, WINDOWS_DRIVE_REGEXP } from '../constants/regexp';
 
@@ -77,6 +78,7 @@ const DATA_MENU_LABELS: Record<string, string> = {
 
 const MAP_INFOS_FILE_NAME = 'MapInfos.json';
 const ACTORS_FILE_NAME = 'Actors.json';
+const CLASSES_FILE_NAME = 'Classes.json';
 const ENEMIES_FILE_NAME = 'Enemies.json';
 const EFFECTS_FILE_NAME = 'Effects.json';
 const WEAPONS_FILE_NAME = 'Weapons.json';
@@ -214,6 +216,13 @@ const collectCurrentDataSaveTargets = (
     const extensionsPath = DataLoaderService.getFilePathByName(EQUIP_EXTENSIONS_FILE_NAME);
     if (extensionsPath && (!dirtyOnly || state.isFileDirty(extensionsPath))) {
       saveTargets.add(extensionsPath);
+    }
+  }
+
+  if (currentFileName === CLASSES_FILE_NAME.toLowerCase()) {
+    const classLevelExtensionsPath = DataLoaderService.getFilePathByName(CLASS_LEVEL_EXTENSIONS_FILE_NAME);
+    if (classLevelExtensionsPath && (!dirtyOnly || state.isFileDirty(classLevelExtensionsPath))) {
+      saveTargets.add(classLevelExtensionsPath);
     }
   }
 

@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **[职业拓展等级曲线协议]**: `ClassLevelExtensions.json` 升级到 `schemaVersion: 2` 曲线配置协议；职业拓展等级面板改为维护最大等级、经验四参数、每项属性最大等级目标值和独立成长模式，并自动预览 100 级到最大等级的经验与属性，不再要求逐级手动新增。 — by Zaun
+  - 方案: [202606120358_class-level-extension-curves](archive/2026-06/202606120358_class-level-extension-curves/)
+  - 决策: class-level-extension-curves#D001(使用曲线配置作为权威数据)
+  - 验证: `bun run test --run src/services/ClassLevelExtensionsService.test.ts src/services/DataLoaderService.test.ts src/services/BaseDataReloadService.test.ts src/components/panels/ClassLevelExtensionsPanel.test.tsx src/components/panels/PropertyPanel.test.tsx` ✅；`bunx tsc --noEmit` ✅
+- **[职业拓展等级数据源]**: 新增 `ClassLevelExtensions.json` 独立 object JSON 协议和职业属性模式“拓展等级”面板，用于维护 99 级以后经验与 8 项基础属性成长；加载链会首次创建空结构，reload/watch/save 链路均纳入该扩展文件，编辑时只标脏 `ClassLevelExtensions.json`。 — by Zaun
+  - 方案: [202606120315_class-level-extensions](archive/2026-06/202606120315_class-level-extensions/)
+  - 决策: class-level-extensions#D001(采用独立固定协议 JSON 而非扩展 Classes.json)
+  - 验证: `bun run test --run src/services/ClassLevelExtensionsService.test.ts src/services/DataLoaderService.test.ts src/services/BaseDataReloadService.test.ts src/components/panels/ClassLevelExtensionsPanel.test.tsx src/components/panels/PropertyPanel.test.tsx` ✅；`bunx tsc --noEmit` ✅；`go test ./backend/services` ✅
 - **[装备品质等级锁定协议]**: 武器、防具属性模式新增顶级 `qualityLevel`，与既有 `qualityLock` 组成固定品质协议；`EquipmentQualityProtocolService` 集中执行 `0-6` clamp，属性面板保存链、`EquipmentPropertyService` 标准化和 `DataAuditService` 修复模式统一补齐并收敛该字段。 — by Zaun
   - 方案: [202606092124_equipment-quality-level-contract](D:/RMProjects/MyGame/.helloagents/archive/2026-06/202606092124_equipment-quality-level-contract/)
   - 决策: equipment-quality-level-contract#D001(集中归一化服务)

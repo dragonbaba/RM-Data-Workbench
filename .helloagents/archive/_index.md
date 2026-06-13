@@ -42,3 +42,5 @@
 | 202605090325 | weapon-range-repair-mode-preserve-protocol | - | - | - | ✅完成 |
 | 202605291430 | projectile-preview-template-lookup | - | - | - | ✅完成 |
 | 202605291216 | right-panel-container-bounds | - | - | - | ✅完成 |
+| 202606120315 | class-level-extensions | - | - | - | ✅完成 |
+| 202606120358 | class-level-extension-curves | - | - | - | ✅完成 |

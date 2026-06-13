@@ -3,7 +3,7 @@
 ## 项目
 - 名称：RM Data Workbench
 - 类型：RPG Maker 数据扩展编辑器（Wails + Go + React + TypeScript）
-- 最近更新：2026-05-31
+- 最近更新：2026-06-12
 
 ## 入口文件
 - 项目上下文：`helloagents/context.md`
@@ -23,6 +23,7 @@
 - 属性与相邻模式已完成一轮高收益性能收紧：引用数据改为 `referenceRevision` 驱动，多个大列表/选项构建路径已 memo 化。
 - 弹道模板持久化协议已移除预览态来源/目标/武器/技能字段；预览上下文仅由编辑器临时 view model 提供。
 - 武器/防具属性模式已新增顶层 `upgradeCosts[]` 强化耗材协议，用于逐级维护金币、必需物品和保底物品消耗。
+- 职业属性模式的 `ClassLevelExtensions.json` 已升级为曲线配置协议：按最大等级、经验四参数、每项属性目标值和成长模式派生 99 级以后经验与基础属性；保存链只标脏扩展文件，不改写 `Classes.json.params` 原始矩阵。
 
 ## 模块导航
 - [项目上下文](/D:/RMProjects/MyNewEditor/.helloagents/context.md)

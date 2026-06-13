@@ -4,10 +4,14 @@ import PropertyPanel from './PropertyPanel';
 import { useEditorStore } from '../../stores/editorStore';
 import { DataLoaderService } from '../../services/DataLoaderService';
 import type { RPGItem } from '../../types';
+import { CLASS_LEVEL_EXTENSIONS_FILE_NAME } from '../../services/ClassLevelExtensionsService';
+import type { ClassGrowthMode } from '../../services/ClassLevelExtensionsService';
 
 const WEAPONS_FILE_PATH = 'D:/Project/data/Weapons.json';
 const SKILLS_FILE_PATH = 'D:/Project/data/Skills.json';
 const ACTORS_FILE_PATH = 'D:/Project/data/Actors.json';
+const CLASSES_FILE_PATH = 'D:/Project/data/Classes.json';
+const CLASS_LEVEL_EXTENSIONS_FILE_PATH = 'D:/Project/data/ClassLevelExtensions.json';
 
 const createWeapon = (overrides: Record<string, unknown> = {}) => ({
   id: 132,
@@ -99,11 +103,53 @@ const createActor = (overrides: Record<string, unknown> = {}): RPGItem => ({
   ...overrides,
 } as unknown as RPGItem);
 
+const createClass = (overrides: Record<string, unknown> = {}): RPGItem => {
+  const params = Array.from({ length: 8 }, (_, paramIndex) => {
+    const levels = new Array(100).fill(0);
+    levels[99] = (paramIndex + 1) * 10;
+    return levels;
+  });
+
+  return {
+    id: 1,
+    name: '猎人',
+    expParams: [30, 20, 30, 30],
+    params,
+    ownerParams: {
+      baseParams: [0, 0, 0, 0, 0, 0, 0, 0],
+      paramRate: [0, 0, 0, 0, 0, 0, 0, 0],
+      elementRate: [0],
+      extraParams: [0, 0, 0, 0, 0, 0],
+      scalar: [0],
+      specialParams: [0, 0, 0, 0, 0, 0],
+    },
+    passiveStates: [],
+    effects: [],
+    ...overrides,
+  } as unknown as RPGItem;
+};
+
+const createClassLevelExtensionData = () => ({
+  schemaVersion: 2,
+  classes: [
+    null,
+    {
+      maxLevel: 100,
+      expParams: [30, 20, 30, 30] as [number, number, number, number],
+      paramCurves: Array.from({ length: 8 }, (_, index) => ({
+        target: (index + 1) * 10,
+        mode: 'standard' as ClassGrowthMode,
+      })),
+    },
+  ],
+});
+
 describe('PropertyPanel range initialization', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     DataLoaderService.clearCache();
     vi.spyOn(DataLoaderService, 'ensureEquipExtensionsLoaded').mockResolvedValue(null);
+    vi.spyOn(DataLoaderService, 'ensureClassLevelExtensionsLoaded').mockResolvedValue(createClassLevelExtensionData());
 
     useEditorStore.setState({
       currentData: null,
@@ -216,5 +262,50 @@ describe('PropertyPanel range initialization', () => {
       expect(useEditorStore.getState().currentItemIndex).toBe(2);
     });
     expect(screen.getByText('技能伤害 / 耐久协议')).toBeInTheDocument();
+  });
+
+  it('职业拓展等级面板只标脏 ClassLevelExtensions.json', async () => {
+    const classEntry = createClass();
+    const originalParams = JSON.parse(JSON.stringify(classEntry.params));
+
+    DataLoaderService.cacheFileData(CLASS_LEVEL_EXTENSIONS_FILE_PATH, CLASS_LEVEL_EXTENSIONS_FILE_NAME, {
+      schemaVersion: 2,
+      classes: createClassLevelExtensionData().classes,
+    });
+    useEditorStore.getState().loadData([null, classEntry], CLASSES_FILE_PATH, 'data');
+
+    render(<PropertyPanel />);
+
+    const atkTargetInput = await screen.findByLabelText('攻击力 最大等级目标');
+    fireEvent.change(atkTargetInput, { target: { value: '88' } });
+
+    await waitFor(() => {
+      const cached = DataLoaderService.getCachedDataByName(CLASS_LEVEL_EXTENSIONS_FILE_NAME);
+      expect(cached).toEqual({
+        schemaVersion: 2,
+        classes: [
+          null,
+          {
+            maxLevel: 100,
+            expParams: [30, 20, 30, 30],
+            paramCurves: [
+              { target: 10, mode: 'standard' },
+              { target: 20, mode: 'standard' },
+              { target: 88, mode: 'standard' },
+              { target: 40, mode: 'standard' },
+              { target: 50, mode: 'standard' },
+              { target: 60, mode: 'standard' },
+              { target: 70, mode: 'standard' },
+              { target: 80, mode: 'standard' },
+            ],
+          },
+        ],
+      });
+    });
+
+    const state = useEditorStore.getState();
+    expect(state.dirtyFiles['d:/project/data/classlevelextensions.json']).toBe(true);
+    expect(state.dirtyFiles['d:/project/data/classes.json']).toBeUndefined();
+    expect((state.currentData?.[1] as RPGItem | undefined)?.params).toEqual(originalParams);
   });
 });

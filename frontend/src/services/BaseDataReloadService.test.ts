@@ -62,6 +62,60 @@ describe('BaseDataReloadService', () => {
     });
   });
 
+  it('职业属性面板依赖 ClassLevelExtensions 时需要确认刷新', () => {
+    const impact = resolveDataChangeImpact({
+      uiMode: 'property',
+      currentFilePath: 'D:/Project/data/Classes.json',
+      currentMapId: null,
+    }, {
+      filePath: 'D:/Project/data/ClassLevelExtensions.json',
+      fileName: 'ClassLevelExtensions.json',
+      changeType: 'write',
+    });
+
+    expect(impact).toEqual({
+      shouldReload: true,
+      shouldConfirm: true,
+      target: 'dependency',
+    });
+  });
+
+  it('ClassLevelExtensions 是可重载基础数据文件', () => {
+    const impact = resolveDataChangeImpact({
+      uiMode: 'property',
+      currentFilePath: 'D:/Project/data/Actors.json',
+      currentMapId: null,
+    }, {
+      filePath: 'D:/Project/data/ClassLevelExtensions.json',
+      fileName: 'ClassLevelExtensions.json',
+      changeType: 'write',
+    });
+
+    expect(impact).toEqual({
+      shouldReload: true,
+      shouldConfirm: false,
+      target: 'dependency',
+    });
+  });
+
+  it('小写 classlevelextensions.json 命中职业属性依赖时也需要确认刷新', () => {
+    const impact = resolveDataChangeImpact({
+      uiMode: 'property',
+      currentFilePath: 'd:/project/data/classes.json',
+      currentMapId: null,
+    }, {
+      filePath: 'd:/project/data/classlevelextensions.json',
+      fileName: 'classlevelextensions.json',
+      changeType: 'write',
+    });
+
+    expect(impact).toEqual({
+      shouldReload: true,
+      shouldConfirm: true,
+      target: 'dependency',
+    });
+  });
+
   it('武器属性面板依赖 Skills 时需要确认刷新', () => {
     const impact = resolveDataChangeImpact({
       uiMode: 'property',
