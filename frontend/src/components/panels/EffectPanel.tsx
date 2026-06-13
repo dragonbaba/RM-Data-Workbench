@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Dropdown, Empty, Input, InputNumber, Select, Space, Switch } from 'antd';
+import { Alert, Badge, Button, Card, Dropdown, Empty, Input, InputNumber, Select, Space, Switch } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
@@ -27,6 +27,14 @@ import { arePlainDataEqual } from '../../services/PlainDataCompare';
 import { COMMA_OR_NEWLINE_REGEXP, NEWLINE_REGEXP, PATH_SEPARATOR_REGEXP } from '../../constants/regexp';
 
 const SYSTEM_FILE_NAME = 'System.json';
+
+const ACTION_REPEAT_EQUIP_EFFECT_TYPES: ReadonlySet<GameEffectType> = new Set([
+  'cunit_slot_action_repeat_bonus',
+  'pair_same_cunit_bonus',
+]);
+
+const ACTION_REPEAT_EQUIP_HINT = '发射期连发只对“C 装槽位追加发射”和“双同型 C 装奖励”有效，会按条件字段写入命中的武器。其他效果类型即使旧数据里写了 vehicleParams.actionRepeat，战斗也不会读取。';
+const ACTION_REPEAT_OWNER_HINT = '当前模板会按条件字段给命中的武器增加发射期连发；槽位索引、装备槽位类型、武器类型、防具类型共同决定命中范围。';
 
 const splitTokens = (value: string): string[] =>
   value
@@ -470,6 +478,7 @@ export function EffectPanel() {
 
   const selector = effect.config.selector;
   const argsRecord = effect.config.args;
+  const canApplyActionRepeatToEquips = ACTION_REPEAT_EQUIP_EFFECT_TYPES.has(effect.effectType);
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-4 bg-dark-900">
@@ -672,6 +681,12 @@ export function EffectPanel() {
                   添加操作
                 </Button>
               </div>
+              <Alert
+                type={canApplyActionRepeatToEquips ? 'info' : 'warning'}
+                showIcon
+                className="mb-3"
+                message={canApplyActionRepeatToEquips ? ACTION_REPEAT_OWNER_HINT : ACTION_REPEAT_EQUIP_HINT}
+              />
 
               <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.8fr)_minmax(0,1.2fr)_minmax(0,1fr)_80px] gap-3 text-xs text-gray-400 mb-2">
                 <div>分组</div>

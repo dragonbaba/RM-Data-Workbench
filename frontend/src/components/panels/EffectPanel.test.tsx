@@ -80,6 +80,22 @@ describe('EffectPanel draft flush', () => {
     expect(useEditorStore.getState().getDirtyItemIndexes(EFFECTS_FILE_PATH)).toEqual([1, 2]);
   });
 
+  it('提示发射期连发只在装备实例模板中生效', () => {
+    useEditorStore.getState().loadData([null, createEffect('C 装奖励')], EFFECTS_FILE_PATH, 'data');
+
+    render(<EffectPanel />);
+
+    expect(screen.getByText(/发射期连发只对/)).toBeInTheDocument();
+  });
+
+  it('装备实例连发模板提示会按条件字段命中武器', () => {
+    useEditorStore.getState().loadData([null, createEquipEffect()], EFFECTS_FILE_PATH, 'data');
+
+    render(<EffectPanel />);
+
+    expect(screen.getByText(/当前模板会按条件字段给命中的武器增加发射期连发/)).toBeInTheDocument();
+  });
+
   it('条件字段允许直接输入 0 和中文逗号分隔列表', () => {
     useEditorStore.getState().loadData([null, createEquipEffect()], EFFECTS_FILE_PATH, 'data');
 
