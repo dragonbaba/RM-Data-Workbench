@@ -1,9 +1,10 @@
 import { Alert, Card, Input, InputNumber, Button, Form, Space, Select, Switch } from 'antd';
 import type { FormListFieldData } from 'antd';
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { CopyOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { ToastManager } from '../common/ToastManager';
+import { CopyToTargetModal } from '../common/CopyToTargetModal';
 import { DataLoaderService } from '../../services/DataLoaderService';
 import { EventSystem } from '../../core/EventSystem';
 import { getEquipTypeOptions, getSystemRecord } from '../../services/EquipDataService';
@@ -1010,6 +1011,7 @@ export function PropertyPanel() {
   const [referenceRevision, setReferenceRevision] = useState(0);
   const pendingDraftRef = useRef<PendingDraftState | null>(null);
   const savingRef = useRef(false);
+  const [copyModalOpen, setCopyModalOpen] = useState(false);
   const currentFileName = currentFilePath.split(PATH_SEPARATOR_REGEXP).pop()?.toLowerCase() || '';
   const isItemFile = currentFileName === ITEMS_FILE_NAME.toLowerCase();
   const isActorFile = currentFileName === ACTORS_FILE_NAME.toLowerCase();
@@ -1593,6 +1595,44 @@ export function PropertyPanel() {
       markItemDirty(currentFilePath, currentItemIndex);
     }
   };
+
+  const upgradeCostsCopyTargetOptions = useMemo(() => {
+    if (!Array.isArray(currentData)) return [];
+    return currentData.slice(1).map((item, idx) => {
+      const index = idx + 1;
+      const targetItem = (item && typeof item === 'object' && !Array.isArray(item)) ? item as { name?: unknown } : null;
+      const name = typeof targetItem?.name === 'string' && targetItem.name.trim() ? targetItem.name.trim() : `条目 ${index}`;
+      return { value: index, label: `${index} : ${name}` };
+    }).filter((option) => option.value !== currentItemIndex);
+  }, [currentData, currentItemIndex]);
+
+  const handleCopyUpgradeCostsToTargets = (targetIndexes: number[]) => {
+    if (!currentData || currentItemIndex <= 0 || !currentFilePath) return;
+    const sourceItem = currentData[currentItemIndex] as RPGItem | null;
+    if (!sourceItem) return;
+    const sourceCosts = normalizeEquipUpgradeCosts(sourceItem.upgradeCosts);
+    if (sourceCosts.length === 0) {
+      ToastManager.warning('当前装备没有强化耗材可复制');
+      return;
+    }
+
+    const newData = [...currentData];
+    targetIndexes.forEach((targetIndex) => {
+      const targetItem = newData[targetIndex] as RPGItem | null;
+      if (!targetItem || typeof targetItem !== 'object') return;
+      newData[targetIndex] = {
+        ...targetItem,
+        upgradeCosts: sourceCosts.map((cost) => ({ ...cost })),
+      } as RPGItem;
+    });
+
+    loadData(newData, currentFilePath, currentFileType);
+    markFileDirty(currentFilePath);
+    targetIndexes.forEach((targetIndex) => markItemDirty(currentFilePath, targetIndex));
+    setCopyModalOpen(false);
+    ToastManager.success(`已复制强化耗材到 ${targetIndexes.length} 个目标`);
+  };
+
 
   useEffect(() => {
     if (!currentData || currentItemIndex < 0) {
@@ -2312,14 +2352,23 @@ export function PropertyPanel() {
           title={(
             <div className="flex justify-between items-center">
               <span>强化耗材</span>
-              <Button
-                type="dashed"
-                size="small"
-                icon={<PlusOutlined />}
-                onClick={() => add(createEmptyUpgradeCostEntry(fields.length))}
-              >
-                添加一级
-              </Button>
+              <Space size="small">
+                <Button
+                  type="dashed"
+                  size="small"
+                  icon={<PlusOutlined />}
+                  onClick={() => add(createEmptyUpgradeCostEntry(fields.length))}
+                >
+                  添加一级
+                </Button>
+                <Button
+                  size="small"
+                  icon={<CopyOutlined />}
+                  onClick={() => setCopyModalOpen(true)}
+                >
+                  复制到…
+                </Button>
+              </Space>
             </div>
           )}
           className="mb-4"
@@ -4327,6 +4376,14 @@ export function PropertyPanel() {
           </Space>
         )}
       </Card>
+      <CopyToTargetModal
+        open={copyModalOpen}
+        title="复制强化耗材"
+        description="将当前装备的强化耗材（逐级成功率、金币、必需物品、保底物品）复制到以下目标。目标原有强化耗材会被覆盖。"
+        options={upgradeCostsCopyTargetOptions}
+        onConfirm={handleCopyUpgradeCostsToTargets}
+        onCancel={() => setCopyModalOpen(false)}
+      />
     </div>
   );
 }

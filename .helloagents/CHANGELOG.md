@@ -5,6 +5,10 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **[跨条目数据复制]**: 装备模式、改造模式与属性模式（强化耗材）新增"复制到…"批量复制功能，通过共享组件 `CopyToTargetModal` 支持多选目标、搜索过滤。装备模式复制角色装备槽位与初始装备；改造模式复制改造规则（含 transitions/conditions 深拷贝）；属性模式复制 `upgradeCosts` 强化耗材到其他武器/防具。复制后标记目标为已修改，遵循现有保存链路。 — by Zaun
+  - 类型: 功能新增（无方案包）
+  - 文件: `frontend/src/components/common/CopyToTargetModal.tsx`, `frontend/src/components/panels/EquipPanel.tsx`, `frontend/src/components/panels/RefitPanel.tsx`, `frontend/src/components/panels/PropertyPanel.tsx`, `frontend/src/components/common/CopyToTargetModal.test.tsx`
+  - 验证: `bunx tsc --noEmit` ✅；`npx vitest run` ✅（232/232）；`npx vite build` ✅
 - **[职业拓展等级曲线协议]**: `ClassLevelExtensions.json` 升级到 `schemaVersion: 2` 曲线配置协议；职业拓展等级面板改为维护最大等级、经验四参数、每项属性最大等级目标值和独立成长模式，并自动预览 100 级到最大等级的经验与属性，不再要求逐级手动新增。 — by Zaun
   - 方案: [202606120358_class-level-extension-curves](archive/2026-06/202606120358_class-level-extension-curves/)
   - 决策: class-level-extension-curves#D001(使用曲线配置作为权威数据)

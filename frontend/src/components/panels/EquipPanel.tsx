@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Card, Empty, Input, Select, Space, Tag, Typography } from 'antd';
-import { DeleteOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
+import { CopyOutlined, DeleteOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
 import { WriteJSON } from '../../../wailsjs/go/main/App';
 import { EventSystem } from '../../core/EventSystem';
 import { useEditorStore } from '../../stores/editorStore';
@@ -20,6 +20,7 @@ import {
   type EquipExtensionsData,
 } from '../../services/EquipExtensionsService';
 import { ToastManager } from '../common/ToastManager';
+import { CopyToTargetModal } from '../common/CopyToTargetModal';
 import { TRAILING_PATH_SEPARATORS_REGEXP } from '../../constants/regexp';
 
 type RecordLike = Record<string, unknown>;
@@ -78,6 +79,7 @@ export function EquipPanel() {
   const [referenceRevision, setReferenceRevision] = useState(0);
   const [equipTypeDrafts, setEquipTypeDrafts] = useState<EquipTypeDraft[]>([]);
   const [weaponEquipTypeDrafts, setWeaponEquipTypeDrafts] = useState<string[]>([]);
+  const [copyModalOpen, setCopyModalOpen] = useState(false);
 
   useEffect(() => {
     const refreshReferences = (payload?: unknown) => {
@@ -365,6 +367,52 @@ export function EquipPanel() {
     }
   }, [equipExtensionsData, equipExtensionsFilePath, markFileClean]);
 
+  const copyTargetOptions = useMemo(() => {
+    if (!Array.isArray(currentData)) return [];
+    return currentData.slice(1).map((item, idx) => {
+      const index = idx + 1;
+      const obj = (item && typeof item === 'object' && !Array.isArray(item)) ? item as { name?: unknown } : null;
+      const rawName = typeof obj?.name === 'string' ? obj.name.trim() : '';
+      const name = rawName || `角色 ${index}`;
+      return { value: index, label: `${index} : ${name}` };
+    }).filter((option) => option.value !== currentItemIndex);
+  }, [currentData, currentItemIndex]);
+
+  const handleCopyEquipToTargets = useCallback((targetIndexes: number[]) => {
+    if (currentItemIndex <= 0 || !equipExtensionsFilePath || !equipExtensionsData) {
+      ToastManager.error('装备扩展数据未加载');
+      return;
+    }
+
+    const sourceEquipSlots = equipExtensionsData.actorEquipSlots[currentItemIndex];
+    const sourceEquips = equipExtensionsData.actorEquips[currentItemIndex];
+    if (!Array.isArray(sourceEquipSlots) || !Array.isArray(sourceEquips)) {
+      ToastManager.warning('当前角色没有装备数据可复制');
+      return;
+    }
+
+    const nextActorEquipSlots = [...equipExtensionsData.actorEquipSlots];
+    const nextActorEquips = [...equipExtensionsData.actorEquips];
+
+    targetIndexes.forEach((targetIndex) => {
+      nextActorEquipSlots[targetIndex] = [...sourceEquipSlots];
+      nextActorEquips[targetIndex] = [...sourceEquips];
+    });
+
+    const nextExtensions: EquipExtensionsData = {
+      ...equipExtensionsData,
+      actorEquipSlots: nextActorEquipSlots,
+      actorEquips: nextActorEquips,
+    };
+
+    DataLoaderService.cacheFileData(equipExtensionsFilePath, EQUIP_EXTENSIONS_FILE_NAME, nextExtensions);
+    markFileDirty(equipExtensionsFilePath);
+    targetIndexes.forEach((targetIndex) => markItemDirty(equipExtensionsFilePath, targetIndex));
+    setReferenceRevision((value) => value + 1);
+    setCopyModalOpen(false);
+    ToastManager.success(`已复制到 ${targetIndexes.length} 个目标角色`);
+  }, [currentItemIndex, equipExtensionsData, equipExtensionsFilePath, markFileDirty, markItemDirty]);
+
   if (!Array.isArray(currentData) || currentFile.toLowerCase() !== 'actors.json' || !actor) {
     return (
       <div className="flex-1 flex items-center justify-center bg-[#0a0e17]">
@@ -398,6 +446,13 @@ export function EquipPanel() {
             style={{ backgroundColor: hasCurrentActorChanges ? 'var(--color-accent)' : undefined }}
           >
             保存当前角色
+          </Button>
+          <Button
+            icon={<CopyOutlined />}
+            onClick={() => setCopyModalOpen(true)}
+            disabled={currentItemIndex <= 0 || actorEquipState.equips.length === 0}
+          >
+            复制到…
           </Button>
           <Button
             type="dashed"
@@ -584,6 +639,14 @@ export function EquipPanel() {
           </Card>
         </Space>
       </div>
+        <CopyToTargetModal
+          open={copyModalOpen}
+          title="复制装备槽与初始装备"
+          description={`将当前角色「${actorName}」的 ${actorEquipState.equips.length} 个装备槽位及初始装备复制到以下目标角色。目标原有装备数据会被覆盖。`}
+          options={copyTargetOptions}
+          onConfirm={handleCopyEquipToTargets}
+          onCancel={() => setCopyModalOpen(false)}
+        />
     </div>
   );
 }

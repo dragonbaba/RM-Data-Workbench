@@ -71,9 +71,16 @@
 - 修复模式通过 `DataAuditService` 把 `EquipExtensions.json` 纳入检查；当 `Actors.json` 中角色 `isTank === true` 且该角色 `actorRefitRules` 缺失或没有任何 transition 时，会按 `actorEquipSlots[actorId]` 生成默认战车改造模板。模板价格随 actorId 单调递增，并对同一 `slotIndex/from/to` transition 不低于前一角色，避免后续新增战车缺少改造数据。
   - 派生逻辑不依赖 React，可独立做单元测试。
 - `RefitPanel` 只展示当前槽位类型对应的 `fromEquipTypeId` 转换目标；同槽位里的其它互转规则作为数据保留，不在当前槽位视图中重复铺开，也不会在保存时被改写来源类型。
+- 跨条目复制:
+  - 装备模式、改造模式和属性模式（强化耗材）各自提供"复制到…"按钮，通过共享组件 `CopyToTargetModal` 批量复制当前条目数据到其他目标条目。
+  - 装备模式复制 `actorEquipSlots[index]` 和 `actorEquips[index]`（纯数组深拷贝）。
+  - 改造模式复制 `actorRefitRules[index]`（slots + transitions + conditions 逐层深拷贝）；目标角色打开时由 `getActorRefitSlotsFromExtensions` 按自身 equipSlots 重派生 `fromEquipTypeId`，transitions 中的互转规则作为数据保留。
+  - 属性模式仅复制武器/防具的 `upgradeCosts`（强化耗材），不连带 `upgradeParams` 或其他属性。
+  - 目标候选自动排除 index 0 和当前条目；支持多选、搜索过滤；复制后通过 `markFileDirty + markItemDirty` 标记每个目标为已修改。
 
 ## 依赖关系
 - `frontend/src/components/panels/EquipPanel.tsx`
+- `frontend/src/components/common/CopyToTargetModal.tsx`
 - `frontend/src/services/EquipDataService.ts`
 - `frontend/src/services/EquipExtensionsService.ts`
 - `frontend/src/hooks/useFileOperations.ts`
@@ -83,7 +90,7 @@
 - `app.go`
 
 ## 当前约束
-- 装备模式当前只支持角色维度的装备槽和当前装备编辑，不提供跨角色批量装备预设能力。
+- 装备模式支持角色维度的装备槽和当前装备编辑，并通过"复制到…"提供跨角色批量复制装备槽与初始装备数据的能力。
 - `EquipExtensions.json` 为项目自定义扩展数据源，当前由编辑器负责创建、读写和外部变化监听。
 - 装备模式不新增独立 `fileType`，仍复用普通 `data` 文件保存链路。
 - 当前角色槽位数量完全由 `EquipExtensions.json.actorEquips[index].length` 驱动；若某角色扩展数据为空，面板将视为无装备行，而不会再退回到原生 `Actors.json`。

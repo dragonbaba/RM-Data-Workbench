@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Empty, InputNumber, Select, Space, Tag, Typography } from 'antd';
-import { DeleteOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
+import { CopyOutlined, DeleteOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
 import { WriteJSON } from '../../../wailsjs/go/main/App';
 import { EventSystem } from '../../core/EventSystem';
 import { useEditorStore } from '../../stores/editorStore';
@@ -19,6 +19,7 @@ import {
   type RefitVariableOperator,
 } from '../../services/EquipExtensionsService';
 import { ToastManager } from '../common/ToastManager';
+import { CopyToTargetModal } from '../common/CopyToTargetModal';
 import { TRAILING_PATH_SEPARATORS_REGEXP } from '../../constants/regexp';
 
 type RecordLike = Record<string, unknown>;
@@ -117,6 +118,7 @@ export function RefitPanel() {
   const getDirtyItemIndexes = useEditorStore((state) => state.getDirtyItemIndexes);
 
   const [referenceRevision, setReferenceRevision] = useState(0);
+  const [copyModalOpen, setCopyModalOpen] = useState(false);
 
   useEffect(() => {
     const refreshReferences = (payload?: unknown) => {
@@ -312,6 +314,57 @@ export function RefitPanel() {
     }
   }, [equipExtensionsData, equipExtensionsFilePath, markFileClean]);
 
+  const copyTargetOptions = useMemo(() => {
+    if (!Array.isArray(currentData)) return [];
+    return currentData.slice(1).map((item, idx) => {
+      const index = idx + 1;
+      const obj = (item && typeof item === 'object' && !Array.isArray(item)) ? item as { name?: unknown } : null;
+      const rawName = typeof obj?.name === 'string' ? obj.name.trim() : '';
+      const name = rawName || `角色 ${index}`;
+      return { value: index, label: `${index} : ${name}` };
+    }).filter((option) => option.value !== currentItemIndex);
+  }, [currentData, currentItemIndex]);
+
+  const handleCopyRefitToTargets = useCallback((targetIndexes: number[]) => {
+    if (currentItemIndex <= 0 || !equipExtensionsFilePath || !equipExtensionsData) {
+      ToastManager.error('装备扩展数据未加载');
+      return;
+    }
+
+    const sourceRuleSet = equipExtensionsData.actorRefitRules[currentItemIndex];
+    if (!sourceRuleSet || !sourceRuleSet.slots.some((slot) => slot.transitions.length > 0)) {
+      ToastManager.warning('当前角色没有改造规则可复制');
+      return;
+    }
+
+    const nextActorRefitRules = [...equipExtensionsData.actorRefitRules] as IndexedActorRefitRuleSets;
+
+    targetIndexes.forEach((targetIndex) => {
+      nextActorRefitRules[targetIndex] = {
+        slots: sourceRuleSet.slots.map((slot) => ({
+          slotIndex: slot.slotIndex,
+          fromEquipTypeId: slot.fromEquipTypeId,
+          transitions: slot.transitions.map((transition) => ({
+            ...transition,
+            conditions: transition.conditions.map((condition) => ({ ...condition })),
+          })),
+        })),
+      };
+    });
+
+    const nextExtensions: EquipExtensionsData = {
+      ...equipExtensionsData,
+      actorRefitRules: nextActorRefitRules,
+    };
+
+    DataLoaderService.cacheFileData(equipExtensionsFilePath, EQUIP_EXTENSIONS_FILE_NAME, nextExtensions);
+    markFileDirty(equipExtensionsFilePath);
+    targetIndexes.forEach((targetIndex) => markItemDirty(equipExtensionsFilePath, targetIndex));
+    setReferenceRevision((value) => value + 1);
+    setCopyModalOpen(false);
+    ToastManager.success(`已复制到 ${targetIndexes.length} 个目标角色`);
+  }, [currentItemIndex, equipExtensionsData, equipExtensionsFilePath, markFileDirty, markItemDirty]);
+
   if (!Array.isArray(currentData) || currentFile.toLowerCase() !== 'actors.json' || !actor) {
     return (
       <div className="flex-1 flex items-center justify-center bg-[#0a0e17]">
@@ -335,15 +388,24 @@ export function RefitPanel() {
           </div>
         </div>
 
-        <Button
-          type="primary"
-          icon={<SaveOutlined />}
-          onClick={() => void saveCurrentActor()}
-          disabled={!hasCurrentActorChanges}
-          style={{ backgroundColor: hasCurrentActorChanges ? 'var(--color-accent)' : undefined }}
-        >
-          保存当前角色
-        </Button>
+        <Space>
+          <Button
+            type="primary"
+            icon={<SaveOutlined />}
+            onClick={() => void saveCurrentActor()}
+            disabled={!hasCurrentActorChanges}
+            style={{ backgroundColor: hasCurrentActorChanges ? 'var(--color-accent)' : undefined }}
+          >
+            保存当前角色
+          </Button>
+          <Button
+            icon={<CopyOutlined />}
+            onClick={() => setCopyModalOpen(true)}
+            disabled={currentItemIndex <= 0 || !refitSlots.some((slot) => slot.transitions.length > 0)}
+          >
+            复制到…
+          </Button>
+        </Space>
       </div>
 
       {refitSlots.length === 0 ? (
@@ -604,6 +666,14 @@ export function RefitPanel() {
           })}
         </Space>
       )}
+      <CopyToTargetModal
+        open={copyModalOpen}
+        title="复制改造规则"
+        description={`将当前角色「${actorName}」的改造规则（槽位转换、金币消耗、条件）复制到以下目标角色。目标原有改造规则会被覆盖。`}
+        options={copyTargetOptions}
+        onConfirm={handleCopyRefitToTargets}
+        onCancel={() => setCopyModalOpen(false)}
+      />
     </div>
   );
 }
