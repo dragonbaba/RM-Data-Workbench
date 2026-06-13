@@ -42,6 +42,19 @@ const parseNumberListText = (value: string): number[] =>
 const stringifyNumberList = (value: unknown): string =>
   Array.isArray(value) ? value.join(', ') : '';
 
+type SelectorTextState = Partial<Record<GameEffectSelectorFieldKey, string>>;
+
+const createSelectorTextState = (
+  selector: GameEffectEntry['config']['selector'],
+  fields: readonly GameEffectSelectorFieldKey[],
+): SelectorTextState => {
+  const result: SelectorTextState = {};
+  for (const field of fields) {
+    result[field] = stringifyNumberList(selector[field]);
+  }
+  return result;
+};
+
 const stringifyDescription = (value: string[]): string => value.join('\n');
 
 const parseDescription = (value: string): string[] =>
@@ -125,6 +138,7 @@ export function EffectPanel() {
   const [originalEffect, setOriginalEffect] = useState<GameEffectEntry | null>(null);
   const [descriptionText, setDescriptionText] = useState('');
   const [originalDescriptionText, setOriginalDescriptionText] = useState('');
+  const [selectorTexts, setSelectorTexts] = useState<SelectorTextState>({});
   const [opRows, setOpRows] = useState<EffectOpRow[]>([]);
   const [originalOpRows, setOriginalOpRows] = useState<EffectOpRow[]>([]);
   const lastAutoSaveFailedDraftRef = useRef<{
@@ -189,6 +203,7 @@ export function EffectPanel() {
       setEffect(null);
       setOriginalEffect(null);
       setDescriptionText('');
+      setSelectorTexts({});
       setOriginalDescriptionText('');
       setOpRows([]);
       setOriginalOpRows([]);
@@ -201,18 +216,21 @@ export function EffectPanel() {
       setOriginalEffect(null);
       setDescriptionText('');
       setOriginalDescriptionText('');
+      setSelectorTexts({});
       setOpRows([]);
       setOriginalOpRows([]);
       return;
     }
     normalized.id = normalized.id && normalized.id > 0 ? normalized.id : currentItemIndex;
     const nextRows = parseEffectOpRows(normalized);
+    const nextDefinition = getGameEffectTypeDefinition(normalized.effectType);
     setEffect(normalized);
     setOriginalEffect(normalized);
     if (autoSaveSkipRef.current > 0) {
       autoSaveSkipRef.current--;
     } else {
       setDescriptionText(stringifyDescription(normalized.description));
+      setSelectorTexts(createSelectorTextState(normalized.config.selector, nextDefinition.selectorFields));
       setOriginalDescriptionText(stringifyDescription(normalized.description));
     }
     setOpRows(nextRows);
@@ -245,6 +263,7 @@ export function EffectPanel() {
     }
     setEffect(template);
     setDescriptionText(stringifyDescription(template.description));
+    setSelectorTexts(createSelectorTextState(template.config.selector, getGameEffectTypeDefinition(effectType).selectorFields));
     setOpRows(parseEffectOpRows(template));
   };
 
@@ -371,6 +390,7 @@ export function EffectPanel() {
     if (!silent) {
       setDescriptionText(stringifyDescription(normalized.description));
       setOriginalDescriptionText(stringifyDescription(normalized.description));
+      setSelectorTexts(createSelectorTextState(normalized.config.selector, definition.selectorFields));
     }
     setOpRows(nextRows);
     setOriginalOpRows(nextRows);
@@ -545,17 +565,24 @@ export function EffectPanel() {
                     <div key={field.key}>
                       <label className="block text-xs text-gray-400 mb-1">{field.label}</label>
                       <Input
-                        value={field.stringify(selector[field.key])}
-                        onChange={(event) => setEffect((current) => current ? ({
-                          ...current,
-                          config: createGameEffectConfig(current.effectType, {
-                            selector: {
-                              ...current.config.selector,
-                              [field.key]: field.parse(event.target.value),
-                            },
-                            args: current.config.args,
-                          }, systemData),
-                        }) : current)}
+                        value={selectorTexts[field.key] ?? field.stringify(selector[field.key])}
+                        onChange={(event) => {
+                          const nextText = event.target.value;
+                          setSelectorTexts((current) => ({
+                            ...current,
+                            [field.key]: nextText,
+                          }));
+                          setEffect((current) => current ? ({
+                            ...current,
+                            config: createGameEffectConfig(current.effectType, {
+                              selector: {
+                                ...current.config.selector,
+                                [field.key]: field.parse(nextText),
+                              },
+                              args: current.config.args,
+                            }, systemData),
+                          }) : current);
+                        }}
                         placeholder={field.placeholder}
                       />
                     </div>

@@ -74,6 +74,11 @@ All notable changes to this project are documented in this file.
   - 方案: [202604241832_equipment-upgrade-costs](archive/2026-04/202604241832_equipment-upgrade-costs/)
   - 决策: equipment-upgrade-costs#D002(每级成功率属于装备数据，不再由强化插件公式统一管理)
 
+- **[效果模式条件字段输入]**: 条件字段的槽位索引、装备槽位类型、武器类型、防具类型改为保留正在输入的原始文本，不再在每次按键后立即格式化成数值数组字符串；现在可直接输入 `0`，也可用中文逗号 `，` 连续输入列表，保存/自动 flush 时仍按数值数组写回。 — by Zaun
+  - 类型: 快速修复（无方案包）
+  - 验证: `npm test -- --run src/components/panels/EffectPanel.test.tsx` ✅；`npm run build` ✅
+  - 文件: `frontend/src/components/panels/EffectPanel.tsx`, `frontend/src/components/panels/EffectPanel.test.tsx`
+
 ### Fixed
 - **[装备模式与系统规则]**: 改造模式面板现在只展示当前槽位来源类型对应的目标规则，隐藏同槽位其它来源类型的互转规则；读取和保存时都会保留 transition 自身的 `fromEquipTypeId`，避免主炮槽里重复出现多个“主炮”目标并防止保存污染互转数据。 — by Zaun
   - 文件: `frontend/src/components/panels/RefitPanel.tsx`, `frontend/src/services/EquipExtensionsService.ts`, `frontend/src/services/EquipExtensionsService.test.ts`
