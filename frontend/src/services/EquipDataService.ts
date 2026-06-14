@@ -56,6 +56,17 @@ const getDatabaseEntries = (data: unknown[] | null): Array<{ index: number; item
   }
   return result;
 };
+const hasDisplayName = (value: unknown): boolean => {
+  return typeof value === 'string' && value.trim().length > 0;
+};
+
+const isSelectableWeaponItem = (item: RPGItem): boolean => {
+  return asInt(item.id) > 0 && asInt(item.wtypeId) > 0 && hasDisplayName(item.name);
+};
+
+const isSelectableArmorItem = (item: RPGItem): boolean => {
+  return asInt(item.id) > 0 && asInt(item.atypeId) > 0 && hasDisplayName(item.name);
+};
 
 export const getSystemRecord = (systemData: unknown): RecordLike | null => extractSystemRecord(systemData);
 
@@ -120,10 +131,10 @@ export const getEquipCandidateOptions = (
 
   const items = source === 'weapon'
     ? getDatabaseEntries(weaponsData)
-      .filter(({ index }) => asInt(weaponTypeAssignments?.[index]) === slotTypeId)
+      .filter(({ index, item }) => isSelectableWeaponItem(item) && asInt(weaponTypeAssignments?.[index]) === slotTypeId)
       .map(({ item }) => item)
     : getDatabaseEntries(armorsData)
-      .filter(({ item }) => asInt(item.etypeId) === slotTypeId)
+      .filter(({ item }) => isSelectableArmorItem(item) && asInt(item.etypeId) === slotTypeId)
       .map(({ item }) => item);
 
   const options = items.map((item) => {

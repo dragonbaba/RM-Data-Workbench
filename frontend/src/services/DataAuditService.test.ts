@@ -373,6 +373,7 @@ describe('DataAuditService', () => {
           repeatTimeFloat: 0,
           actionRepeat: 1,
           allowSkillBreak: true,
+          forceWhenValid: false,
         },
       },
     });
@@ -697,6 +698,65 @@ describe('DataAuditService', () => {
     expect(summary.repairedFiles).toBe(0);
     expect(summary.repairedEntries).toBe(0);
     expect(writeJson).not.toHaveBeenCalled();
+  });
+  it('修复模式会按装备语义同步武器和防具装备类型', async () => {
+    const writes: Array<{ filePath: string; data: unknown }> = [];
+    const summary = await auditAndRepairDataFiles('D:/Project/data', {
+      readJson: vi.fn(async (filePath: string) => {
+        if (filePath.endsWith('System.json')) {
+          return {
+            elements: ['', '通常'],
+            weaponTypes: ['', '主炮', '副炮', 'SE', '人类通用武器', '猎人武器', '机械师武器', '战士武器', '摔跤手武器', '护士武器', '实验体改造人武器', '艺术家武器', '波奇武器'],
+          };
+        }
+        if (filePath.endsWith('Weapons.json')) {
+          return [
+            null,
+            { id: 1, name: '巡航战车炮', wtypeId: 1, etypeId: 1 },
+            { id: 2, name: '超震动罗勒莱', wtypeId: 2, etypeId: 10 },
+            { id: 3, name: '托卢', wtypeId: 3, etypeId: 0 },
+          ];
+        }
+        if (filePath.endsWith('Armors.json')) {
+          return [
+            null,
+            { id: 61, name: '--发动机', atypeId: 0, etypeId: 8 },
+            { id: 101, name: '--C装置', atypeId: 0, etypeId: 9 },
+            { id: 120, name: '--底盘', atypeId: 0, etypeId: 10 },
+          ];
+        }
+        if (filePath.endsWith('EquipExtensions.json')) {
+          return {
+            weaponEquipTypes: [null, 1, 10, 0],
+            systemWeaponEquipTypes: [1, 10, 11, 12],
+            actorEquipSlots: [null],
+            actorEquips: [null],
+            actorRefitRules: [null],
+          };
+        }
+        if (filePath.endsWith('Actors.json')) {
+          return [null];
+        }
+        return [null];
+      }),
+      writeJson: vi.fn(async (filePath: string, data: unknown) => {
+        writes.push({ filePath, data: JSON.parse(JSON.stringify(data)) });
+        return null;
+      }),
+    });
+
+    const weaponsPayload = writes.find((item) => item.filePath.endsWith('Weapons.json'))?.data as unknown[];
+    const armorsPayload = writes.find((item) => item.filePath.endsWith('Armors.json'))?.data as unknown[];
+    const extensionsPayload = writes.find((item) => item.filePath.endsWith('EquipExtensions.json'))?.data as Record<string, unknown>;
+
+    expect(summary.repairedFiles).toBeGreaterThan(0);
+    expect(weaponsPayload[1]).toMatchObject({ etypeId: 10 });
+    expect(weaponsPayload[2]).toMatchObject({ etypeId: 11 });
+    expect(weaponsPayload[3]).toMatchObject({ etypeId: 12 });
+    expect(armorsPayload[1]).toMatchObject({ etypeId: 7 });
+    expect(armorsPayload[2]).toMatchObject({ etypeId: 8 });
+    expect(armorsPayload[3]).toMatchObject({ etypeId: 9 });
+    expect(extensionsPayload.weaponEquipTypes).toEqual([null, 10, 11, 12]);
   });
 
   it('修复 Weapons.json 时不会破坏受控线形范围', async () => {

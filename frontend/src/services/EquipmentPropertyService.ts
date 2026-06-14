@@ -8,6 +8,7 @@ import type {
 } from '../types';
 import { extractSystemRecord } from './DataFileFormatService';
 import { normalizeEquipmentQualityFields } from './EquipmentQualityProtocolService';
+import { getExpectedWeaponEquipTypeByWtypeId } from './EquipExtensionsService';
 import { normalizeWeaponRangeValues } from './RangePropertyService';
 import {
   EQUIP_EXTRA_PARAM_KEYS,
@@ -25,6 +26,8 @@ interface EquipmentNormalizationOptions {
   isWeapon?: boolean;
   isArmor?: boolean;
   systemData?: unknown;
+  syncWeaponEquipTypeId?: boolean;
+  syncArmorHeadingEquipTypeId?: boolean;
 }
 
 const DEFAULT_FLOAT_PARAM_LENGTH = 8;
@@ -33,6 +36,18 @@ const AMMO_CAPACITY_FIELD_INDEX = 4;
 const TANK_SECONDARY_WEAPON_TYPE_ID = 2;
 const WEAPON_INTERCEPTABLE_MODES = new Set([-1, 0, 1]);
 
+const ARMOR_HEADING_EQUIP_TYPE_ID_BY_NAME = Object.freeze({
+  '-头': 2,
+  '--发动机': 7,
+  '--引擎': 7,
+  '--C装置': 8,
+  '--c装置': 8,
+  '--底盘': 9,
+  '-手': 3,
+  '-身': 4,
+  '-足': 5,
+  '-饰品': 6,
+});
 const EMPTY_PARAM_TEMPLATE: ParamTemplate = Object.freeze({
   value: 0,
   floatValue: 0,
@@ -88,6 +103,18 @@ const toIntOrZero = (value: unknown): number => {
   if (!Number.isFinite(numeric)) return 0;
   return Math.trunc(numeric);
 };
+export const getExpectedWeaponEquipTypeId = (item: unknown): number | null => {
+  if (!isRecord(item) || !hasOwn(item, 'wtypeId')) return null;
+  return getExpectedWeaponEquipTypeByWtypeId(item.wtypeId);
+};
+
+export const getExpectedArmorEquipTypeId = (item: unknown): number | null => {
+  if (!isRecord(item) || !hasOwn(item, 'atypeId')) return null;
+  if (toIntOrZero(item.atypeId) !== 0) return null;
+  const name = typeof item.name === 'string' ? item.name.trim() : '';
+  const expected = ARMOR_HEADING_EQUIP_TYPE_ID_BY_NAME[name as keyof typeof ARMOR_HEADING_EQUIP_TYPE_ID_BY_NAME];
+  return typeof expected === 'number' ? expected : null;
+};
 
 const toFloatOrZero = (value: unknown): number => {
   const numeric = typeof value === 'number' ? value : Number(value);
@@ -98,6 +125,14 @@ const toFloatOrZero = (value: unknown): number => {
 const normalizeWeaponImageId = (value: unknown): number => {
   const numeric = toIntOrZero(value);
   return numeric >= 1 ? numeric : 1;
+};
+const normalizeFloatParams = (value: unknown): number[] => {
+  const source = Array.isArray(value) ? value : [];
+  const normalized = new Array<number>(DEFAULT_FLOAT_PARAM_LENGTH).fill(0);
+  for (let index = 0; index < DEFAULT_FLOAT_PARAM_LENGTH; index++) {
+    normalized[index] = toFloatOrZero(source[index]);
+  }
+  return normalized;
 };
 
 const hasOwn = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key);
@@ -194,7 +229,7 @@ const normalizeParamGroup = <T extends ParamTemplate[]>(
   return normalized as T;
 };
 
-const shouldUseHiddenAttackSkillField = (item: Record<string, unknown>): boolean => {
+const shouldUseHiddenAttackSkillField = (item: { etypeId?: unknown }): boolean => {
   return TANK_HIDDEN_ATTACK_SKILL_EQUIP_TYPES.has(Math.max(0, toIntOrZero(item.etypeId)));
 };
 
@@ -241,13 +276,6 @@ export const normalizeArmorElementRateFloats = (value: unknown, systemData: unkn
   return normalized;
 };
 
-const normalizeFloatParams = (value: unknown): number[] => {
-  const source = Array.isArray(value) ? value : [];
-  return new Array<number>(DEFAULT_FLOAT_PARAM_LENGTH)
-    .fill(0)
-    .map((_, index) => toFloatOrZero(source[index]));
-};
-
 export function normalizeEquipmentDataEntry(
   item: unknown,
   options: EquipmentNormalizationOptions = {},
@@ -279,9 +307,15 @@ export function normalizeEquipmentDataEntry(
   }
 
   if (options.isArmor) {
+    if (options.syncArmorHeadingEquipTypeId) {
+      const expectedEquipTypeId = getExpectedArmorEquipTypeId(item);
+      if (expectedEquipTypeId !== null) {
+        normalized.etypeId = expectedEquipTypeId;
+      }
+    }
     normalized.elementRates = normalizeArmorElementRates(item.elementRates, options.systemData);
     normalized.elementRateFloats = normalizeArmorElementRateFloats(item.elementRateFloats, options.systemData);
-    if (shouldUseHiddenAttackSkillField(item)) {
+    if (shouldUseHiddenAttackSkillField(normalized)) {
       normalized.hiddenAttackSkillId = Math.max(0, toIntOrZero(item.hiddenAttackSkillId));
     } else {
       delete normalized.hiddenAttackSkillId;
@@ -289,6 +323,12 @@ export function normalizeEquipmentDataEntry(
   }
 
   if (options.isWeapon) {
+    if (options.syncWeaponEquipTypeId) {
+      const expectedEquipTypeId = getExpectedWeaponEquipTypeId(item);
+      if (expectedEquipTypeId !== null) {
+        normalized.etypeId = expectedEquipTypeId;
+      }
+    }
     const rangeValues = normalizeWeaponRangeValues(item);
     normalized.attackSkillId = Math.max(0, toIntOrZero(item.attackSkillId));
     normalized.interceptableMode = normalizeWeaponInterceptableMode(item.interceptableMode);

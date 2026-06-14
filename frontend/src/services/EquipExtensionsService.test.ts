@@ -3,9 +3,12 @@ import {
   createDefaultEquipExtensions,
   getActorEquipStateFromExtensions,
   getActorRefitSlotsFromExtensions,
+  getExpectedWeaponEquipTypeByWtypeId,
   getWeaponEquipTypeAtIndex,
   normalizeEquipExtensions,
   previewEquipExtensionsNormalization,
+  remapWeaponEquipTypeIndexes,
+  repairWeaponEquipTypes,
 } from './EquipExtensionsService';
 
 describe('EquipExtensionsService', () => {
@@ -37,6 +40,45 @@ describe('EquipExtensionsService', () => {
       actorEquips: [null, [1, 2], [3], []],
       actorRefitRules: [null, { slots: [] }, { slots: [] }, { slots: [] }],
     });
+  });
+  it('derives weapon equip type from weapon type semantics', () => {
+    expect(getExpectedWeaponEquipTypeByWtypeId(1)).toBe(10);
+    expect(getExpectedWeaponEquipTypeByWtypeId(2)).toBe(11);
+    expect(getExpectedWeaponEquipTypeByWtypeId(3)).toBe(12);
+    expect(getExpectedWeaponEquipTypeByWtypeId(4)).toBe(1);
+    expect(getExpectedWeaponEquipTypeByWtypeId(12)).toBe(1);
+    expect(getExpectedWeaponEquipTypeByWtypeId(0)).toBe(0);
+    expect(getExpectedWeaponEquipTypeByWtypeId(undefined)).toBeNull();
+  });
+
+  it('repairs weapon equip assignments from weapon wtype data', () => {
+    const repaired = repairWeaponEquipTypes(
+      [null, 1, 10, 0, 12],
+      [
+        null,
+        { id: 1, name: '巡航战车炮', wtypeId: 1 },
+        { id: 2, name: '超震动罗勒莱', wtypeId: 2 },
+        { id: 3, name: '--主炮--通常单体', wtypeId: 0 },
+        { id: 4, name: '托卢', wtypeId: 3 },
+      ],
+      5,
+    );
+
+    expect(repaired).toEqual([null, 10, 11, 0, 12]);
+  });
+
+  it('remaps stored weapon equip type indexes when equipTypes are reindexed', () => {
+    const remapped = remapWeaponEquipTypeIndexes(
+      [null, 10, 11, 12, 1, 0],
+      new Map([
+        [1, 1],
+        [10, 7],
+        [11, 8],
+        [12, 9],
+      ]),
+    );
+
+    expect(remapped).toEqual([null, 7, 8, 9, 1, 0]);
   });
 
   it('does not mark normalized data changed when only object key order differs', () => {

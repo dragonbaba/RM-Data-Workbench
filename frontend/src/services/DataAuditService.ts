@@ -1,6 +1,10 @@
 import { normalizeActorDataEntry } from './ActorPropertyService';
 import { normalizeEnemyDataEntry } from './EnemyPropertyService';
-import { normalizeEquipmentDataEntry } from './EquipmentPropertyService';
+import {
+  getExpectedArmorEquipTypeId,
+  getExpectedWeaponEquipTypeId,
+  normalizeEquipmentDataEntry,
+} from './EquipmentPropertyService';
 import { EFFECTS_FILE_NAME, normalizeEffectIdList, normalizeGameEffectEntry } from './GameEffectService';
 import { normalizePassiveStateHostEntry } from './PassiveStatePropertyService';
 import { arePlainDataEqual } from './PlainDataCompare';
@@ -9,7 +13,11 @@ import { normalizeCommonRangeDataEntry } from './RangePropertyService';
 import { normalizeSkillDataEntry } from './SkillPropertyService';
 import { normalizeStateDataEntry } from './StateChargePropertyService';
 import { normalizeStandardDataForEditor } from './DataFileFormatService';
-import { EQUIP_EXTENSIONS_FILE_NAME, normalizeEquipExtensions } from './EquipExtensionsService';
+import {
+  EQUIP_EXTENSIONS_FILE_NAME,
+  normalizeEquipExtensions,
+  repairWeaponEquipTypes,
+} from './EquipExtensionsService';
 import {
   BASE_PARAM_KEYS,
   OWNER_EXTRA_PARAM_KEYS,
@@ -110,6 +118,22 @@ export interface DataAuditDependencies {
   readJson: (filePath: string) => Promise<unknown>;
   writeJson: (filePath: string, data: unknown) => Promise<unknown>;
 }
+const countChangedIndexedValues = (
+  before: unknown,
+  after: Array<number | null>,
+): number => {
+  const source = Array.isArray(before) ? before : [];
+  let changed = 0;
+  const maxLength = Math.max(source.length, after.length);
+  for (let index = 1; index < maxLength; index++) {
+    const beforeValue = Math.max(0, toFiniteNumber(source[index]) ?? 0);
+    const afterValue = Math.max(0, toFiniteNumber(after[index]) ?? 0);
+    if (beforeValue !== afterValue) {
+      changed++;
+    }
+  }
+  return changed;
+};
 
 const joinPath = (basePath: string, fileName: string) => {
   if (!basePath) return fileName;
@@ -200,11 +224,31 @@ const normalizeEntryByFileName = (
   }
 
   if (fileName === 'Weapons.json') {
-    return normalizePassiveStateHostEntry(normalizeEquipmentDataEntry(entry, { isWeapon: true, systemData }) ?? entry) ?? entry;
+    const normalized = normalizePassiveStateHostEntry(normalizeEquipmentDataEntry(entry, {
+      isWeapon: true,
+      systemData,
+      syncWeaponEquipTypeId: true,
+    }) ?? entry) ?? entry;
+    const expectedEquipTypeId = getExpectedWeaponEquipTypeId(normalized);
+    if (expectedEquipTypeId === null) return normalized;
+    const currentEquipTypeId = Math.max(0, toFiniteNumber((normalized as Record<string, unknown>).etypeId) ?? 0);
+    return currentEquipTypeId === expectedEquipTypeId
+      ? normalized
+      : { ...(normalized as Record<string, unknown>), etypeId: expectedEquipTypeId };
   }
 
   if (fileName === 'Armors.json') {
-    return normalizePassiveStateHostEntry(normalizeEquipmentDataEntry(entry, { isArmor: true, systemData }) ?? entry) ?? entry;
+    const normalized = normalizePassiveStateHostEntry(normalizeEquipmentDataEntry(entry, {
+      isArmor: true,
+      systemData,
+      syncArmorHeadingEquipTypeId: true,
+    }) ?? entry) ?? entry;
+    const expectedEquipTypeId = getExpectedArmorEquipTypeId(normalized);
+    if (expectedEquipTypeId === null) return normalized;
+    const currentEquipTypeId = Math.max(0, toFiniteNumber((normalized as Record<string, unknown>).etypeId) ?? 0);
+    return currentEquipTypeId === expectedEquipTypeId
+      ? normalized
+      : { ...(normalized as Record<string, unknown>), etypeId: expectedEquipTypeId };
   }
 
   if (fileName === 'Projectiles.json') {
@@ -830,22 +874,38 @@ export async function auditAndRepairDataFiles(
     tankActorIndexes,
   );
   const rawEquipRecord = asRecord(rawEquipExtensions);
+  const repairedWeaponEquipTypeValues = repairWeaponEquipTypes(
+    normalizedEquipExtensions.data.weaponEquipTypes,
+    normalizedWeaponsData,
+    normalizedWeaponsData.length,
+  );
+  const nextEquipExtensionsData = arePlainDataEqual(
+    repairedWeaponEquipTypeValues,
+    normalizedEquipExtensions.data.weaponEquipTypes,
+  )
+    ? normalizedEquipExtensions.data
+    : {
+        ...normalizedEquipExtensions.data,
+        weaponEquipTypes: repairedWeaponEquipTypeValues,
+      };
   const rawRefitRules = Array.isArray(rawEquipRecord?.actorRefitRules) ? rawEquipRecord.actorRefitRules : [];
-  let repairedEquipExtensionEntries = 0;
+  let repairedEquipExtensionEntries = countChangedIndexedValues(rawEquipRecord?.weaponEquipTypes, nextEquipExtensionsData.weaponEquipTypes);
   for (const actorIndex of tankActorIndexes) {
-    if (!arePlainDataEqual(rawRefitRules[actorIndex], normalizedEquipExtensions.data.actorRefitRules[actorIndex])) {
+    if (!arePlainDataEqual(rawRefitRules[actorIndex], nextEquipExtensionsData.actorRefitRules[actorIndex])) {
       repairedEquipExtensionEntries++;
     }
   }
-  if (normalizedEquipExtensions.changed) {
-    await deps.writeJson(equipExtensionsPath, normalizedEquipExtensions.data);
+  const equipExtensionsChanged = normalizedEquipExtensions.changed
+    || !arePlainDataEqual(nextEquipExtensionsData.weaponEquipTypes, normalizedEquipExtensions.data.weaponEquipTypes);
+  if (equipExtensionsChanged) {
+    await deps.writeJson(equipExtensionsPath, nextEquipExtensionsData);
   }
   results.push({
     fileName: EQUIP_EXTENSIONS_FILE_NAME,
     filePath: equipExtensionsPath,
-    checkedEntries: tankActorIndexes.length,
+    checkedEntries: Math.max(0, normalizedWeaponsData.length - 1) + tankActorIndexes.length,
     repairedEntries: repairedEquipExtensionEntries,
-    changed: normalizedEquipExtensions.changed,
+    changed: equipExtensionsChanged,
   });
 
   return {

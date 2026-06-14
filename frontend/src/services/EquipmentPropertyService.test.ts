@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getExpectedArmorEquipTypeId,
+  getExpectedWeaponEquipTypeId,
   normalizeArmorElementRateFloats,
   normalizeArmorElementRates,
   normalizeEquipUpgradeCosts,
@@ -99,6 +101,51 @@ describe('EquipmentPropertyService', () => {
     );
 
     expect(normalized?.vehicleParams?.[4]?.value).toBe(-1);
+  });
+  it('会按 wtypeId 推导并同步武器装备类型', () => {
+    expect(getExpectedWeaponEquipTypeId({ wtypeId: 1 })).toBe(10);
+    expect(getExpectedWeaponEquipTypeId({ wtypeId: 2 })).toBe(11);
+    expect(getExpectedWeaponEquipTypeId({ wtypeId: 3 })).toBe(12);
+    expect(getExpectedWeaponEquipTypeId({ wtypeId: 4 })).toBe(1);
+
+    const normalized = normalizeEquipmentDataEntry(
+      {
+        id: 66,
+        name: '巡航战车炮',
+        wtypeId: 1,
+        etypeId: 1,
+      },
+      {
+        isWeapon: true,
+        syncWeaponEquipTypeId: true,
+      },
+    );
+
+    expect(normalized).toMatchObject({ etypeId: 10 });
+  });
+
+  it('会按标题修正战车防具分组占位条目的装备类型', () => {
+    expect(getExpectedArmorEquipTypeId({ name: '--发动机', atypeId: 0 })).toBe(7);
+    expect(getExpectedArmorEquipTypeId({ name: '--C装置', atypeId: 0 })).toBe(8);
+    expect(getExpectedArmorEquipTypeId({ name: '--底盘', atypeId: 0 })).toBe(9);
+
+    const normalized = normalizeEquipmentDataEntry(
+      {
+        id: 120,
+        name: '--底盘',
+        atypeId: 0,
+        etypeId: 10,
+      },
+      {
+        isArmor: true,
+        syncArmorHeadingEquipTypeId: true,
+        systemData: {
+          elements: ['', '通常'],
+        },
+      },
+    );
+
+    expect(normalized).toMatchObject({ etypeId: 9 });
   });
 
   it('会规范装备锁定品质等级到 0-6', () => {

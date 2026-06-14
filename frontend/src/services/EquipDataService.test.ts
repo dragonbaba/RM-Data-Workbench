@@ -79,4 +79,33 @@ describe('EquipDataService', () => {
     expect(getEquipSourceKind(7, [10, 11, 12])).toBe('armor');
     expect(options.map((item) => item.value)).toEqual([0, 2]);
   });
+  it('skips placeholder and empty equipment entries in candidate lists', () => {
+    const weaponOptions = getEquipCandidateOptions(
+      10,
+      [10, 11, 12],
+      [null, 10, 10, 10],
+      [
+        null,
+        { id: 1, name: '--主炮--通常单体', etypeId: 10, wtypeId: 0 },
+        { id: 2, name: '', etypeId: 10, wtypeId: 1 },
+        { id: 3, name: '有效主炮', etypeId: 10, wtypeId: 1 },
+      ],
+      [null],
+    );
+    const armorOptions = getEquipCandidateOptions(
+      7,
+      [10, 11, 12],
+      [null],
+      [null],
+      [
+        null,
+        { id: 10, name: '--发动机', etypeId: 7, atypeId: 0 },
+        { id: 11, name: '', etypeId: 7, atypeId: 1 },
+        { id: 12, name: '有效引擎', etypeId: 7, atypeId: 1 },
+      ],
+    );
+
+    expect(weaponOptions.map((item) => item.value)).toEqual([0, 3]);
+    expect(armorOptions.map((item) => item.value)).toEqual([0, 12]);
+  });
 });

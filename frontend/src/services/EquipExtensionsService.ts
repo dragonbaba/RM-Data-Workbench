@@ -93,6 +93,45 @@ const normalizeNumberArray = (value: unknown): number[] => {
   if (!Array.isArray(value)) return [];
   return value.map(asInt);
 };
+const HUMAN_WEAPON_EQUIP_TYPE_ID = 1;
+const TANK_MAIN_WEAPON_TYPE_ID = 1;
+const TANK_SECONDARY_WEAPON_TYPE_ID = 2;
+const TANK_SE_WEAPON_TYPE_ID = 3;
+const HUMAN_WEAPON_TYPE_ID_START = 4;
+const HUMAN_WEAPON_TYPE_ID_END = 12;
+
+export const getExpectedWeaponEquipTypeByWtypeId = (wtypeId: unknown): number | null => {
+  if (wtypeId === undefined || wtypeId === null || wtypeId === '') return null;
+  const normalizedWtypeId = asInt(wtypeId);
+  if (normalizedWtypeId === TANK_MAIN_WEAPON_TYPE_ID) return 10;
+  if (normalizedWtypeId === TANK_SECONDARY_WEAPON_TYPE_ID) return 11;
+  if (normalizedWtypeId === TANK_SE_WEAPON_TYPE_ID) return 12;
+  if (normalizedWtypeId >= HUMAN_WEAPON_TYPE_ID_START && normalizedWtypeId <= HUMAN_WEAPON_TYPE_ID_END) {
+    return HUMAN_WEAPON_EQUIP_TYPE_ID;
+  }
+  return 0;
+};
+
+export const repairWeaponEquipTypes = (
+  value: unknown,
+  weaponsData: unknown[] | null | undefined,
+  expectedLength: number,
+): Array<number | null> => {
+  const normalized = normalizeIndexedNumbers(value, expectedLength);
+  if (!Array.isArray(weaponsData)) return normalized;
+  for (let index = 1; index < expectedLength; index++) {
+    const weapon = asRecord(weaponsData[index]);
+    if (!weapon) {
+      normalized[index] = 0;
+      continue;
+    }
+    const expectedEquipTypeId = getExpectedWeaponEquipTypeByWtypeId(weapon.wtypeId);
+    if (expectedEquipTypeId !== null) {
+      normalized[index] = expectedEquipTypeId;
+    }
+  }
+  return normalized;
+};
 
 const normalizeIndexedNumbers = (value: unknown, expectedLength: number): Array<number | null> => {
   const source = Array.isArray(value) ? value : [];
@@ -586,6 +625,20 @@ export const getActorEquipStateFromExtensions = (
     equipSlots: nextEquipSlots,
     equips,
   };
+};
+export const remapWeaponEquipTypeIndexes = (
+  weaponEquipTypes: Array<number | null>,
+  nextIndexByOriginalIndex: Map<number, number>,
+): Array<number | null> => {
+  const nextWeaponEquipTypes: Array<number | null> = new Array(weaponEquipTypes.length).fill(0);
+  nextWeaponEquipTypes[0] = null;
+  for (let index = 1; index < weaponEquipTypes.length; index++) {
+    const currentTypeId = asInt(weaponEquipTypes[index]);
+    nextWeaponEquipTypes[index] = currentTypeId > 0
+      ? (nextIndexByOriginalIndex.get(currentTypeId) || 0)
+      : 0;
+  }
+  return nextWeaponEquipTypes;
 };
 
 export const getWeaponEquipTypeAtIndex = (

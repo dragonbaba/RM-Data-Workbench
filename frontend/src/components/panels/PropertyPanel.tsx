@@ -1878,6 +1878,7 @@ export function PropertyPanel() {
     const currentCommonRangeValues = supportsCommonRange ? getCommonRangeValues(sourceItem) : null;
     const currentWeaponRangeValues = isWeaponItem ? getWeaponRangeValues(sourceItem) : null;
 
+    const nextEquipTypeId = isWeaponItem ? toIntOrZero(values[EQUIP_TYPE_FIELD_KEY]) : 0;
     const shouldUpdateItem = (supportsFlatBaseAttributes && !areNumberArraysEqual(sourceItem.params, newParams))
       || (supportsFlatFloatBaseAttributes && !areNumberArraysEqual(sourceItem.floatParams, newFloatParams))
       || (supportsPrice && toIntOrZero(sourceItem.price) !== nextPrice)
@@ -1931,8 +1932,8 @@ export function PropertyPanel() {
       || (isActorFile && nextActorValues !== null && hasActorEditorChanges(sourceItem, nextActorValues))
       || ((isWeaponItem || isArmorItem) && (sourceItem.qualityLock === true) !== nextQualityLock)
       || ((isWeaponItem || isArmorItem) && normalizeEquipmentQualityLevel(sourceItem.qualityLevel) !== nextQualityLevel)
+      || (isWeaponItem && toIntOrZero(sourceItem.etypeId) !== nextEquipTypeId)
       || (isEnemyFile && nextEnemyValues !== null && hasEnemyEditorChanges(sourceItem as RPGEnemy, nextEnemyValues, skillsData));
-    const nextEquipTypeId = isWeaponItem ? toIntOrZero(values[EQUIP_TYPE_FIELD_KEY]) : 0;
 
     if (shouldUpdateItem) {
       pendingDraftRef.current = hasCustomChanges
@@ -1971,10 +1972,10 @@ export function PropertyPanel() {
           dynamicWeaknessGroups: nextEnemyDynamicWeaknessGroups ?? [],
         } : {}),
         ...((isWeaponItem || isArmorItem) ? { qualityLock: nextQualityLock, qualityLevel: nextQualityLevel } : {}),
+        ...(isWeaponItem ? { etypeId: nextEquipTypeId } : {}),
         ...(supportsCommonRange && nextCommonRangeValues ? nextCommonRangeValues : {}),
         ...(supportsCommonRange && nextOrderEffects ? { orderEffects: nextOrderEffects as BattleOrderEffects } : {}),
         ...(isWeaponItem && nextWeaponRangeValues ? nextWeaponRangeValues : {}),
-        params: supportsFlatBaseAttributes ? newParams : sourceItem.params,
         floatParams: supportsFlatFloatBaseAttributes ? newFloatParams : sourceItem.floatParams,
       };
 

@@ -37,6 +37,11 @@ All notable changes to this project are documented in this file.
 
 - **[敌人属性与技能覆盖]**: 敌人技能覆盖面板新增 `skillUseCount` 技能使用次数上限字段（-1=无限次），`EnemyPropertyService` 新增 `normalizeSkillUseCount` 并接入修复模式自动补齐缺失值为 `-1`；属性面板和技能覆盖卡片所有 `<Select>` 统一补上 `showSearch + optionFilterProp="label"` 实现输入捕获。 — by Zaun
   - 文件: `frontend/src/types/index.ts`, `frontend/src/services/EnemyPropertyService.ts`, `frontend/src/components/panels/EnemyActionOverridesCard.tsx`, `frontend/src/components/panels/PropertyPanel.tsx`, `frontend/src/services/DataAuditService.test.ts`
+- **[敌人强制技能选择标记]**: 敌人技能覆盖面板新增 `forceWhenValid` 布尔开关（默认 false），写入 `actionOverrides[skillId]`；`EnemyPropertyService` 与 `DataAuditService` 修复模式统一补齐缺失字段，运行时由 MyGame `Zaun_GameBattler` 在行动有效时强制选中该技能。 — by Zaun
+  - 类型: 功能新增（无方案包）
+  - 文件: `frontend/src/types/index.ts`, `frontend/src/services/EnemyPropertyService.ts`, `frontend/src/components/panels/EnemyActionOverridesCard.tsx`, `frontend/src/services/EnemyPropertyService.test.ts`, `frontend/src/services/DataAuditService.test.ts`, `frontend/src/components/panels/EnemyActionOverridesCard.test.tsx`, `D:/RMProjects/MyGame/js/plugins/Zaun_GameBattler.js`
+  - 验证: `npm test -- EnemyPropertyService.test.ts DataAuditService.test.ts EnemyActionOverridesCard.test.tsx`; `npx tsc --noEmit`; `node --check D:/RMProjects/MyGame/js/plugins/Zaun_GameBattler.js`
+
 - **[数据加载与地图管理]**: 地图属性面板新增 `fixedWeather` 固定天气字段，下拉维护 `none/rain/snow/wind/bubble/blood_rain`，空值保存为未固定；字段写入 `MapXXX.json` 顶层并由 MyGame 运行时 `TimeSystem` 消费。 — by Zaun
   - 方案: [202605180123_fixed-map-weather](D:/RMProjects/MyGame/.helloagents/archive/2026-05/202605180123_fixed-map-weather/)
   - 决策: fixed-map-weather#D001(固定地图天气由 TimeSystem 管理)
@@ -149,6 +154,12 @@ All notable changes to this project are documented in this file.
 - **[前后端交互与性能修复记录]**: 属性面板的额外统一属性、车属性和基础强化卡片已统一替换易混淆列名；额外/车属性改为“未强化值/随机浮动/每级强化追加/追加浮动”，基础强化改为“配置值/配置浮动/每级追加/追加浮动”，数据结构仍保持 `value/floatValue/upgradeValue/upgradeFloatValue` 不变。 — by Zaun
   - 类型: 快速修改（无方案包）
   - 文件: frontend/src/components/panels/PropertyPanel.tsx:117-3673
+
+### Fixed
+- **[装备类型语义修复与重映射保护]**: 修复 `PropertyPanel` 只写 `EquipExtensions.weaponEquipTypes` 不写 `Weapons.json.etypeId` 的双事实源问题，武器保存链现在同步回写原始条目 `etypeId`；`EquipPanel` 保存 `equipTypes/systemWeaponEquipTypes` 重排时新增 `weaponEquipTypes` 同步重映射，避免索引改名后整批武器语义漂移；`DataAuditService` 修复模式新增装备语义校验，按 `wtypeId` 回收武器 `主炮/副炮/SE/人类武器` 映射，并修正 `--发动机/--C装置/--底盘` 防具分组标题的错误 `etypeId`；装备候选列表也不再显示空名或占位条目。 — by Zaun
+  - 类型: 修复（无方案包）
+  - 文件: `frontend/src/components/panels/EquipPanel.tsx`, `frontend/src/components/panels/PropertyPanel.tsx`, `frontend/src/services/EquipDataService.ts`, `frontend/src/services/EquipExtensionsService.ts`, `frontend/src/services/EquipmentPropertyService.ts`, `frontend/src/services/DataAuditService.ts`, `frontend/src/services/EquipExtensionsService.test.ts`, `frontend/src/services/EquipDataService.test.ts`, `frontend/src/services/EquipmentPropertyService.test.ts`, `frontend/src/services/DataAuditService.test.ts`
+  - 验证: `npm test -- --run src/services/EquipExtensionsService.test.ts src/services/EquipmentPropertyService.test.ts src/services/EquipDataService.test.ts src/services/DataAuditService.test.ts src/components/panels/PropertyPanel.test.tsx` ✅；`npm run build` ✅
 
 ## [0.12.0] - 2026-04-11
 

@@ -17,6 +17,7 @@ import {
 import {
   EQUIP_EXTENSIONS_FILE_NAME,
   getActorEquipStateFromExtensions,
+  remapWeaponEquipTypeIndexes,
   type EquipExtensionsData,
 } from '../../services/EquipExtensionsService';
 import { ToastManager } from '../common/ToastManager';
@@ -289,11 +290,15 @@ export function EquipPanel() {
       }
     });
 
-    const nextWeaponEquipTypes = Array.from(new Set(
+    const nextSystemWeaponEquipTypes = Array.from(new Set(
       weaponEquipTypeDrafts
         .map((draftKey) => nextIndexByDraftKey.get(draftKey) || 0)
         .filter((value) => value > 0),
     ));
+    const nextWeaponTypeAssignments = remapWeaponEquipTypeIndexes(
+      equipExtensionsData.weaponEquipTypes,
+      nextIndexByOriginalIndex,
+    );
 
     const nextSystemData = [null, {
       ...(sourceSystem as RecordLike),
@@ -310,7 +315,8 @@ export function EquipPanel() {
 
     const nextExtensions: EquipExtensionsData = {
       ...equipExtensionsData,
-      systemWeaponEquipTypes: nextWeaponEquipTypes,
+      weaponEquipTypes: nextWeaponTypeAssignments,
+      systemWeaponEquipTypes: nextSystemWeaponEquipTypes,
       actorEquipSlots: nextActorEquipSlots,
     };
 
