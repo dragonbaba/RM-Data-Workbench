@@ -39,6 +39,7 @@
   - `PropertyPanel` 会在武器数据上额外显示“攻击技能”和“攻击元素”下拉：
     - `attackSkillId` 选项来源于 `Skills.json`；
     - `attackElementId` 选项来源于 `System.json.elements`，保存值为元素索引 ID。
+  - `PropertyPanel` 在 `Items.json` 物品属性模式下不显示 Effects.json ID 引用卡片；物品的原生 `effects` 是标准 RPG 效果对象数组。当前 UI 提供“等级上限提升量”，写入顶层 `levelLimitBreakAmount` 字段，避免 RPG Maker 编辑器重写 `effects` 时丢失该业务值，并保留其他标准效果对象。
   - `PropertyPanel` 会在武器、防具属性模式下维护顶层 `upgradeCosts[]`：
     - `upgradeCosts[index]` 对应目标强化等级 `index + 1`；
     - 单级字段固定为 `successRate / goldCost / requiredItemId / requiredItemAmount / protectItemId / protectItemAmount`；
@@ -68,7 +69,7 @@
   - `frontend/src/services/EquipDataService.ts` 提供装备类型、武器型类型索引和候选装备列表的纯函数派生。
 - `frontend/src/services/EquipExtensionsService.ts` 负责扩展文件默认结构、规范化和按角色/武器索引读取。
 - `frontend/src/services/EquipExtensionsService.ts` 的 `normalizeEquipExtensions()` 负责补齐改造模式数据：同一槽位内已经配置到的正数装备类型会生成互相转换 transition，新增规则按目标类型已有 transition 复制 `goldCost` 与 `conditions`，让游戏运行时保持简单的 `slotIndex/from/to` 显式读取。
-- 修复模式通过 `DataAuditService` 把 `EquipExtensions.json` 纳入检查；当 `Actors.json` 中角色 `isTank === true` 且该角色 `actorRefitRules` 缺失或没有任何 transition 时，会按 `actorEquipSlots[actorId]` 生成默认战车改造模板。模板价格随 actorId 单调递增，并对同一 `slotIndex/from/to` transition 不低于前一角色，避免后续新增战车缺少改造数据。
+- 修复模式通过 `DataAuditService` 把 `EquipExtensions.json` 纳入检查；当 `Actors.json` 中角色 `isTank === true` 且该角色 `actorRefitRules` 缺失或没有任何 transition 时，会按 `actorEquipSlots[actorId]` 生成默认战车改造模板。模板价格随 actorId 单调递增，并对同一 `slotIndex/from/to` transition 不低于前一角色；战车核心槽 `slotIndex 5..8` 的默认模板会补齐 `0->7`、`0->8` 与 `7<->8` 互转，底盘 `slotIndex 9` 仍保持固定。
   - 派生逻辑不依赖 React，可独立做单元测试。
 - `RefitPanel` 只展示当前槽位类型对应的 `fromEquipTypeId` 转换目标；同槽位里的其它互转规则作为数据保留，不在当前槽位视图中重复铺开，也不会在保存时被改写来源类型。
 - 跨条目复制:

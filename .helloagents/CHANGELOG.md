@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **[物品等级上限特殊效果编辑]**: `PropertyPanel` 在 `Items.json` 属性模式下改为编辑顶层 `levelLimitBreakAmount`，避免 RPG Maker 编辑器写回 `effects` 时丢失等级上限提升量；`RPGItem` 类型新增该字段，`DataAuditService` 回归覆盖该字段和标准 effects 对象不被修复清除。 — by Zaun
+  - 类型: 功能新增（无方案包）
+  - 文件: `frontend/src/components/panels/PropertyPanel.tsx`, `frontend/src/types/index.ts`, `frontend/src/services/DataAuditService.test.ts`, `.helloagents/modules/equip-mode-and-system-rules.md`
+  - 验证: `npm test -- --run src/services/DataAuditService.test.ts`; `npm run build`
+- **[战车核心槽引擎/C装置混排]**: `EquipExtensionsService.normalizeEquipExtensions()` 移除战车核心槽 `slotIndex 5/7` 固定映射，`slotIndex 5..8` 默认模板现在会补齐 `0->7`、`0->8` 与 `7<->8` 改造 transition，允许四格在引擎和 C 装置之间混排；底盘 `slotIndex 9` 仍固定。 — by Zaun
+  - 类型: 功能调整（无方案包）
+  - 文件: `frontend/src/services/EquipExtensionsService.ts`, `frontend/src/services/EquipExtensionsService.test.ts`, `.helloagents/modules/equip-mode-and-system-rules.md`
+  - 验证: `npm test -- --run src/services/EquipExtensionsService.test.ts`
 - **[跨条目数据复制]**: 装备模式、改造模式与属性模式（强化耗材）新增"复制到…"批量复制功能，通过共享组件 `CopyToTargetModal` 支持多选目标、搜索过滤。装备模式复制角色装备槽位与初始装备；改造模式复制改造规则（含 transitions/conditions 深拷贝）；属性模式复制 `upgradeCosts` 强化耗材到其他武器/防具。复制后标记目标为已修改，遵循现有保存链路。 — by Zaun
   - 类型: 功能新增（无方案包）
   - 文件: `frontend/src/components/common/CopyToTargetModal.tsx`, `frontend/src/components/panels/EquipPanel.tsx`, `frontend/src/components/panels/RefitPanel.tsx`, `frontend/src/components/panels/PropertyPanel.tsx`, `frontend/src/components/common/CopyToTargetModal.test.tsx`

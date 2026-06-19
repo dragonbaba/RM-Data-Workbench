@@ -292,11 +292,15 @@ const completeRefitSlotTransitions = (slot: ActorRefitSlotRule): ActorRefitSlotR
 const TANK_WEAPON_EQUIP_TYPES = [10, 11, 12] as const;
 const TANK_ENGINE_EQUIP_TYPE = 7;
 const TANK_C_UNIT_EQUIP_TYPE = 8;
+const TANK_FLEXIBLE_CORE_SLOT_START = 5;
+const TANK_FLEXIBLE_CORE_SLOT_END = 8;
 const TANK_FIXED_EQUIP_TYPES_BY_SLOT: Record<number, number> = {
-  5: TANK_ENGINE_EQUIP_TYPE,
-  7: TANK_C_UNIT_EQUIP_TYPE,
   9: 9,
 };
+
+const isTankFlexibleCoreSlot = (slotIndex: number): boolean => (
+  slotIndex >= TANK_FLEXIBLE_CORE_SLOT_START && slotIndex <= TANK_FLEXIBLE_CORE_SLOT_END
+);
 
 const createNoneRefitCondition = (): RefitNoCondition => ({ kind: 'none' });
 
@@ -319,8 +323,9 @@ const getDefaultTankWeaponRefitCosts = (actorIndex: number, slotIndex: number): 
 };
 
 const getDefaultTankRefitCostStep = (slotIndex: number, toEquipTypeId: number): number => {
-  if (slotIndex === 6) return 1600;
-  if (slotIndex === 8) return 1300;
+  if (isTankFlexibleCoreSlot(slotIndex)) {
+    return toEquipTypeId === TANK_C_UNIT_EQUIP_TYPE ? 1300 : 1600;
+  }
   if (toEquipTypeId === 12) return slotIndex === 3 ? 1200 : slotIndex === 4 ? 1300 : 1100;
   if (toEquipTypeId === 11) return slotIndex === 4 ? 800 : 700;
   return slotIndex === 4 ? 1000 : 800;
@@ -357,6 +362,33 @@ const createDefaultWeaponRefitTransitions = (actorIndex: number, slotIndex: numb
   return transitions;
 };
 
+const createDefaultTankFlexibleRefitTransitions = (
+  actorIndex: number,
+  fromEquipTypeId: number,
+): RefitTransitionRule[] => {
+  const normalizedFromTypeId = asInt(fromEquipTypeId);
+  const diff = Math.max(0, actorIndex - 16);
+  const engineCost = 26500 + 1600 * diff;
+  const cUnitCost = 22700 + 1300 * diff;
+  const transitions: RefitTransitionRule[] = [];
+
+  if (normalizedFromTypeId === 0) {
+    transitions.push(
+      createDefaultRefitTransition(0, TANK_ENGINE_EQUIP_TYPE, engineCost),
+      createDefaultRefitTransition(0, TANK_C_UNIT_EQUIP_TYPE, cUnitCost),
+    );
+  }
+
+  if (normalizedFromTypeId === 0 || normalizedFromTypeId === TANK_ENGINE_EQUIP_TYPE || normalizedFromTypeId === TANK_C_UNIT_EQUIP_TYPE) {
+    transitions.push(
+      createDefaultRefitTransition(TANK_ENGINE_EQUIP_TYPE, TANK_C_UNIT_EQUIP_TYPE, cUnitCost),
+      createDefaultRefitTransition(TANK_C_UNIT_EQUIP_TYPE, TANK_ENGINE_EQUIP_TYPE, engineCost),
+    );
+  }
+
+  return transitions;
+};
+
 const createDefaultTankRefitSlotRule = (
   actorIndex: number,
   slotIndex: number,
@@ -366,18 +398,11 @@ const createDefaultTankRefitSlotRule = (
   if (fixedTypeId !== undefined && fromEquipTypeId === fixedTypeId) {
     return createDefaultActorRefitSlotRule(slotIndex, fixedTypeId);
   }
-  if (slotIndex === 6) {
+  if (isTankFlexibleCoreSlot(slotIndex)) {
     return {
       slotIndex,
-      fromEquipTypeId: 0,
-      transitions: [createDefaultRefitTransition(0, TANK_ENGINE_EQUIP_TYPE, 26500 + 1600 * Math.max(0, actorIndex - 16))],
-    };
-  }
-  if (slotIndex === 8) {
-    return {
-      slotIndex,
-      fromEquipTypeId: 0,
-      transitions: [createDefaultRefitTransition(0, TANK_C_UNIT_EQUIP_TYPE, 22700 + 1300 * Math.max(0, actorIndex - 16))],
+      fromEquipTypeId: asInt(fromEquipTypeId),
+      transitions: createDefaultTankFlexibleRefitTransitions(actorIndex, fromEquipTypeId),
     };
   }
   return {
@@ -437,6 +462,61 @@ const normalizeActorRefitRuleSet = (value: unknown): ActorRefitRuleSet => {
   return { slots };
 };
 
+const cloneRefitTransitionRule = (transition: RefitTransitionRule): RefitTransitionRule => ({
+  ...transition,
+  conditions: transition.conditions.map(cloneRefitCondition),
+});
+
+const mergeRefitTransitions = (
+  currentTransitions: RefitTransitionRule[],
+  defaultTransitions: RefitTransitionRule[],
+): RefitTransitionRule[] => {
+  const transitions = currentTransitions.map(cloneRefitTransitionRule);
+  const transitionKeys = new Set(transitions.map((transition) => `${transition.fromEquipTypeId}:${transition.toEquipTypeId}`));
+  defaultTransitions.forEach((transition) => {
+    const key = `${transition.fromEquipTypeId}:${transition.toEquipTypeId}`;
+    if (transitionKeys.has(key)) return;
+    transitions.push(cloneRefitTransitionRule(transition));
+    transitionKeys.add(key);
+  });
+  return transitions;
+};
+
+const ensureTankFlexibleRefitSlotRule = (
+  slot: ActorRefitSlotRule,
+  actorIndex: number,
+  fromEquipTypeId: number,
+): ActorRefitSlotRule => {
+  if (!isTankFlexibleCoreSlot(slot.slotIndex)) return slot;
+  return completeRefitSlotTransitions({
+    slotIndex: slot.slotIndex,
+    fromEquipTypeId: asInt(fromEquipTypeId),
+    transitions: mergeRefitTransitions(
+      slot.transitions,
+      createDefaultTankFlexibleRefitTransitions(actorIndex, fromEquipTypeId),
+    ),
+  });
+};
+
+const ensureTankFlexibleRefitRules = (
+  ruleSet: ActorRefitRuleSet,
+  actorIndex: number,
+  equipSlots: number[] | null | undefined,
+): ActorRefitRuleSet => {
+  const slots = ruleSet.slots.map((slot) => ensureTankFlexibleRefitSlotRule(
+    slot,
+    actorIndex,
+    asInt(equipSlots?.[slot.slotIndex]),
+  ));
+  const existingSlotIndexes = new Set(slots.map((slot) => slot.slotIndex));
+  for (let slotIndex = TANK_FLEXIBLE_CORE_SLOT_START; slotIndex <= TANK_FLEXIBLE_CORE_SLOT_END; slotIndex++) {
+    if (existingSlotIndexes.has(slotIndex)) continue;
+    slots.push(createDefaultTankRefitSlotRule(actorIndex, slotIndex, asInt(equipSlots?.[slotIndex])));
+  }
+  slots.sort((a, b) => a.slotIndex - b.slotIndex);
+  return { slots };
+};
+
 const normalizeIndexedActorRefitRules = (
   value: unknown,
   expectedLength: number,
@@ -450,11 +530,14 @@ const normalizeIndexedActorRefitRules = (
 
   for (let index = 1; index < expectedLength; index++) {
     const normalized = normalizeActorRefitRuleSet(source[index]);
-    if (tankActorSet.has(index) && !hasAnyRefitTransition(normalized)) {
-      result[index] = clampRefitRuleSetCostsAfterPreviousActor(
-        createDefaultTankActorRefitRuleSet(index, actorEquipSlots[index]),
-        result[index - 1],
-      );
+    if (tankActorSet.has(index)) {
+      const defaulted = hasAnyRefitTransition(normalized)
+        ? normalized
+        : clampRefitRuleSetCostsAfterPreviousActor(
+          createDefaultTankActorRefitRuleSet(index, actorEquipSlots[index]),
+          result[index - 1],
+        );
+      result[index] = ensureTankFlexibleRefitRules(defaulted, index, actorEquipSlots[index]);
     } else {
       result[index] = normalized;
     }

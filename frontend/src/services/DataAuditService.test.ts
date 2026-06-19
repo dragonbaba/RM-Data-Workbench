@@ -243,6 +243,7 @@ describe('DataAuditService', () => {
       skillEffectSpec: {
         damage: {
           damageType: 'none',
+          damageElementIds: [],
           damageElementId: 0,
           allowCritical: false,
           damageScatter: 0,
@@ -332,6 +333,7 @@ describe('DataAuditService', () => {
       skillEffectSpec: {
         damage: {
           damageType: 'none',
+          damageElementIds: [],
           damageElementId: 0,
           allowCritical: false,
           damageScatter: 0,
@@ -450,6 +452,138 @@ describe('DataAuditService', () => {
     expect(toAuditSummaryText(summary)).toContain('Effects.json 1 条');
   });
 
+  it('修复模式会补齐 damageElementIds 集合并同步 damageElementId 镜像字段', async () => {
+    const writes: Array<{ filePath: string; data: unknown }> = [];
+    const summary = await auditAndRepairDataFiles('D:/Project/data', {
+      readJson: vi.fn(async (filePath: string) => {
+        if (filePath.endsWith('System.json')) {
+          return {
+            elements: ['', '通常', '火炎', '冷气', '电气', '音波'],
+            weaponTypes: ['', '主炮', '副炮', 'SE', '人类通用武器', '猎人武器', '机械师武器', '战士武器', '摔跤手武器', '护士武器', '实验体改造人武器', '艺术家武器', '波奇武器'],
+          };
+        }
+        if (filePath.endsWith('Skills.json')) {
+          return [null, {
+            id: 1,
+            name: '旧火球',
+            projectileId: 0,
+            skillProjectileTag: -1,
+            reactionSuccessRate: 0,
+            reactionPriority: 0,
+            actionSequenceType: 0,
+            actionSequenceScriptKey: '',
+            targetType: 0,
+            targetCamp: 1,
+            targetLifeState: 1,
+            selectMode: 1,
+            areaMode: 1,
+            repeatTime: 1,
+            repeatTimeFloat: 0,
+            skillCosts: [],
+            skillEffectSpec: {
+              damage: {
+                damageType: 'hp',
+                damageElementIds: [0, 5, 5, 2],
+                damageElementId: 4,
+                allowCritical: false,
+                damageScatter: 0,
+                formula: {
+                  mode: 'basic',
+                  scriptKey: '',
+                },
+              },
+              durabilityChange: {
+                mode: 'none',
+                value: 0,
+              },
+              skillDurability: {
+                halfBrokenSkipRate: 50,
+              },
+            },
+          }];
+        }
+        if (filePath.endsWith('Items.json')) {
+          return [null, {
+            id: 1,
+            name: '旧手雷',
+            projectileId: 0,
+            skillProjectileTag: -1,
+            reactionSuccessRate: 0,
+            reactionPriority: 0,
+            actionSequenceType: 0,
+            actionSequenceScriptKey: '',
+            targetType: 0,
+            targetCamp: 2,
+            targetLifeState: 1,
+            selectMode: 1,
+            areaMode: 1,
+            repeatTime: 1,
+            repeatTimeFloat: 0,
+            skillEffectSpec: {
+              damage: {
+                damageType: 'hp',
+                damageElementId: 3,
+                allowCritical: false,
+                damageScatter: 0,
+                formula: {
+                  mode: 'basic',
+                  scriptKey: '',
+                },
+              },
+              durabilityChange: {
+                mode: 'none',
+                value: 0,
+              },
+              skillDurability: {
+                halfBrokenSkipRate: 50,
+              },
+            },
+          }];
+        }
+        if (filePath.endsWith('Actors.json')
+          || filePath.endsWith('Classes.json')
+          || filePath.endsWith('States.json')
+          || filePath.endsWith('Enemies.json')
+          || filePath.endsWith('Weapons.json')
+          || filePath.endsWith('Armors.json')
+          || filePath.endsWith('Projectiles.json')
+          || filePath.endsWith('Troops.json')
+          || filePath.endsWith('Effects.json')) {
+          return [null];
+        }
+        if (filePath.endsWith('EquipExtensions.json')) {
+          return {
+            weaponEquipTypes: [null],
+            systemWeaponEquipTypes: [],
+            actorEquipSlots: [null],
+            actorEquips: [null],
+            actorRefitRules: [null],
+          };
+        }
+        return [null];
+      }),
+      writeJson: vi.fn(async (filePath: string, data: unknown) => {
+        writes.push({ filePath, data: JSON.parse(JSON.stringify(data)) });
+        return null;
+      }),
+    });
+
+    const skillPayload = writes.find((item) => item.filePath.endsWith('Skills.json'))?.data as unknown[];
+    expect((skillPayload[1] as any).skillEffectSpec.damage).toMatchObject({
+      damageElementIds: [5, 2],
+      damageElementId: 5,
+    });
+
+    const itemPayload = writes.find((item) => item.filePath.endsWith('Items.json'))?.data as unknown[];
+    expect((itemPayload[1] as any).skillEffectSpec.damage).toMatchObject({
+      damageElementIds: [3],
+      damageElementId: 3,
+    });
+
+    expect(summary.results.find((item) => item.fileName === 'Skills.json')?.changed).toBe(true);
+    expect(summary.results.find((item) => item.fileName === 'Items.json')?.changed).toBe(true);
+  });
+
   it('没有差异时不会写回文件', async () => {
     const writeJson = vi.fn();
     const summary = await auditAndRepairDataFiles('D:/Project/data', {
@@ -558,6 +692,7 @@ describe('DataAuditService', () => {
             skillEffectSpec: {
               damage: {
                 damageType: 'none',
+                damageElementIds: [],
                 damageElementId: 0,
                 allowCritical: false,
                 damageScatter: 0,
@@ -605,6 +740,7 @@ describe('DataAuditService', () => {
             skillEffectSpec: {
               damage: {
                 damageType: 'none',
+                damageElementIds: [],
                 damageElementId: 0,
                 allowCritical: false,
                 damageScatter: 0,
@@ -959,5 +1095,74 @@ describe('DataAuditService', () => {
       },
       effects: [],
     });
+  });
+
+  it('Items.json 的 levelLimitBreakAmount 字段和标准 effects 对象不会被审计清除', async () => {
+    const writes: Array<{ filePath: string; data: unknown }> = [];
+    await auditAndRepairDataFiles('D:/Project/data', {
+      readJson: vi.fn(async (filePath: string) => {
+        if (filePath.endsWith('System.json')) {
+          return { elements: ['', '通常', '火炎'], weaponTypes: ['', '主炮'] };
+        }
+        if (filePath.endsWith('Actors.json')) {
+          return [null, { id: 1, name: '主角', effects: [] }];
+        }
+        if (filePath.endsWith('Classes.json')) {
+          return [null, { id: 1, name: '猎人', effects: [], params: [0, 1, 2, 3, 4, 5, 6, 7], floatParams: [1, 2, 3] }];
+        }
+        if (filePath.endsWith('Skills.json')) {
+          return [null, { id: 1, name: '技能', params: [1, 2, 3, 4, 5, 6, 7, 8] }];
+        }
+        if (filePath.endsWith('Items.json')) {
+          return [null, {
+            id: 1,
+            name: '等级突破药剂',
+            consumable: true,
+            levelLimitBreakAmount: 5,
+            effects: [
+              { code: 22, dataId: 3, value1: 500, value2: 0 },
+              { code: 44, dataId: 28, value1: 1, value2: 0 },
+            ],
+          }];
+        }
+        if (filePath.endsWith('States.json')) {
+          return [null, { id: 1, name: '状态', effects: [] }];
+        }
+        if (filePath.endsWith('Enemies.json')) {
+          return [null, { id: 1, name: '敌人' }];
+        }
+        if (filePath.endsWith('Weapons.json')) {
+          return [null, { id: 1, name: '武器' }];
+        }
+        if (filePath.endsWith('Armors.json')) {
+          return [null, { id: 1, name: '防具' }];
+        }
+        if (filePath.endsWith('Projectiles.json')) {
+          return [null, { id: 1, name: '抛射物' }];
+        }
+        if (filePath.endsWith('Troops.json')) {
+          return [null];
+        }
+        if (filePath.endsWith('Effects.json')) {
+          return [null];
+        }
+        if (filePath.endsWith('EquipExtensions.json')) {
+          return { weaponEquipTypes: [], actorRefitRules: [] };
+        }
+        return null;
+      }),
+      writeJson: vi.fn(async (filePath: string, data: unknown) => {
+        writes.push({ filePath, data: JSON.parse(JSON.stringify(data)) });
+        return null;
+      }),
+    });
+
+    const itemPayload = writes.find((item) => item.filePath.endsWith('Items.json'))?.data as unknown[];
+    expect((itemPayload[1] as any).levelLimitBreakAmount).toBe(5);
+    expect((itemPayload[1] as any).effects).toEqual([
+      { code: 22, dataId: 3, value1: 500, value2: 0 },
+      { code: 44, dataId: 28, value1: 1, value2: 0 },
+    ]);
+    expect((itemPayload[1] as any).name).toBe('等级突破药剂');
   });
 });

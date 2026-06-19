@@ -93,8 +93,8 @@ import type {
   OwnerScalarMap,
   OwnerSpecialParamMap,
   ParamTemplate,
-  RPGEnemy,
   RPGItem,
+  RPGEnemy,
   SkillCostEntry,
   SkillCostType,
   StateWeaknessEffects,
@@ -427,7 +427,6 @@ const PRICE_FIELD_KEY = 'price';
 const ATTACK_SKILL_FIELD_KEY = 'attackSkillId';
 const WEAPON_INTERCEPTABLE_MODE_FIELD_KEY = 'interceptableMode';
 const HIDDEN_ATTACK_SKILL_FIELD_KEY = 'hiddenAttackSkillId';
-const ATTACK_ELEMENT_FIELD_KEY = 'attackElementId';
 const WEAPON_IMAGE_ID_FIELD_KEY = 'weaponImageId';
 const ELEMENT_RATES_FIELD_KEY = 'elementRates';
 const ELEMENT_RATE_FLOATS_FIELD_KEY = 'elementRateFloats';
@@ -662,6 +661,11 @@ const areFloatArraysEqual = (left: unknown, right: number[]): boolean => {
     return false;
   }
   return right.every((value, index) => Math.abs(toFloatOrZero(left[index]) - value) < 1e-8);
+};
+
+/** 读取物品自定义等级上限提升量字段 */
+const getLevelLimitBreakAmount = (item: RPGItem): number => {
+  return Math.max(0, Math.floor(Number(item.levelLimitBreakAmount) || 0));
 };
 
 const getCommonRangeValues = (item: RPGItem) => {
@@ -1000,6 +1004,7 @@ export function PropertyPanel() {
   const markFileDirty = useEditorStore((state) => state.markFileDirty);
   const markItemDirty = useEditorStore((state) => state.markItemDirty);
   const [form] = Form.useForm();
+  const [itemLevelCapBonus, setItemLevelCapBonus] = useState<number>(0);
   const [customFields, setCustomFields] = useState<CustomAttribute[]>([]);
   const [hasBaseChanges, setHasBaseChanges] = useState(false);
   const [hasCustomChanges, setHasCustomChanges] = useState(false);
@@ -1366,7 +1371,6 @@ export function PropertyPanel() {
         baseFormValues[EQUIP_TYPE_FIELD_KEY] = getWeaponEquipTypeAtIndex(equipExtensionsData, currentItemIndex);
         baseFormValues[ATTACK_SKILL_FIELD_KEY] = toIntOrZero(item.attackSkillId);
         baseFormValues[WEAPON_INTERCEPTABLE_MODE_FIELD_KEY] = normalizeWeaponInterceptableMode(item.interceptableMode);
-        baseFormValues[ATTACK_ELEMENT_FIELD_KEY] = toIntOrZero(item.attackElementId);
         baseFormValues[WEAPON_IMAGE_ID_FIELD_KEY] = Math.max(1, toIntOrZero(item.weaponImageId || 1));
         Object.assign(baseFormValues, getWeaponRangeValues(item));
       }
@@ -1490,6 +1494,9 @@ export function PropertyPanel() {
       const nextCustomFields = pendingDraft?.customFields ?? custom;
       const savedEffectIds = normalizeEffectIdList(item.effects);
       const nextEffectIds = pendingDraft?.effectIds ?? savedEffectIds;
+      const nextLevelCapBonus = isItemFile
+        ? getLevelLimitBreakAmount(item)
+        : 0;
 
       if (savingRef.current) {
         savingRef.current = false;
@@ -1499,6 +1506,7 @@ export function PropertyPanel() {
       setCustomFields(nextCustomFields);
       setEffectIds(nextEffectIds);
       setOriginalEffectIds(savedEffectIds);
+      setItemLevelCapBonus(nextLevelCapBonus);
       setHasBaseChanges(pendingDraft?.hasBaseChanges ?? false);
       setHasCustomChanges(pendingDraft?.hasCustomChanges ?? false);
       pendingDraftRef.current = null;
@@ -1743,7 +1751,6 @@ export function PropertyPanel() {
     const nextPrice = supportsPrice ? toIntOrZero(values[PRICE_FIELD_KEY]) : 0;
     const nextAttackSkillId = isWeaponItem ? toIntOrZero(values[ATTACK_SKILL_FIELD_KEY]) : 0;
     const nextHiddenAttackSkillId = supportsHiddenAttackSkill ? toIntOrZero(values[HIDDEN_ATTACK_SKILL_FIELD_KEY]) : 0;
-    const nextAttackElementId = isWeaponItem ? toIntOrZero(values[ATTACK_ELEMENT_FIELD_KEY]) : 0;
     const nextWeaponImageId = isWeaponItem ? Math.max(1, toIntOrZero(values[WEAPON_IMAGE_ID_FIELD_KEY] ?? 1)) : 0;
     const nextArmorElementRates = isArmorItem
       ? normalizeArmorElementRates(values[ELEMENT_RATES_FIELD_KEY], systemData)
@@ -1885,7 +1892,6 @@ export function PropertyPanel() {
       || (isWeaponItem && toIntOrZero(sourceItem.attackSkillId) !== nextAttackSkillId)
       || (isWeaponItem && normalizeWeaponInterceptableMode(sourceItem.interceptableMode) !== nextWeaponInterceptableMode)
       || (supportsHiddenAttackSkill && toIntOrZero(sourceItem.hiddenAttackSkillId) !== nextHiddenAttackSkillId)
-      || (isWeaponItem && toIntOrZero(sourceItem.attackElementId) !== nextAttackElementId)
       || (isWeaponItem && Math.max(1, toIntOrZero(sourceItem.weaponImageId || 1)) !== nextWeaponImageId)
       || (supportsCommonRange && currentCommonRangeValues !== null && nextCommonRangeValues !== null && (
         currentCommonRangeValues.targetCamp !== nextCommonRangeValues.targetCamp
@@ -1933,7 +1939,8 @@ export function PropertyPanel() {
       || ((isWeaponItem || isArmorItem) && (sourceItem.qualityLock === true) !== nextQualityLock)
       || ((isWeaponItem || isArmorItem) && normalizeEquipmentQualityLevel(sourceItem.qualityLevel) !== nextQualityLevel)
       || (isWeaponItem && toIntOrZero(sourceItem.etypeId) !== nextEquipTypeId)
-      || (isEnemyFile && nextEnemyValues !== null && hasEnemyEditorChanges(sourceItem as RPGEnemy, nextEnemyValues, skillsData));
+      || (isEnemyFile && nextEnemyValues !== null && hasEnemyEditorChanges(sourceItem as RPGEnemy, nextEnemyValues, skillsData))
+      || (isItemFile && getLevelLimitBreakAmount(sourceItem) !== itemLevelCapBonus);
 
     if (shouldUpdateItem) {
       pendingDraftRef.current = hasCustomChanges
@@ -1952,7 +1959,6 @@ export function PropertyPanel() {
         ...(isWeaponItem ? {
           attackSkillId: nextAttackSkillId,
           interceptableMode: nextWeaponInterceptableMode,
-          attackElementId: nextAttackElementId,
           weaponImageId: nextWeaponImageId,
         } : {}),
         ...(supportsHiddenAttackSkill ? { hiddenAttackSkillId: nextHiddenAttackSkillId } : {}),
@@ -1976,7 +1982,9 @@ export function PropertyPanel() {
         ...(supportsCommonRange && nextCommonRangeValues ? nextCommonRangeValues : {}),
         ...(supportsCommonRange && nextOrderEffects ? { orderEffects: nextOrderEffects as BattleOrderEffects } : {}),
         ...(isWeaponItem && nextWeaponRangeValues ? nextWeaponRangeValues : {}),
+        params: supportsFlatBaseAttributes ? newParams : sourceItem.params,
         floatParams: supportsFlatFloatBaseAttributes ? newFloatParams : sourceItem.floatParams,
+        ...(isItemFile ? { levelLimitBreakAmount: itemLevelCapBonus } : {}),
       };
 
       if (supportsProjectileConfig && nextSkillValues !== null) {
@@ -3159,20 +3167,6 @@ export function PropertyPanel() {
                   />
                 </Form.Item>
                 <Form.Item
-                  key={ATTACK_ELEMENT_FIELD_KEY}
-                  name={ATTACK_ELEMENT_FIELD_KEY}
-                  label={<span className="text-xs text-gray-400">攻击元素</span>}
-                  className="mb-0"
-                >
-                  <Select
-                    options={elementOptions}
-                    className="w-full"
-                    placeholder="选择攻击元素"
-                    showSearch
-                    optionFilterProp="label"
-                  />
-                </Form.Item>
-                <Form.Item
                   key={WEAPON_IMAGE_ID_FIELD_KEY}
                   name={WEAPON_IMAGE_ID_FIELD_KEY}
                   label={<span className="text-xs text-gray-400">武器图片 ID</span>}
@@ -3525,13 +3519,15 @@ export function PropertyPanel() {
                 />
               </Form.Item>
               <Form.Item
-                name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'damage', 'damageElementId']}
-                label={<span className="text-xs text-gray-400">伤害元素</span>}
+                name={[SKILL_EFFECT_SPEC_FIELD_KEY, 'damage', 'damageElementIds']}
+                label={<span className="text-xs text-gray-400">伤害元素（首位为主元素）</span>}
                 className="mb-0"
               >
                 <Select
+                  mode="multiple"
                   options={elementOptions}
                   className="w-full"
+                  placeholder="选择伤害元素（首位为主元素）"
                   showSearch
                   optionFilterProp="label"
                 />
@@ -4247,63 +4243,87 @@ export function PropertyPanel() {
         {supportsTemplateParams ? renderUpgradeCostsCard() : null}
       </Form>
 
-      <Card
-        title={
-          <div className="flex justify-between items-center">
-            <span>效果引用</span>
-            <Space>
-              <Button
-                type="dashed"
-                size="small"
-                icon={<PlusOutlined />}
-                onClick={addEffectReference}
-                disabled={effectOptions.length === 0}
-              >
-                添加
-              </Button>
-            </Space>
-          </div>
-        }
-        className="mb-4"
-      >
-        <div className="grid grid-cols-1 gap-y-3">
-          <div className="text-xs text-gray-500">
-            当前条目只保存效果 id 引用，效果内容请在 Effects.json 的效果模式下编辑。
-          </div>
-          {effectIds.length === 0 ? (
-            <div className="rounded border border-dashed border-gray-600 px-4 py-6 text-sm text-gray-500 text-center">
-              当前没有效果引用，点击右上角“添加”新增一条。
+      {!isItemFile ? (
+        <Card
+          title={
+            <div className="flex justify-between items-center">
+              <span>效果引用</span>
+              <Space>
+                <Button
+                  type="dashed"
+                  size="small"
+                  icon={<PlusOutlined />}
+                  onClick={addEffectReference}
+                  disabled={effectOptions.length === 0}
+                >
+                  添加
+                </Button>
+              </Space>
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-4">
-              {effectIds.map((effectId, index) => (
-                <div key={`${effectId}-${index}`} className="flex gap-2 items-center">
-                  <Select
-                    value={effectId}
-                    options={effectOptions}
-                    onChange={(value) => updateEffectReference(index, value)}
-                    placeholder="选择要挂接的效果"
-                    className="w-full"
-                    optionFilterProp="label"
-                    showSearch
-                  />
-                  <Button
-                    type="text"
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={() => removeEffectReference(index)}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-          {effectIds.length > 0 && effectIds.length !== normalizedEffectIds.length ? (
+          }
+          className="mb-4"
+        >
+          <div className="grid grid-cols-1 gap-y-3">
             <div className="text-xs text-gray-500">
-              当前列表里存在重复效果 id，保存时会自动去重。
+              当前条目只保存效果 id 引用，效果内容请在 Effects.json 的效果模式下编辑。
             </div>
-          ) : null}
-        </div>
-      </Card>
+            {effectIds.length === 0 ? (
+              <div className="rounded border border-dashed border-gray-600 px-4 py-6 text-sm text-gray-500 text-center">
+                当前没有效果引用，点击右上角“添加”新增一条。
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                {effectIds.map((effectId, index) => (
+                  <div key={`${effectId}-${index}`} className="flex gap-2 items-center">
+                    <Select
+                      value={effectId}
+                      options={effectOptions}
+                      onChange={(value) => updateEffectReference(index, value)}
+                      placeholder="选择要挂接的效果"
+                      className="w-full"
+                      optionFilterProp="label"
+                      showSearch
+                    />
+                    <Button
+                      type="text"
+                      danger
+                      icon={<DeleteOutlined />}
+                      onClick={() => removeEffectReference(index)}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+            {effectIds.length > 0 && effectIds.length !== normalizedEffectIds.length ? (
+              <div className="text-xs text-gray-500">
+                当前列表里存在重复效果 id，保存时会自动去重。
+              </div>
+            ) : null}
+          </div>
+        </Card>
+      ) : (
+        <Card
+          title="等级上限提升量"
+          className="mb-4"
+        >
+          <div className="grid grid-cols-1 gap-y-3">
+            <div className="text-xs text-gray-500">
+              配置此物品使用后提升的角色等级上限（突破）数值。该值写入 Items.json 顶层 levelLimitBreakAmount 字段，避免 RPG Maker 编辑器重写 effects 时丢失。
+            </div>
+            <InputNumber
+              value={itemLevelCapBonus}
+              min={0}
+              max={999}
+              className="w-32"
+              onChange={(value) => {
+                const next = Math.max(0, Number(value) || 0);
+                setItemLevelCapBonus(next);
+                setHasBaseChanges(true);
+              }}
+            />
+          </div>
+        </Card>
+      )}
 
       <Card
         title={

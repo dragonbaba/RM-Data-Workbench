@@ -149,7 +149,8 @@ export interface SkillDamageFormulaSpec {
 
 export interface SkillDamageSpec {
   damageType: SkillDamageType;
-  damageElementId: number;
+  damageElementIds: number[];
+  damageElementId?: number;
   allowCritical: boolean;
   damageScatter: number;
   formula: SkillDamageFormulaSpec;
@@ -231,6 +232,14 @@ export interface OwnerParams {
   elementRate?: number[];
 }
 
+/** 标准 RPG 效果条目（Items.json 使用对象格式，非 Effects.json ID 引用） */
+export interface RPGItemEffect {
+  code: number;
+  dataId: number;
+  value1: number;
+  value2: number;
+}
+
 export interface RPGItem {
   id: number;
   name: string;
@@ -238,7 +247,8 @@ export interface RPGItem {
   note?: string;
   meta?: Record<string, unknown>;
   price?: number;
-  effects?: number[];
+  effects?: Array<number | RPGItemEffect>;
+  levelLimitBreakAmount?: number;
   ownerParams?: OwnerParams;
   passiveStates?: number[];
   params?: number[];
@@ -252,7 +262,6 @@ export interface RPGItem {
   attackSkillId?: number;
   interceptableMode?: -1 | 0 | 1;
   hiddenAttackSkillId?: number;
-  attackElementId?: number;
   weaponImageId?: number;
   targetCamp?: number;
   targetLifeState?: number;
@@ -367,6 +376,7 @@ export interface EnemyActionOverride {
   allowSkillBreak: boolean;
   skillUseCount?: number;
   skillDurability?: number;
+  forceWhenValid: boolean;
 }
 
 export type EnemyActionOverrides = Record<string, EnemyActionOverride>;

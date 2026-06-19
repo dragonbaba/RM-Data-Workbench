@@ -222,10 +222,23 @@ describe('EquipExtensionsService', () => {
       expect.objectContaining({ fromEquipTypeId: 10, toEquipTypeId: 11, goldCost: 11600 }),
       expect.objectContaining({ fromEquipTypeId: 10, toEquipTypeId: 12, goldCost: 21100 }),
     ]));
-    expect(result.data.actorRefitRules[2]?.slots[5].transitions).toEqual([]);
+    expect(result.data.actorRefitRules[2]?.slots[5].transitions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ fromEquipTypeId: 7, toEquipTypeId: 8 }),
+      expect.objectContaining({ fromEquipTypeId: 8, toEquipTypeId: 7 }),
+    ]));
+    expect(result.data.actorRefitRules[2]?.slots[6].transitions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ fromEquipTypeId: 0, toEquipTypeId: 7 }),
+      expect.objectContaining({ fromEquipTypeId: 0, toEquipTypeId: 8 }),
+      expect.objectContaining({ fromEquipTypeId: 7, toEquipTypeId: 8 }),
+      expect.objectContaining({ fromEquipTypeId: 8, toEquipTypeId: 7 }),
+    ]));
     expect(result.data.actorRefitRules[3]?.slots[0].transitions).toEqual(expect.arrayContaining([
       expect.objectContaining({ fromEquipTypeId: 0, toEquipTypeId: 10, goldCost: 13700 }),
       expect.objectContaining({ fromEquipTypeId: 10, toEquipTypeId: 12, goldCost: 22200 }),
+    ]));
+    expect(result.data.actorRefitRules[3]?.slots[7].transitions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ fromEquipTypeId: 8, toEquipTypeId: 7 }),
+      expect.objectContaining({ fromEquipTypeId: 7, toEquipTypeId: 8 }),
     ]));
   });
 

@@ -44,3 +44,5 @@
 | 202605291216 | right-panel-container-bounds | - | - | - | ✅完成 |
 | 202606120315 | class-level-extensions | - | - | - | ✅完成 |
 | 202606120358 | class-level-extension-curves | - | - | - | ✅完成 |
+| 202606191323 | tank-core-slot-flex-refit | implementation | EquipExtensionsService, EquipExtensionsService.test, MyGame EquipExtensions/TankRefitSystem | tank-core-slot-flex-refit#D001 | ✅完成 |
+| 202606191440 | item-upgrade-revert-levelcap-effect | implementation | PropertyPanel, types, DataAuditService.test, MyGame ItemUpgrade/GameAction/Items | item-upgrade-revert-levelcap-effect#D001 | ✅完成 |
