@@ -205,17 +205,17 @@ const UPGRADE_PARAM_DISPLAY_FIELDS: FixedParamFieldDefinition[] = [
 ];
 
 const DEFAULT_FIXED_PARAM_COLUMN_LABELS: FixedParamColumnLabels = {
-  value: '未强化值',
-  floatValue: '随机浮动',
-  upgradeValue: '每级强化追加',
-  upgradeFloatValue: '追加浮动',
+  value: '未强化基准',
+  floatValue: '获得随机±',
+  upgradeValue: '每级强化基准',
+  upgradeFloatValue: '每级随机±',
 };
 
 const UPGRADE_PARAM_COLUMN_LABELS: FixedParamColumnLabels = {
-  value: '配置值',
-  floatValue: '配置浮动',
-  upgradeValue: '每级追加',
-  upgradeFloatValue: '追加浮动',
+  value: '配置基准',
+  floatValue: '配置随机±',
+  upgradeValue: '每级强化基准',
+  upgradeFloatValue: '每级随机±',
 };
 
 const EMPTY_PARAM_TEMPLATE: ParamTemplate = Object.freeze({
@@ -4222,21 +4222,21 @@ export function PropertyPanel() {
           '额外统一属性',
           'extraParams',
           EXTRA_PARAM_FIELDS,
-          '固定维护命中、回避、暴击、暴伤、迎击与最终伤害。未强化值是装备当前提供的数值；每级强化追加是强化结算时按等级叠加的增量。',
+          '固定维护命中、回避、暴击、暴伤、迎击与最终伤害。实际获得值 = 未强化基准 ± 获得随机；每级强化增量 = 每级强化基准 ± 每级随机。示例：强化基准=2、每级随机±=2 表示每级随机 0..4，不会固定加 2，也不是累计总量。',
         ) : null}
 
         {supportsTemplateParams ? renderFixedParamCard(
           '车属性',
           'vehicleParams',
           VEHICLE_PARAM_FIELDS,
-          '固定维护重量、承重、载重、耐久、弹舱、弹药价格和连发。未强化值是装备当前提供的数值；每级强化追加是强化结算时按等级叠加的增量。',
+          '固定维护重量、承重、载重、耐久、弹舱、弹药价格和连发。实际获得值 = 未强化基准 ± 获得随机；每级强化增量 = 每级强化基准 ± 每级随机。载重量百分比加成不要填在这里，应在 Effects 的乘算中用 1.5 这类倍率。',
         ) : null}
 
         {supportsTemplateParams ? renderFixedParamCard(
           '基础强化',
           'upgradeParams',
           UPGRADE_PARAM_DISPLAY_FIELDS,
-          '承接装备强化相关固定字段。配置值记录强化次数、攻击力、防御力这些强化参数本身；每级追加记录该参数随强化等级继续叠加的增量。',
+          '承接强化次数、攻击力、防御力这些强化参数。强化防御力每级实际增量 = 配置基准 ± 配置随机；例如配置基准=2、配置随机±=2 表示每级 0..4。这里配置的是“每一级”的随机区间，不是当前强化等级的总增加值。',
           UPGRADE_PARAM_COLUMN_LABELS,
         ) : null}
 

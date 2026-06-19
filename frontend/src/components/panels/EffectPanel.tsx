@@ -672,7 +672,7 @@ export function EffectPanel() {
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <div className="text-xs text-gray-400">属性操作</div>
-                  <div className="text-xs text-gray-500 mt-1">每一行代表一条 {`{ group, key, op, value }`}</div>
+                  <div className="text-xs text-gray-500 mt-1">每一行代表一条 {`{ group, key, op, value }`}；乘算 value 填倍率标量：1.5 表示 +50%，1.35 表示 +35%，不要填 50 / 35。</div>
                 </div>
                 <Button
                   icon={<PlusOutlined />}
@@ -686,6 +686,12 @@ export function EffectPanel() {
                 showIcon
                 className="mb-3"
                 message={canApplyActionRepeatToEquips ? ACTION_REPEAT_OWNER_HINT : ACTION_REPEAT_EQUIP_HINT}
+              />
+              <Alert
+                type="info"
+                showIcon
+                className="mb-3"
+                message="倍率填写规则：op=乘算时 value 是最终乘数，不是百分数。总载重量 +50% 填 1.5，+35% 填 1.35；填 50 会变成 50 倍。"
               />
 
               <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.8fr)_minmax(0,1.2fr)_minmax(0,1fr)_80px] gap-3 text-xs text-gray-400 mb-2">
@@ -763,16 +769,23 @@ export function EffectPanel() {
                         showSearch
                         optionFilterProp="label"
                         />
-                        <InputNumber
-                          value={row.value}
-                          onChange={(value) => setOpRows((rows) => rows.map((entry, index) => (
-                            index === rowIndex
-                              ? { ...entry, value: typeof value === 'number' ? value : Number.NaN }
-                              : entry
-                          )))}
-                          step={1}
-                          className="w-full"
-                        />
+                        <div>
+                          <InputNumber
+                            value={row.value}
+                            onChange={(value) => setOpRows((rows) => rows.map((entry, index) => (
+                              index === rowIndex
+                                ? { ...entry, value: typeof value === 'number' ? value : Number.NaN }
+                                : entry
+                            )))}
+                            step={row.op === 'mul' ? 0.01 : 1}
+                            className="w-full"
+                          />
+                          {row.op === 'mul' && Math.abs(row.value) > 10 ? (
+                            <div className="mt-1 text-xs text-yellow-400">
+                              这是倍率值，不是百分数；确认不是想填 {row.value / 100}？
+                            </div>
+                          ) : null}
+                        </div>
                         <Button
                           danger
                           icon={<DeleteOutlined />}

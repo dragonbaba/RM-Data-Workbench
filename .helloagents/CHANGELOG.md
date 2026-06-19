@@ -108,6 +108,10 @@ All notable changes to this project are documented in this file.
   - 类型: 快速提示修复（无方案包）
   - 验证: `npm test -- --run src/components/panels/EffectPanel.test.tsx`; `npm run build`
   - 文件: `frontend/src/components/panels/EffectPanel.tsx`, `frontend/src/components/panels/EffectPanel.test.tsx`
+- **[效果与强化字段文案防误判]**: 效果面板把 `mul` 选项标注为“倍率：1.5=+50%，不是50”，属性操作区新增倍率说明与大数值提醒；属性面板固定字段列名改为“未强化基准/获得随机±/每级强化基准/每级随机±”，并在额外属性、车属性、基础强化说明中明确 `value±floatValue` 与 `upgradeValue±upgradeFloatValue` 的实际区间语义，避免把防具 96 的 `2±2` 误判成固定 +2 或累计总量。 — by Zaun
+  - 类型: 文案修复（无方案包）
+  - 验证: `npm run build`
+  - 文件: `frontend/src/components/panels/EffectPanel.tsx`, `frontend/src/components/panels/PropertyPanel.tsx`, `frontend/src/services/GameEffectService.ts`, `.helloagents/modules/equip-mode-and-system-rules.md`
 
 ### Fixed
 - **[装备模式与系统规则]**: 改造模式面板现在只展示当前槽位来源类型对应的目标规则，隐藏同槽位其它来源类型的互转规则；读取和保存时都会保留 transition 自身的 `fromEquipTypeId`，避免主炮槽里重复出现多个“主炮”目标并防止保存污染互转数据。 — by Zaun

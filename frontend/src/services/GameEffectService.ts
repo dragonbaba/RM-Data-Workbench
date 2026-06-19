@@ -67,9 +67,9 @@ const ACTION_REPEAT_KEYS = ['actionRepeat'] as const;
 const SCALAR_KEYS = ['expRate', 'dropRate'] as const;
 const SPECIAL_PARAM_KEYS = ['tgr', 'grd', 'rec', 'pha', 'pdr', 'hrg'] as const;
 const OP_OPTIONS: EffectOption<GameEffectOpKind>[] = [
-  { value: 'add', label: '加算' },
-  { value: 'mul', label: '乘算' },
-  { value: 'set', label: '设定值' },
+  { value: 'add', label: '加算（+固定值）' },
+  { value: 'mul', label: '乘算（倍率：1.5=+50%，不是50）' },
+  { value: 'set', label: '设定值（覆盖最终值）' },
 ];
 const FULL_EQUIP_SELECTOR_TEMPLATE = Object.freeze({
   slotIndexes: [],

@@ -40,11 +40,13 @@
     - `attackSkillId` 选项来源于 `Skills.json`；
     - `attackElementId` 选项来源于 `System.json.elements`，保存值为元素索引 ID。
   - `PropertyPanel` 在 `Items.json` 物品属性模式下不显示 Effects.json ID 引用卡片；物品的原生 `effects` 是标准 RPG 效果对象数组。当前 UI 提供“等级上限提升量”，写入顶层 `levelLimitBreakAmount` 字段，避免 RPG Maker 编辑器重写 `effects` 时丢失该业务值，并保留其他标准效果对象。
+  - `EffectPanel` 的属性操作 `op=mul` 表示倍率标量，不是百分数整数：`1.5` 表示最终乘以 1.5（+50%），`1.35` 表示 +35%；保存 `50` 会被运行时当成 50 倍。界面需持续显示该提示，尤其是 `vehicleParams.loadValue` 载重量百分比效果。
   - `PropertyPanel` 会在武器、防具属性模式下维护顶层 `upgradeCosts[]`：
     - `upgradeCosts[index]` 对应目标强化等级 `index + 1`；
     - 单级字段固定为 `successRate / goldCost / requiredItemId / requiredItemAmount / protectItemId / protectItemAmount`；
     - `successRate` 是该目标强化等级的基础成功率百分比，范围 `0-100`，缺失时按旧公式 `100 / 目标强化等级` 补齐；
     - 金币和必需物品属于普通强化消耗，失败也消耗；保底物品仅在玩家选择保底强化时消耗，并使本次成功率视为 100%；
+    - 固定字段 `value/floatValue` 表示获得装备时的“基准 ± 随机浮动”；`upgradeValue/upgradeFloatValue` 表示每一级强化的“基准 ± 随机浮动”，不是当前强化等级的累计总量。例：防御 `upgradeValue=2, upgradeFloatValue=2` 表示每级随机 `0..4`。
     - 缺失 `upgradeCosts` 时，标准化链和修复模式统一补为空数组。
   - `PropertyPanel` 会在武器、防具属性模式下维护顶级 `qualityLock + qualityLevel`：
     - `qualityLock` 为布尔值，表示游戏内新生成独立装备实例是否锁定品质。
