@@ -61,6 +61,10 @@ All notable changes to this project are documented in this file.
   - 平衡: 线性加成按 `0.1→0.03 / 0.2→0.06 / 0.3→0.09 / >=0.4→0.12` 收敛，所有经验/掉率/金币奖励加成数据上限不超过 `0.12`。
 
 ### Fixed
+- **[战车固定槽初始装备修复]**: `DataLoaderService` 普通加载 `EquipExtensions.json` 时会按 `Actors.json.isTank` 传入战车索引；`EquipExtensionsService` 统一归一战车固定 C 装置/底盘槽与 `actorEquips` 长度，并提供同类型角色复制工具；修复模式会把错位的引擎/C 装置/底盘装备移回对应槽位；`EquipPanel` 禁止删除或改写战车固定 C 装置/底盘槽，战车新增槽位插入到固定槽之前，装备复制也只允许人类→人类、战车→战车，避免再次挤掉底盘或跨协议覆盖。 — by Zaun
+  - 类型: 修复（无方案包）
+  - 文件: `frontend/src/services/EquipExtensionsService.ts`, `frontend/src/services/DataAuditService.ts`, `frontend/src/services/DataLoaderService.ts`, `frontend/src/components/panels/EquipPanel.tsx`, `frontend/src/services/EquipExtensionsService.test.ts`, `frontend/src/services/DataAuditService.test.ts`, `frontend/src/services/DataLoaderService.test.ts`, `D:/RMProjects/MyGame/data/EquipExtensions.json`, `D:/RMProjects/MyTemp/MyGame-offline/data/EquipExtensions.json`
+  - 验证: `npm test -- --run src/services/EquipExtensionsService.test.ts src/services/DataAuditService.test.ts src/services/DataLoaderService.test.ts`; `npx tsc --noEmit --pretty false`; touched-file `npx eslint ...` 0 errors（17 existing warnings）；`node --check js/plugins/Zaun_GameBattler.js`; `node --check js/plugins/Zaun_TankCore.js`; `node --check js/plugins/Zaun_TankUI.js`；JSON parse 覆盖 `data/EquipExtensions.json` 与 `D:/RMProjects/MyTemp/MyGame-offline/data/EquipExtensions.json`，并确认 actor20 weight=3045、loadValue=3200、maxLoadValue=155、baseDurability=510、canMove=true
 - **[效果模式保存全部草稿刷新]**: 保存当前文件/保存全部前会广播 `editor:flush-pending-draft`，效果面板收到后立即清掉延迟自动保存计时器并把当前草稿同步进 `currentData` 缓存；修复连续修改多个效果后，保存全部每次只落盘一个效果并只清掉一个 dirty 索引的问题。新增回归测试覆盖保存前强制 flush 时当前效果与既有脏索引一起保留。 — by Zaun
   - 类型: 快速修复（无方案包）
   - 文件: `frontend/src/components/panels/EffectPanel.tsx`, `frontend/src/hooks/useFileOperations.ts`, `frontend/src/core/EventSystem.ts`, `frontend/src/types/index.ts`, `frontend/src/stores/editorStore.ts`, `frontend/src/components/panels/EffectPanel.test.tsx`

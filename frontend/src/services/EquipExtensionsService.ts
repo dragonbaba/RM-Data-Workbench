@@ -67,11 +67,85 @@ export interface EquipExtensionsNormalizationPreview {
   changedSections: string[];
 }
 
+export interface CopyActorEquipStateResult {
+  data: EquipExtensionsData;
+  copiedIndexes: number[];
+  skippedIndexes: number[];
+}
+
 const asRecord = (value: unknown): Record<string, unknown> | null => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null;
   }
   return value as Record<string, unknown>;
+};
+
+export const collectTankActorIndexes = (actorsData: unknown): number[] => {
+  if (!Array.isArray(actorsData)) return [];
+  const result: number[] = [];
+  for (let index = 1; index < actorsData.length; index++) {
+    const actor = asRecord(actorsData[index]);
+    if (actor?.isTank === true) result.push(index);
+  }
+  return result;
+};
+
+const isTankActorIndex = (actorsData: unknown[], actorIndex: number): boolean => {
+  const actor = asRecord(actorsData[actorIndex]);
+  return actor?.isTank === true;
+};
+
+export const copyActorEquipStateToTargets = (
+  data: EquipExtensionsData,
+  actorsData: unknown,
+  sourceActorIndex: number,
+  targetIndexes: readonly number[],
+): CopyActorEquipStateResult | null => {
+  const actors = Array.isArray(actorsData) ? actorsData : [];
+  if (sourceActorIndex <= 0 || sourceActorIndex >= actors.length) return null;
+
+  const sourceEquipSlots = data.actorEquipSlots[sourceActorIndex];
+  const sourceEquips = data.actorEquips[sourceActorIndex];
+  if (!Array.isArray(sourceEquipSlots) || !Array.isArray(sourceEquips)) return null;
+
+  const sourceIsTank = isTankActorIndex(actors, sourceActorIndex);
+  const copiedIndexes: number[] = [];
+  const skippedIndexes: number[] = [];
+  for (let i = 0; i < targetIndexes.length; i++) {
+    const targetIndex = targetIndexes[i];
+    if (
+      targetIndex <= 0
+      || targetIndex >= actors.length
+      || targetIndex === sourceActorIndex
+      || isTankActorIndex(actors, targetIndex) !== sourceIsTank
+    ) {
+      skippedIndexes.push(targetIndex);
+      continue;
+    }
+    copiedIndexes.push(targetIndex);
+  }
+
+  if (copiedIndexes.length === 0) {
+    return { data, copiedIndexes, skippedIndexes };
+  }
+
+  const nextActorEquipSlots = [...data.actorEquipSlots];
+  const nextActorEquips = [...data.actorEquips];
+  for (let i = 0; i < copiedIndexes.length; i++) {
+    const targetIndex = copiedIndexes[i];
+    nextActorEquipSlots[targetIndex] = [...sourceEquipSlots];
+    nextActorEquips[targetIndex] = [...sourceEquips];
+  }
+
+  return {
+    data: {
+      ...data,
+      actorEquipSlots: nextActorEquipSlots,
+      actorEquips: nextActorEquips,
+    },
+    copiedIndexes,
+    skippedIndexes,
+  };
 };
 
 const asInt = (value: unknown): number => {
@@ -292,15 +366,47 @@ const completeRefitSlotTransitions = (slot: ActorRefitSlotRule): ActorRefitSlotR
 const TANK_WEAPON_EQUIP_TYPES = [10, 11, 12] as const;
 const TANK_ENGINE_EQUIP_TYPE = 7;
 const TANK_C_UNIT_EQUIP_TYPE = 8;
-const TANK_FLEXIBLE_CORE_SLOT_START = 5;
-const TANK_FLEXIBLE_CORE_SLOT_END = 8;
-const TANK_FIXED_EQUIP_TYPES_BY_SLOT: Record<number, number> = {
-  9: 9,
+const TANK_BASE_EQUIP_TYPE = 9;
+const TANK_ARMOR_EQUIP_TYPES = [TANK_ENGINE_EQUIP_TYPE, TANK_C_UNIT_EQUIP_TYPE, TANK_BASE_EQUIP_TYPE] as const;
+const TANK_CORE_SLOT_START = 5;
+
+const isTankCoreRefitType = (typeId: number): boolean => (
+  typeId === TANK_ENGINE_EQUIP_TYPE || typeId === TANK_C_UNIT_EQUIP_TYPE
+);
+
+const getTankChassisSlotIndex = (equipSlots: number[] | null | undefined): number => (
+  equipSlots && equipSlots.length > 0 ? equipSlots.length - 1 : -1
+);
+
+const getTankFixedCUnitSlotIndex = (equipSlots: number[] | null | undefined): number => {
+  const chassisSlotIndex = getTankChassisSlotIndex(equipSlots);
+  return chassisSlotIndex > 0 ? chassisSlotIndex - 1 : -1;
 };
 
-const isTankFlexibleCoreSlot = (slotIndex: number): boolean => (
-  slotIndex >= TANK_FLEXIBLE_CORE_SLOT_START && slotIndex <= TANK_FLEXIBLE_CORE_SLOT_END
+const isTankChassisSlot = (slotIndex: number, equipSlots: number[] | null | undefined): boolean => (
+  slotIndex === getTankChassisSlotIndex(equipSlots)
 );
+
+const isTankFixedCUnitSlot = (slotIndex: number, equipSlots: number[] | null | undefined): boolean => (
+  slotIndex === getTankFixedCUnitSlotIndex(equipSlots)
+);
+
+const isTankFlexibleCoreSlot = (slotIndex: number, equipSlots: number[] | null | undefined): boolean => {
+  const fixedCUnitSlotIndex = getTankFixedCUnitSlotIndex(equipSlots);
+  return slotIndex >= TANK_CORE_SLOT_START && slotIndex < fixedCUnitSlotIndex;
+};
+
+const normalizeTankActorEquipSlots = (equipSlots: number[] | null): number[] | null => {
+  if (!equipSlots || equipSlots.length === 0) return equipSlots;
+  const normalized = equipSlots.slice();
+  const chassisSlotIndex = getTankChassisSlotIndex(normalized);
+  const fixedCUnitSlotIndex = getTankFixedCUnitSlotIndex(normalized);
+  normalized[chassisSlotIndex] = TANK_BASE_EQUIP_TYPE;
+  if (fixedCUnitSlotIndex >= 0) {
+    normalized[fixedCUnitSlotIndex] = TANK_C_UNIT_EQUIP_TYPE;
+  }
+  return normalized;
+};
 
 const createNoneRefitCondition = (): RefitNoCondition => ({ kind: 'none' });
 
@@ -323,7 +429,7 @@ const getDefaultTankWeaponRefitCosts = (actorIndex: number, slotIndex: number): 
 };
 
 const getDefaultTankRefitCostStep = (slotIndex: number, toEquipTypeId: number): number => {
-  if (isTankFlexibleCoreSlot(slotIndex)) {
+  if (isTankCoreRefitType(toEquipTypeId)) {
     return toEquipTypeId === TANK_C_UNIT_EQUIP_TYPE ? 1300 : 1600;
   }
   if (toEquipTypeId === 12) return slotIndex === 3 ? 1200 : slotIndex === 4 ? 1300 : 1100;
@@ -393,12 +499,15 @@ const createDefaultTankRefitSlotRule = (
   actorIndex: number,
   slotIndex: number,
   fromEquipTypeId: number,
+  equipSlots: number[] | null | undefined,
 ): ActorRefitSlotRule => {
-  const fixedTypeId = TANK_FIXED_EQUIP_TYPES_BY_SLOT[slotIndex];
-  if (fixedTypeId !== undefined && fromEquipTypeId === fixedTypeId) {
-    return createDefaultActorRefitSlotRule(slotIndex, fixedTypeId);
+  if (isTankChassisSlot(slotIndex, equipSlots)) {
+    return createDefaultActorRefitSlotRule(slotIndex, TANK_BASE_EQUIP_TYPE);
   }
-  if (isTankFlexibleCoreSlot(slotIndex)) {
+  if (isTankFixedCUnitSlot(slotIndex, equipSlots)) {
+    return createDefaultActorRefitSlotRule(slotIndex, TANK_C_UNIT_EQUIP_TYPE);
+  }
+  if (isTankFlexibleCoreSlot(slotIndex, equipSlots)) {
     return {
       slotIndex,
       fromEquipTypeId: asInt(fromEquipTypeId),
@@ -413,8 +522,8 @@ const createDefaultTankRefitSlotRule = (
 };
 
 const createDefaultTankActorRefitRuleSet = (actorIndex: number, equipSlots: number[] | null | undefined): ActorRefitRuleSet => ({
-  slots: normalizeNumberArray(equipSlots).map((fromEquipTypeId, slotIndex) => (
-    createDefaultTankRefitSlotRule(actorIndex, slotIndex, fromEquipTypeId)
+  slots: normalizeNumberArray(equipSlots).map((fromEquipTypeId, slotIndex, slots) => (
+    createDefaultTankRefitSlotRule(actorIndex, slotIndex, fromEquipTypeId, slots)
   )),
 });
 
@@ -486,8 +595,15 @@ const ensureTankFlexibleRefitSlotRule = (
   slot: ActorRefitSlotRule,
   actorIndex: number,
   fromEquipTypeId: number,
+  equipSlots: number[] | null | undefined,
 ): ActorRefitSlotRule => {
-  if (!isTankFlexibleCoreSlot(slot.slotIndex)) return slot;
+  if (isTankChassisSlot(slot.slotIndex, equipSlots)) {
+    return createDefaultActorRefitSlotRule(slot.slotIndex, TANK_BASE_EQUIP_TYPE);
+  }
+  if (isTankFixedCUnitSlot(slot.slotIndex, equipSlots)) {
+    return createDefaultActorRefitSlotRule(slot.slotIndex, TANK_C_UNIT_EQUIP_TYPE);
+  }
+  if (!isTankFlexibleCoreSlot(slot.slotIndex, equipSlots)) return slot;
   return completeRefitSlotTransitions({
     slotIndex: slot.slotIndex,
     fromEquipTypeId: asInt(fromEquipTypeId),
@@ -507,11 +623,22 @@ const ensureTankFlexibleRefitRules = (
     slot,
     actorIndex,
     asInt(equipSlots?.[slot.slotIndex]),
+    equipSlots,
   ));
   const existingSlotIndexes = new Set(slots.map((slot) => slot.slotIndex));
-  for (let slotIndex = TANK_FLEXIBLE_CORE_SLOT_START; slotIndex <= TANK_FLEXIBLE_CORE_SLOT_END; slotIndex++) {
+  const chassisSlotIndex = getTankChassisSlotIndex(equipSlots);
+  const fixedCUnitSlotIndex = getTankFixedCUnitSlotIndex(equipSlots);
+  for (let slotIndex = TANK_CORE_SLOT_START; slotIndex < fixedCUnitSlotIndex; slotIndex++) {
     if (existingSlotIndexes.has(slotIndex)) continue;
-    slots.push(createDefaultTankRefitSlotRule(actorIndex, slotIndex, asInt(equipSlots?.[slotIndex])));
+    slots.push(createDefaultTankRefitSlotRule(actorIndex, slotIndex, asInt(equipSlots?.[slotIndex]), equipSlots));
+    existingSlotIndexes.add(slotIndex);
+  }
+  if (fixedCUnitSlotIndex >= 0 && !existingSlotIndexes.has(fixedCUnitSlotIndex)) {
+    slots.push(createDefaultActorRefitSlotRule(fixedCUnitSlotIndex, TANK_C_UNIT_EQUIP_TYPE));
+    existingSlotIndexes.add(fixedCUnitSlotIndex);
+  }
+  if (chassisSlotIndex >= 0 && !existingSlotIndexes.has(chassisSlotIndex)) {
+    slots.push(createDefaultActorRefitSlotRule(chassisSlotIndex, TANK_BASE_EQUIP_TYPE));
   }
   slots.sort((a, b) => a.slotIndex - b.slotIndex);
   return { slots };
@@ -546,6 +673,116 @@ const normalizeIndexedActorRefitRules = (
   return result as IndexedActorRefitRuleSets;
 };
 
+const normalizeIndexedActorEquipSlots = (
+  value: unknown,
+  expectedLength: number,
+  tankActorIndexes: readonly number[] = [],
+): Array<number[] | null> => {
+  const result = normalizeIndexedNumberLists(value, expectedLength);
+  for (let i = 0; i < tankActorIndexes.length; i++) {
+    const actorIndex = tankActorIndexes[i];
+    if (actorIndex > 0 && actorIndex < expectedLength) {
+      result[actorIndex] = normalizeTankActorEquipSlots(result[actorIndex]);
+    }
+  }
+  return result;
+};
+
+const normalizeIndexedActorEquips = (
+  value: unknown,
+  expectedLength: number,
+  actorEquipSlots: Array<number[] | null>,
+  tankActorIndexes: readonly number[] = [],
+): Array<number[] | null> => {
+  const result = normalizeIndexedNumberLists(value, expectedLength);
+  for (let i = 0; i < tankActorIndexes.length; i++) {
+    const actorIndex = tankActorIndexes[i];
+    if (actorIndex <= 0 || actorIndex >= expectedLength) continue;
+    const equipSlots = actorEquipSlots[actorIndex];
+    if (!equipSlots) continue;
+    const equips = result[actorIndex] ? [...(result[actorIndex] as number[])] : [];
+    while (equips.length < equipSlots.length) {
+      equips.push(0);
+    }
+    if (equips.length > equipSlots.length) {
+      equips.length = equipSlots.length;
+    }
+    result[actorIndex] = equips;
+  }
+  return result;
+};
+
+const isTankWeaponEquipType = (slotTypeId: number): boolean => (
+  (TANK_WEAPON_EQUIP_TYPES as readonly number[]).includes(slotTypeId)
+);
+
+const isTankArmorEquipType = (slotTypeId: number): boolean => (
+  (TANK_ARMOR_EQUIP_TYPES as readonly number[]).includes(slotTypeId)
+);
+
+const getTankEquipTypeIdForSlot = (
+  slotTypeId: number,
+  equipId: number,
+  weaponsData: unknown[] | null | undefined,
+  armorsData: unknown[] | null | undefined,
+): number => {
+  if (equipId <= 0) return 0;
+  if (isTankWeaponEquipType(slotTypeId)) {
+    return asInt(asRecord(weaponsData?.[equipId])?.etypeId);
+  }
+  if (isTankArmorEquipType(slotTypeId)) {
+    return asInt(asRecord(armorsData?.[equipId])?.etypeId);
+  }
+  return 0;
+};
+
+const isTankEquipIdValidForSlot = (
+  slotTypeId: number,
+  equipId: number,
+  weaponsData: unknown[] | null | undefined,
+  armorsData: unknown[] | null | undefined,
+): boolean => (
+  slotTypeId > 0
+  && equipId > 0
+  && getTankEquipTypeIdForSlot(slotTypeId, equipId, weaponsData, armorsData) === slotTypeId
+);
+
+export const repairTankActorEquipsBySlotProtocol = (
+  actorEquips: unknown,
+  actorEquipSlots: unknown,
+  weaponsData: unknown[] | null | undefined,
+  armorsData: unknown[] | null | undefined,
+): number[] => {
+  const equipSlots = normalizeNumberArray(actorEquipSlots);
+  const result = normalizeNumberArray(actorEquips);
+  if (equipSlots.length === 0) return result;
+  while (result.length < equipSlots.length) {
+    result.push(0);
+  }
+  if (result.length > equipSlots.length) {
+    result.length = equipSlots.length;
+  }
+  const occupied = result.map((equipId, slotIndex) => (
+    isTankEquipIdValidForSlot(equipSlots[slotIndex], equipId, weaponsData, armorsData)
+  ));
+  for (let slotIndex = 0; slotIndex < result.length; slotIndex++) {
+    const equipId = result[slotIndex] | 0;
+    if (equipId <= 0 || occupied[slotIndex]) continue;
+    let targetIndex = -1;
+    for (let index = 0; index < equipSlots.length; index++) {
+      if (occupied[index] || result[index] > 0) continue;
+      if (!isTankEquipIdValidForSlot(equipSlots[index], equipId, weaponsData, armorsData)) continue;
+      targetIndex = index;
+      break;
+    }
+    if (targetIndex < 0) continue;
+    result[targetIndex] = equipId;
+    result[slotIndex] = 0;
+    occupied[targetIndex] = true;
+  }
+  return result;
+};
+
 export const createDefaultEquipExtensions = (actorCount: number, weaponCount: number): EquipExtensionsData => ({
   weaponEquipTypes: normalizeIndexedNumbers([], weaponCount),
   systemWeaponEquipTypes: [],
@@ -570,12 +807,18 @@ export const normalizeEquipExtensions = (
     };
   }
 
-  const actorEquipSlots = normalizeIndexedNumberLists(source.actorEquipSlots, actorCount);
+  const actorEquipSlots = normalizeIndexedActorEquipSlots(source.actorEquipSlots, actorCount, tankActorIndexes);
+  const actorEquips = normalizeIndexedActorEquips(
+    source.actorEquips,
+    actorCount,
+    actorEquipSlots,
+    tankActorIndexes,
+  );
   const data: EquipExtensionsData = {
     weaponEquipTypes: normalizeIndexedNumbers(source.weaponEquipTypes, weaponCount),
     systemWeaponEquipTypes: Array.from(new Set(normalizeNumberArray(source.systemWeaponEquipTypes).filter((item) => item > 0))),
     actorEquipSlots,
-    actorEquips: normalizeIndexedNumberLists(source.actorEquips, actorCount),
+    actorEquips,
     actorRefitRules: normalizeIndexedActorRefitRules(source.actorRefitRules, actorCount, actorEquipSlots, tankActorIndexes),
   };
 

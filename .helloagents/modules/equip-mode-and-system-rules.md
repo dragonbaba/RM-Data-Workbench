@@ -17,10 +17,12 @@
   - 角色装备扩展不再写回 `Actors.json`，统一写入 `EquipExtensions.json.actorEquipSlots / actorEquips`。
   - 槽位显示数量严格以 `EquipExtensions.json.actorEquips[index].length` 为准；只要 `actorEquips[index]` 有 N 个元素，就补齐并显示 N 个 `actorEquipSlots[index]`，缺失槽位类型默认补 `0`。
   - `actorEquipSlots` 仅表示每个槽位的类型定义，不再参与“是否存在槽位”的主判断，也不会单独生成额外行。
+  - 战车角色的最后两格是固定 C 装置/底盘槽：`normalizeEquipExtensions()` 会按当前槽位长度把倒数第二格收敛为 `etypeId=8`、最后一格收敛为 `etypeId=9`，并把 `actorEquips` 扩展到相同长度以保留对应装备值。
   - 角色装备配置进入现有 `dirtyFiles + SaveAll` 链路，但保存目标是 `EquipExtensions.json`。
   - 装备模式的脏标记来源于 `EquipExtensions.json`，不是当前只读参考文件 `Actors.json`；因此左侧“已修改”和面板头部“当前角色已修改”都应以扩展文件的脏状态为准。
   - 面板头部提供“保存当前角色”按钮，用于把当前缓存中的 `EquipExtensions.json` 立即落盘。
   - 装备区按行左右对称显示：左侧槽位类型、右侧装备选择；删除任意一行时，同时删除该行的 `equipSlots[index]` 与 `equips[index]`。
+  - 战车角色新增槽位时只能插入到固定 C 装置/底盘槽之前；固定 C 装置/底盘槽不允许在 UI 中改类型或删除。
 - 系统规则：
   - 装备槽类型来源于 `System.equipTypes`。
   - 索引 `0` 视为“无类型”，不参与武器/防具筛选。
@@ -72,11 +74,12 @@
 - `frontend/src/services/EquipExtensionsService.ts` 负责扩展文件默认结构、规范化和按角色/武器索引读取。
 - `frontend/src/services/EquipExtensionsService.ts` 的 `normalizeEquipExtensions()` 负责补齐改造模式数据：同一槽位内已经配置到的正数装备类型会生成互相转换 transition，新增规则按目标类型已有 transition 复制 `goldCost` 与 `conditions`，让游戏运行时保持简单的 `slotIndex/from/to` 显式读取。
 - 修复模式通过 `DataAuditService` 把 `EquipExtensions.json` 纳入检查；当 `Actors.json` 中角色 `isTank === true` 且该角色 `actorRefitRules` 缺失或没有任何 transition 时，会按 `actorEquipSlots[actorId]` 生成默认战车改造模板。模板价格随 actorId 单调递增，并对同一 `slotIndex/from/to` transition 不低于前一角色；战车核心槽 `slotIndex 5..8` 的默认模板会补齐 `0->7`、`0->8` 与 `7<->8` 互转，底盘 `slotIndex 9` 仍保持固定。
-  - 派生逻辑不依赖 React，可独立做单元测试。
+  - 普通加载通过 `DataLoaderService.ensureEquipExtensionsLoaded()` 从 `Actors.json.isTank` 收集战车索引，再交给 `normalizeEquipExtensions()` 固定 C 装置/底盘槽，避免只有修复模式才识别战车协议。
+  - 修复模式会按 `Weapons.json`/`Armors.json` 的装备 `etypeId` 扫描战车 `actorEquips`，把出现在错误槽位的引擎/C 装置/底盘移动到固定协议槽位，避免新增槽位或旧数据错位导致运行时 `_tankBase=null`。
 - `RefitPanel` 只展示当前槽位类型对应的 `fromEquipTypeId` 转换目标；同槽位里的其它互转规则作为数据保留，不在当前槽位视图中重复铺开，也不会在保存时被改写来源类型。
 - 跨条目复制:
   - 装备模式、改造模式和属性模式（强化耗材）各自提供"复制到…"按钮，通过共享组件 `CopyToTargetModal` 批量复制当前条目数据到其他目标条目。
-  - 装备模式复制 `actorEquipSlots[index]` 和 `actorEquips[index]`（纯数组深拷贝）。
+  - 装备模式复制 `actorEquipSlots[index]` 和 `actorEquips[index]`（纯数组深拷贝），并只允许同为人类/同为战车的目标，防止人类槽协议覆盖战车固定 C 装置/底盘槽。
   - 改造模式复制 `actorRefitRules[index]`（slots + transitions + conditions 逐层深拷贝）；目标角色打开时由 `getActorRefitSlotsFromExtensions` 按自身 equipSlots 重派生 `fromEquipTypeId`，transitions 中的互转规则作为数据保留。
   - 属性模式仅复制武器/防具的 `upgradeCosts`（强化耗材），不连带 `upgradeParams` 或其他属性。
   - 目标候选自动排除 index 0 和当前条目；支持多选、搜索过滤；复制后通过 `markFileDirty + markItemDirty` 标记每个目标为已修改。

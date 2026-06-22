@@ -16,6 +16,7 @@ import {
 } from '../../services/EquipDataService';
 import {
   EQUIP_EXTENSIONS_FILE_NAME,
+  copyActorEquipStateToTargets,
   getActorEquipStateFromExtensions,
   remapWeaponEquipTypeIndexes,
   type EquipExtensionsData,
@@ -38,6 +39,23 @@ const getDisplayName = (item: RecordLike | null, fallback: string) => {
 };
 
 const createDraftKey = () => `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const isTankActorRecord = (actor: RecordLike | null): boolean => actor?.isTank === true;
+
+const getTankFixedCUnitSlotIndex = (equipSlots: number[]): number => (
+  equipSlots.length > 1 ? equipSlots.length - 2 : -1
+);
+
+const getTankFixedSlotType = (slotIndex: number, equipSlots: number[]): number => {
+  if (slotIndex === equipSlots.length - 1) return 9;
+  if (slotIndex === getTankFixedCUnitSlotIndex(equipSlots)) return 8;
+  return 0;
+};
+
+const getTankInsertSlotIndex = (equipSlots: number[]): number => {
+  const fixedCUnitSlotIndex = getTankFixedCUnitSlotIndex(equipSlots);
+  return fixedCUnitSlotIndex >= 0 ? fixedCUnitSlotIndex : equipSlots.length;
+};
+
 
 const buildEquipTypeDrafts = (systemData: unknown): EquipTypeDraft[] => {
   const equipTypes = getEquipTypes(systemData);
@@ -129,6 +147,7 @@ export function EquipPanel() {
     () => getActorEquipStateFromExtensions(equipExtensionsData, currentItemIndex),
     [currentItemIndex, equipExtensionsData],
   );
+  const isTankActor = useMemo(() => isTankActorRecord(actor), [actor]);
   const equipTypeOptions = useMemo(() => getEquipTypeOptions(systemData), [systemData]);
   const weaponEquipTypes = useMemo(() => getSystemWeaponEquipTypes(equipExtensionsData), [equipExtensionsData]);
 
@@ -182,10 +201,15 @@ export function EquipPanel() {
   const updateSlotType = useCallback((slotIndex: number, nextTypeId: number) => {
     const nextEquipSlots = [...actorEquipState.equipSlots];
     const nextEquips = [...actorEquipState.equips];
-    nextEquipSlots[slotIndex] = nextTypeId;
+    const fixedSlotType = isTankActor ? getTankFixedSlotType(slotIndex, nextEquipSlots) : 0;
+    const normalizedTypeId = fixedSlotType > 0 ? fixedSlotType : nextTypeId;
+    if (fixedSlotType > 0 && nextTypeId !== fixedSlotType) {
+      ToastManager.warning('战车固定 C 装置/底盘槽位类型不能改');
+    }
+    nextEquipSlots[slotIndex] = normalizedTypeId;
 
     const nextCandidates = getEquipCandidateOptions(
-      nextTypeId,
+      normalizedTypeId,
       weaponEquipTypes,
       equipExtensionsData?.weaponEquipTypes,
       weaponsData,
@@ -196,7 +220,7 @@ export function EquipPanel() {
     }
 
     applyActorUpdate(nextEquipSlots, nextEquips);
-  }, [actorEquipState.equipSlots, actorEquipState.equips, applyActorUpdate, armorsData, equipExtensionsData?.weaponEquipTypes, weaponEquipTypes, weaponsData]);
+  }, [actorEquipState.equipSlots, actorEquipState.equips, applyActorUpdate, armorsData, equipExtensionsData?.weaponEquipTypes, isTankActor, weaponEquipTypes, weaponsData]);
 
   const updateEquipValue = useCallback((slotIndex: number, equipId: number) => {
     const nextEquips = [...actorEquipState.equips];
@@ -205,19 +229,32 @@ export function EquipPanel() {
   }, [actorEquipState.equipSlots, actorEquipState.equips, applyActorUpdate]);
 
   const addSlot = useCallback(() => {
+    if (isTankActor) {
+      const insertIndex = getTankInsertSlotIndex(actorEquipState.equipSlots);
+      const nextEquipSlots = [...actorEquipState.equipSlots];
+      const nextEquips = [...actorEquipState.equips];
+      nextEquipSlots.splice(insertIndex, 0, 0);
+      nextEquips.splice(insertIndex, 0, 0);
+      applyActorUpdate(nextEquipSlots, nextEquips);
+      return;
+    }
     applyActorUpdate(
       [...actorEquipState.equipSlots, 0],
       [...actorEquipState.equips, 0],
     );
-  }, [actorEquipState.equipSlots, actorEquipState.equips, applyActorUpdate]);
+  }, [actorEquipState.equipSlots, actorEquipState.equips, applyActorUpdate, isTankActor]);
 
   const removeSlot = useCallback((slotIndex: number) => {
+    if (isTankActor && getTankFixedSlotType(slotIndex, actorEquipState.equipSlots) > 0) {
+      ToastManager.warning('战车固定 C 装置/底盘槽不能删除');
+      return;
+    }
     const nextEquipSlots = [...actorEquipState.equipSlots];
     const nextEquips = [...actorEquipState.equips];
     nextEquipSlots.splice(slotIndex, 1);
     nextEquips.splice(slotIndex, 1);
     applyActorUpdate(nextEquipSlots, nextEquips);
-  }, [actorEquipState.equipSlots, actorEquipState.equips, applyActorUpdate]);
+  }, [actorEquipState.equipSlots, actorEquipState.equips, applyActorUpdate, isTankActor]);
 
   const addEquipTypeDraft = useCallback(() => {
     setEquipTypeDrafts((current) => [...current, {
@@ -377,47 +414,44 @@ export function EquipPanel() {
     if (!Array.isArray(currentData)) return [];
     return currentData.slice(1).map((item, idx) => {
       const index = idx + 1;
-      const obj = (item && typeof item === 'object' && !Array.isArray(item)) ? item as { name?: unknown } : null;
+      const obj = (item && typeof item === 'object' && !Array.isArray(item)) ? item as unknown as RecordLike : null;
+      if (index === currentItemIndex || isTankActorRecord(obj) !== isTankActor) {
+        return null;
+      }
       const rawName = typeof obj?.name === 'string' ? obj.name.trim() : '';
       const name = rawName || `角色 ${index}`;
       return { value: index, label: `${index} : ${name}` };
-    }).filter((option) => option.value !== currentItemIndex);
-  }, [currentData, currentItemIndex]);
+    }).filter((option): option is { value: number; label: string } => option !== null);
+  }, [currentData, currentItemIndex, isTankActor]);
 
   const handleCopyEquipToTargets = useCallback((targetIndexes: number[]) => {
-    if (currentItemIndex <= 0 || !equipExtensionsFilePath || !equipExtensionsData) {
+    if (currentItemIndex <= 0 || !equipExtensionsFilePath || !equipExtensionsData || !Array.isArray(currentData)) {
       ToastManager.error('装备扩展数据未加载');
       return;
     }
 
-    const sourceEquipSlots = equipExtensionsData.actorEquipSlots[currentItemIndex];
-    const sourceEquips = equipExtensionsData.actorEquips[currentItemIndex];
-    if (!Array.isArray(sourceEquipSlots) || !Array.isArray(sourceEquips)) {
+    const copyResult = copyActorEquipStateToTargets(
+      equipExtensionsData,
+      currentData,
+      currentItemIndex,
+      targetIndexes,
+    );
+    if (!copyResult) {
       ToastManager.warning('当前角色没有装备数据可复制');
       return;
     }
+    if (copyResult.copiedIndexes.length === 0) {
+      ToastManager.warning(`请选择同为${isTankActor ? '战车' : '人类'}的目标角色`);
+      return;
+    }
 
-    const nextActorEquipSlots = [...equipExtensionsData.actorEquipSlots];
-    const nextActorEquips = [...equipExtensionsData.actorEquips];
-
-    targetIndexes.forEach((targetIndex) => {
-      nextActorEquipSlots[targetIndex] = [...sourceEquipSlots];
-      nextActorEquips[targetIndex] = [...sourceEquips];
-    });
-
-    const nextExtensions: EquipExtensionsData = {
-      ...equipExtensionsData,
-      actorEquipSlots: nextActorEquipSlots,
-      actorEquips: nextActorEquips,
-    };
-
-    DataLoaderService.cacheFileData(equipExtensionsFilePath, EQUIP_EXTENSIONS_FILE_NAME, nextExtensions);
+    DataLoaderService.cacheFileData(equipExtensionsFilePath, EQUIP_EXTENSIONS_FILE_NAME, copyResult.data);
     markFileDirty(equipExtensionsFilePath);
-    targetIndexes.forEach((targetIndex) => markItemDirty(equipExtensionsFilePath, targetIndex));
+    copyResult.copiedIndexes.forEach((targetIndex) => markItemDirty(equipExtensionsFilePath, targetIndex));
     setReferenceRevision((value) => value + 1);
     setCopyModalOpen(false);
-    ToastManager.success(`已复制到 ${targetIndexes.length} 个目标角色`);
-  }, [currentItemIndex, equipExtensionsData, equipExtensionsFilePath, markFileDirty, markItemDirty]);
+    ToastManager.success(`已复制到 ${copyResult.copiedIndexes.length} 个同类型目标角色`);
+  }, [currentData, currentItemIndex, equipExtensionsData, equipExtensionsFilePath, isTankActor, markFileDirty, markItemDirty]);
 
   if (!Array.isArray(currentData) || currentFile.toLowerCase() !== 'actors.json' || !actor) {
     return (
@@ -648,7 +682,7 @@ export function EquipPanel() {
         <CopyToTargetModal
           open={copyModalOpen}
           title="复制装备槽与初始装备"
-          description={`将当前角色「${actorName}」的 ${actorEquipState.equips.length} 个装备槽位及初始装备复制到以下目标角色。目标原有装备数据会被覆盖。`}
+          description={`将当前角色「${actorName}」的 ${actorEquipState.equips.length} 个装备槽位及初始装备复制到以下同类型目标角色。目标原有装备数据会被覆盖。`}
           options={copyTargetOptions}
           onConfirm={handleCopyEquipToTargets}
           onCancel={() => setCopyModalOpen(false)}

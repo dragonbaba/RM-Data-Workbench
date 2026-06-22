@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  copyActorEquipStateToTargets,
   createDefaultEquipExtensions,
   getActorEquipStateFromExtensions,
   getActorRefitSlotsFromExtensions,
@@ -8,6 +9,7 @@ import {
   normalizeEquipExtensions,
   previewEquipExtensionsNormalization,
   remapWeaponEquipTypeIndexes,
+  repairTankActorEquipsBySlotProtocol,
   repairWeaponEquipTypes,
 } from './EquipExtensionsService';
 
@@ -193,7 +195,7 @@ describe('EquipExtensionsService', () => {
       actorEquipSlots: [
         null,
         [0, 0, 0, 0, 0, 7, 0, 8, 0, 9],
-        [10, 0, 0, 0, 0, 7, 0, 8, 0, 9],
+        [10, 0, 0, 0, 0, 7, 0, 8, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 7, 0, 8, 0, 9],
       ],
       actorEquips: [null, [], [], []],
@@ -217,21 +219,24 @@ describe('EquipExtensionsService', () => {
       }, { slots: [] }],
     }, 4, 1, [2, 3]);
 
-    const actor2Slot0Transitions = result.data.actorRefitRules[2]?.slots[0].transitions || [];
+    expect(result.data.actorEquipSlots[2]).toEqual([10, 0, 0, 0, 0, 7, 0, 8, 0, 0, 8, 9]);
+
+    const actor2Slots = result.data.actorRefitRules[2]?.slots || [];
+    const actor2Slot0Transitions = actor2Slots.find((slot) => slot.slotIndex === 0)?.transitions || [];
     expect(actor2Slot0Transitions).toEqual(expect.arrayContaining([
       expect.objectContaining({ fromEquipTypeId: 10, toEquipTypeId: 11, goldCost: 11600 }),
       expect.objectContaining({ fromEquipTypeId: 10, toEquipTypeId: 12, goldCost: 21100 }),
     ]));
-    expect(result.data.actorRefitRules[2]?.slots[5].transitions).toEqual(expect.arrayContaining([
+    expect(actor2Slots.find((slot) => slot.slotIndex === 5)?.transitions).toEqual(expect.arrayContaining([
       expect.objectContaining({ fromEquipTypeId: 7, toEquipTypeId: 8 }),
       expect.objectContaining({ fromEquipTypeId: 8, toEquipTypeId: 7 }),
     ]));
-    expect(result.data.actorRefitRules[2]?.slots[6].transitions).toEqual(expect.arrayContaining([
+    expect(actor2Slots.find((slot) => slot.slotIndex === 9)?.transitions).toEqual(expect.arrayContaining([
       expect.objectContaining({ fromEquipTypeId: 0, toEquipTypeId: 7 }),
       expect.objectContaining({ fromEquipTypeId: 0, toEquipTypeId: 8 }),
-      expect.objectContaining({ fromEquipTypeId: 7, toEquipTypeId: 8 }),
-      expect.objectContaining({ fromEquipTypeId: 8, toEquipTypeId: 7 }),
     ]));
+    expect(actor2Slots.find((slot) => slot.slotIndex === 10)?.transitions).toEqual([]);
+    expect(actor2Slots.find((slot) => slot.slotIndex === 11)?.transitions).toEqual([]);
     expect(result.data.actorRefitRules[3]?.slots[0].transitions).toEqual(expect.arrayContaining([
       expect.objectContaining({ fromEquipTypeId: 0, toEquipTypeId: 10, goldCost: 13700 }),
       expect.objectContaining({ fromEquipTypeId: 10, toEquipTypeId: 12, goldCost: 22200 }),
@@ -240,6 +245,62 @@ describe('EquipExtensionsService', () => {
       expect.objectContaining({ fromEquipTypeId: 8, toEquipTypeId: 7 }),
       expect.objectContaining({ fromEquipTypeId: 7, toEquipTypeId: 8 }),
     ]));
+  });
+
+  it('aligns tank actor equips to normalized fixed C-unit and chassis slots', () => {
+    const result = normalizeEquipExtensions({
+      weaponEquipTypes: [null],
+      systemWeaponEquipTypes: [],
+      actorEquipSlots: [null, [10, 0, 0, 0, 0, 7, 0, 8, 0, 0, 0, 0]],
+      actorEquips: [null, [19, 0, 0, 0, 0, 68, 0, 112, 0, 140]],
+      actorRefitRules: [null, { slots: [] }],
+    }, 2, 1, [1]);
+
+    expect(result.data.actorEquipSlots[1]).toEqual([10, 0, 0, 0, 0, 7, 0, 8, 0, 0, 8, 9]);
+    expect(result.data.actorEquips[1]).toEqual([19, 0, 0, 0, 0, 68, 0, 112, 0, 140, 0, 0]);
+  });
+
+  it('repair mode moves misplaced tank core equipment to matching fixed slots', () => {
+    const repaired = repairTankActorEquipsBySlotProtocol(
+      [19, 0, 0, 0, 0, 68, 0, 0, 0, 140, 0, 112, 0],
+      [10, 0, 0, 0, 0, 7, 0, 0, 8, 0, 0, 8, 9],
+      [null, ...Array.from({ length: 18 }, (_, index) => ({ id: index + 1, etypeId: 0 })), { id: 19, etypeId: 10 }],
+      [
+        null,
+        ...Array.from({ length: 67 }, (_, index) => ({ id: index + 1, etypeId: 0 })),
+        { id: 68, etypeId: 7 },
+        ...Array.from({ length: 43 }, (_, index) => ({ id: index + 69, etypeId: 0 })),
+        { id: 112, etypeId: 8 },
+        ...Array.from({ length: 27 }, (_, index) => ({ id: index + 113, etypeId: 0 })),
+        { id: 140, etypeId: 9 },
+      ],
+    );
+
+    expect(repaired).toEqual([19, 0, 0, 0, 0, 68, 0, 0, 0, 0, 0, 112, 140]);
+  });
+
+  it('copies actor equips only between actors with the same tank flag', () => {
+    const source = normalizeEquipExtensions({
+      weaponEquipTypes: [null],
+      systemWeaponEquipTypes: [],
+      actorEquipSlots: [null, [1], [10, 0, 8, 9], [0], [10, 0, 8, 9]],
+      actorEquips: [null, [1], [19, 0, 112, 140], [0], [0, 0, 0, 0]],
+      actorRefitRules: [null, { slots: [] }, { slots: [] }, { slots: [] }, { slots: [] }],
+    }, 5, 1, [2, 4]).data;
+
+    const result = copyActorEquipStateToTargets(
+      source,
+      [null, { id: 1, isTank: false }, { id: 2, isTank: true }, { id: 3, isTank: false }, { id: 4, isTank: true }],
+      2,
+      [1, 4],
+    );
+
+    expect(result?.copiedIndexes).toEqual([4]);
+    expect(result?.skippedIndexes).toEqual([1]);
+    expect(result?.data.actorEquipSlots[4]).toEqual([10, 0, 8, 9]);
+    expect(result?.data.actorEquips[4]).toEqual([19, 0, 112, 140]);
+    expect(result?.data.actorEquipSlots[1]).toEqual([1]);
+    expect(result?.data.actorEquips[1]).toEqual([1]);
   });
 
   it('uses actor equips length as the display baseline and pads missing slots with 0', () => {

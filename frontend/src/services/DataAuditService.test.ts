@@ -895,6 +895,54 @@ describe('DataAuditService', () => {
     expect(extensionsPayload.weaponEquipTypes).toEqual([null, 10, 11, 12]);
   });
 
+  it('修复模式会把错位的战车固定装备移回 C 装置和底盘槽', async () => {
+    const writes: Array<{ filePath: string; data: unknown }> = [];
+    await auditAndRepairDataFiles('D:/Project/data', {
+      readJson: vi.fn(async (filePath: string) => {
+        if (filePath.endsWith('System.json')) {
+          return { elements: ['', '通常'], weaponTypes: ['', '主炮'] };
+        }
+        if (filePath.endsWith('Actors.json')) {
+          return [null, { id: 1, name: '测试战车', isTank: true }];
+        }
+        if (filePath.endsWith('Weapons.json')) {
+          return [null, ...Array.from({ length: 18 }, (_, index) => ({ id: index + 1, name: `武器${index + 1}`, wtypeId: 0, etypeId: 0 })), { id: 19, name: '战车炮', wtypeId: 1, etypeId: 10 }];
+        }
+        if (filePath.endsWith('Armors.json')) {
+          return [
+            null,
+            ...Array.from({ length: 67 }, (_, index) => ({ id: index + 1, name: `防具${index + 1}`, atypeId: 0, etypeId: 0 })),
+            { id: 68, name: '最强苦力', atypeId: 1, etypeId: 7 },
+            ...Array.from({ length: 43 }, (_, index) => ({ id: index + 69, name: `防具${index + 69}`, atypeId: 0, etypeId: 0 })),
+            { id: 112, name: '所罗门3', atypeId: 2, etypeId: 8 },
+            ...Array.from({ length: 27 }, (_, index) => ({ id: index + 113, name: `防具${index + 113}`, atypeId: 0, etypeId: 0 })),
+            { id: 140, name: 'NO.20', atypeId: 3, etypeId: 9 },
+          ];
+        }
+        if (filePath.endsWith('EquipExtensions.json')) {
+          return {
+            weaponEquipTypes: [null, ...Array.from({ length: 18 }, () => 0), 10],
+            systemWeaponEquipTypes: [10],
+            actorEquipSlots: [null, [10, 0, 0, 0, 0, 7, 0, 0, 8, 0, 0, 8, 9]],
+            actorEquips: [null, [19, 0, 0, 0, 0, 68, 0, 0, 0, 140, 0, 112, 0]],
+            actorRefitRules: [null, { slots: [] }],
+          };
+        }
+        return [null];
+      }),
+      writeJson: vi.fn(async (filePath: string, data: unknown) => {
+        writes.push({ filePath, data: JSON.parse(JSON.stringify(data)) });
+        return null;
+      }),
+    });
+
+    const extensionsPayload = writes.find((item) => item.filePath.endsWith('EquipExtensions.json'))?.data as Record<string, unknown>;
+    expect(extensionsPayload.actorEquips).toEqual([
+      null,
+      [19, 0, 0, 0, 0, 68, 0, 0, 0, 0, 0, 112, 140],
+    ]);
+  });
+
   it('修复 Weapons.json 时不会破坏受控线形范围', async () => {
     const writes: Array<{ filePath: string; data: unknown }> = [];
 

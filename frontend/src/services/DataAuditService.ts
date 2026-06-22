@@ -14,8 +14,10 @@ import { normalizeSkillDataEntry } from './SkillPropertyService';
 import { normalizeStateDataEntry } from './StateChargePropertyService';
 import { normalizeStandardDataForEditor } from './DataFileFormatService';
 import {
+  collectTankActorIndexes,
   EQUIP_EXTENSIONS_FILE_NAME,
   normalizeEquipExtensions,
+  repairTankActorEquipsBySlotProtocol,
   repairWeaponEquipTypes,
 } from './EquipExtensionsService';
 import {
@@ -147,6 +149,44 @@ const normalizeFilePayload = (fileName: string, data: unknown): unknown[] => {
   }
   return normalized;
 };
+const buildDamageElementIdsForRepair = (value: unknown, fallbackElementId = 0): number[] => {
+  const rawIds = Array.isArray(value) ? value : [];
+  const result: number[] = [];
+  const seen = new Set<number>();
+  for (let index = 0; index < rawIds.length; index++) {
+    const elementId = Math.max(0, toFiniteInteger(rawIds[index]) ?? 0);
+    if (elementId <= 0 || seen.has(elementId)) continue;
+    seen.add(elementId);
+    result.push(elementId);
+  }
+  if (result.length <= 0) {
+    const nextFallback = Math.max(0, fallbackElementId | 0);
+    if (nextFallback > 0) {
+      result.push(nextFallback);
+    }
+  }
+  return result;
+};
+
+const repairSkillDamageElementProtocol = (
+  sourceEntry: unknown,
+  normalizedEntry: unknown,
+): unknown => {
+  const nextEntry = asRecord(normalizedEntry);
+  if (!nextEntry) return normalizedEntry;
+  const nextSkillEffectSpec = asRecord(nextEntry.skillEffectSpec);
+  const nextDamage = asRecord(nextSkillEffectSpec?.damage);
+  if (!nextDamage || !nextSkillEffectSpec) return normalizedEntry;
+
+  const sourceRecord = asRecord(sourceEntry);
+  const sourceSkillEffectSpec = asRecord(sourceRecord?.skillEffectSpec);
+  const sourceDamage = asRecord(sourceSkillEffectSpec?.damage);
+  const fallbackElementId = Math.max(0, toFiniteInteger(sourceDamage?.damageElementId) ?? 0);
+  const damageElementIds = buildDamageElementIdsForRepair(nextDamage.damageElementIds, fallbackElementId);
+  nextDamage.damageElementIds = damageElementIds;
+  nextDamage.damageElementId = damageElementIds.length > 0 ? damageElementIds[0] : 0;
+  return normalizedEntry;
+};
 
 const normalizeEntryByFileName = (
   fileName: string,
@@ -160,7 +200,8 @@ const normalizeEntryByFileName = (
 
   if (fileName === SKILLS_FILE_NAME) {
     const normalized = normalizeSkillDataEntry(entry) ?? entry;
-    return normalizeCommonRangeDataEntry(normalized) ?? normalized;
+    const ranged = normalizeCommonRangeDataEntry(normalized) ?? normalized;
+    return repairSkillDamageElementProtocol(entry, ranged);
   }
 
   if (fileName === 'Troops.json') {
@@ -214,7 +255,10 @@ const normalizeEntryByFileName = (
 
   if (fileName === 'Items.json') {
     const normalized = normalizeSkillDataEntry(entry, { isItem: true }) ?? entry;
-    const itemNormalized = normalizeCommonRangeDataEntry(normalized) ?? normalized;
+    const itemNormalized = repairSkillDamageElementProtocol(
+      entry,
+      normalizeCommonRangeDataEntry(normalized) ?? normalized,
+    );
     if (itemNormalized && typeof itemNormalized === 'object' && !Array.isArray(itemNormalized)) {
       const nextItem = { ...(itemNormalized as Record<string, unknown>) };
       delete nextItem.skillCosts;
@@ -732,14 +776,6 @@ const ensureActorThrowProjectileOffset = (
   return nextEntry;
 };
 
-const collectTankActorIndexes = (actorsData: unknown[]): number[] => {
-  const result: number[] = [];
-  for (let index = 1; index < actorsData.length; index++) {
-    const actor = asRecord(actorsData[index]);
-    if (actor?.isTank === true) result.push(index);
-  }
-  return result;
-};
 
 const migrateLegacyOwnerEffectsOnEntry = (
   entry: unknown,
@@ -789,6 +825,9 @@ export async function auditAndRepairDataFiles(
   const weaponsPath = joinPath(dataPath, 'Weapons.json');
   const rawWeaponsData = await deps.readJson(weaponsPath);
   const normalizedWeaponsData = normalizeFilePayload('Weapons.json', rawWeaponsData);
+  const armorsPath = joinPath(dataPath, 'Armors.json');
+  const rawArmorsData = await deps.readJson(armorsPath);
+  const normalizedArmorsData = normalizeFilePayload('Armors.json', rawArmorsData);
   const skillsPath = joinPath(dataPath, SKILLS_FILE_NAME);
   const rawSkillsData = await deps.readJson(skillsPath);
   const normalizedSkillsData = normalizeFilePayload(SKILLS_FILE_NAME, rawSkillsData).map((entry) => {
@@ -813,6 +852,8 @@ export async function auditAndRepairDataFiles(
         ? rawSkillsData
         : fileName === 'Weapons.json'
           ? rawWeaponsData
+        : fileName === 'Armors.json'
+          ? rawArmorsData
         : await deps.readJson(filePath);
 
 
@@ -879,7 +920,8 @@ export async function auditAndRepairDataFiles(
     normalizedWeaponsData,
     normalizedWeaponsData.length,
   );
-  const nextEquipExtensionsData = arePlainDataEqual(
+  const rawRefitRules = Array.isArray(rawEquipRecord?.actorRefitRules) ? rawEquipRecord.actorRefitRules : [];
+  let nextEquipExtensionsData = arePlainDataEqual(
     repairedWeaponEquipTypeValues,
     normalizedEquipExtensions.data.weaponEquipTypes,
   )
@@ -888,14 +930,33 @@ export async function auditAndRepairDataFiles(
         ...normalizedEquipExtensions.data,
         weaponEquipTypes: repairedWeaponEquipTypeValues,
       };
-  const rawRefitRules = Array.isArray(rawEquipRecord?.actorRefitRules) ? rawEquipRecord.actorRefitRules : [];
   let repairedEquipExtensionEntries = countChangedIndexedValues(rawEquipRecord?.weaponEquipTypes, nextEquipExtensionsData.weaponEquipTypes);
+  const repairedActorEquips = [...nextEquipExtensionsData.actorEquips];
+  let actorEquipsChanged = false;
   for (const actorIndex of tankActorIndexes) {
+    const repairedEquips = repairTankActorEquipsBySlotProtocol(
+      repairedActorEquips[actorIndex],
+      nextEquipExtensionsData.actorEquipSlots[actorIndex],
+      normalizedWeaponsData,
+      normalizedArmorsData,
+    );
+    if (!arePlainDataEqual(repairedActorEquips[actorIndex], repairedEquips)) {
+      repairedActorEquips[actorIndex] = repairedEquips;
+      repairedEquipExtensionEntries++;
+      actorEquipsChanged = true;
+    }
     if (!arePlainDataEqual(rawRefitRules[actorIndex], nextEquipExtensionsData.actorRefitRules[actorIndex])) {
       repairedEquipExtensionEntries++;
     }
   }
+  if (actorEquipsChanged) {
+    nextEquipExtensionsData = {
+      ...nextEquipExtensionsData,
+      actorEquips: repairedActorEquips,
+    };
+  }
   const equipExtensionsChanged = normalizedEquipExtensions.changed
+    || actorEquipsChanged
     || !arePlainDataEqual(nextEquipExtensionsData.weaponEquipTypes, normalizedEquipExtensions.data.weaponEquipTypes);
   if (equipExtensionsChanged) {
     await deps.writeJson(equipExtensionsPath, nextEquipExtensionsData);

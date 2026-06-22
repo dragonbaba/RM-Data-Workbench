@@ -46,6 +46,39 @@ describe('DataLoaderService', () => {
     expect(WriteJSON).not.toHaveBeenCalled();
   });
 
+  it('加载已有 EquipExtensions.json 时按 Actors.json 的 isTank 规范化战车固定槽', async () => {
+    vi.mocked(FileExists).mockImplementation(async (filePath: string) => {
+      return filePath.endsWith('Actors.json')
+        || filePath.endsWith('Weapons.json')
+        || filePath.endsWith('EquipExtensions.json');
+    });
+
+    vi.mocked(ReadJSON).mockImplementation(async (filePath: string) => {
+      if (filePath.endsWith('Actors.json')) {
+        return [null, { id: 1, name: '战车1', isTank: true }];
+      }
+      if (filePath.endsWith('Weapons.json')) {
+        return [null, ...Array.from({ length: 19 }, (_, index) => ({ id: index + 1, name: `装备${index + 1}` }))];
+      }
+      if (filePath.endsWith('EquipExtensions.json')) {
+        return {
+          weaponEquipTypes: [null],
+          systemWeaponEquipTypes: [],
+          actorEquipSlots: [null, [10, 0, 0, 0, 0, 7, 0, 8, 0, 0, 0, 0]],
+          actorEquips: [null, [19, 0, 0, 0, 0, 68, 0, 112, 0, 140]],
+          actorRefitRules: [null, { slots: [] }],
+        };
+      }
+      return null;
+    });
+
+    const extensions = await DataLoaderService.ensureEquipExtensionsLoaded('D:/Project/data', { force: true });
+
+    expect(extensions?.actorEquipSlots[1]).toEqual([10, 0, 0, 0, 0, 7, 0, 8, 0, 0, 8, 9]);
+    expect(extensions?.actorEquips[1]).toEqual([19, 0, 0, 0, 0, 68, 0, 112, 0, 140, 0, 0]);
+    expect(WriteJSON).not.toHaveBeenCalled();
+  });
+
   it('缺失 ClassLevelExtensions.json 时会按当前职业数量创建空文件', async () => {
     vi.mocked(FileExists).mockImplementation(async (filePath: string) => {
       return filePath.endsWith('Classes.json');

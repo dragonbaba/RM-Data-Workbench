@@ -1,10 +1,11 @@
 import { FileExists, GetDefaultQuest, ReadJSON, WriteJSON } from '../../wailsjs/go/main/App';
 import { EventSystem } from '../core/EventSystem';
-import type { ProjectileTemplate, RPGMap, RPGMapInfo } from '../types';
-import { normalizeStandardDataForEditor, SYSTEM_FILE_NAME } from './DataFileFormatService';
+import type { RPGMap, RPGMapInfo } from '../types';
+import { normalizeStandardDataForEditor } from './DataFileFormatService';
 import { BACKSLASH_REGEXP, MAP_ID_REGEXP, TRAILING_PATH_SEPARATORS_REGEXP, WINDOWS_DRIVE_REGEXP } from '../constants/regexp';
 import { createDefaultProjectileTemplate } from './ProjectileTemplateService';
 import {
+  collectTankActorIndexes,
   createDefaultEquipExtensions,
   EQUIP_EXTENSIONS_FILE_NAME,
   normalizeEquipExtensions,
@@ -231,7 +232,7 @@ class DataLoaderServiceClass {
     }
 
     const rawData = await ReadJSON(filePath);
-    const normalized = normalizeEquipExtensions(rawData, actorCount, weaponCount);
+    const normalized = normalizeEquipExtensions(rawData, actorCount, weaponCount, collectTankActorIndexes(actorsData));
     this.cacheData(filePath, EQUIP_EXTENSIONS_FILE_NAME, normalized.data);
     return normalized.data;
   }
