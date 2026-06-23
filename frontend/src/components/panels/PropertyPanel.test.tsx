@@ -41,7 +41,6 @@ const createWeapon = (overrides: Record<string, unknown> = {}) => ({
   repeatTime: 1,
   repeatTimeFloat: 0,
   attackSkillId: 0,
-  attackElementId: 0,
   weaponImageId: 3,
   shapeParams: {
     1: { radius: 120 },
@@ -73,7 +72,7 @@ const createSkill = (id: number, overrides: Record<string, unknown> = {}): RPGIt
   skillEffectSpec: {
     damage: {
       damageType: 'none',
-      damageElementId: 0,
+      damageElementIds: [],
       allowCritical: true,
       damageScatter: 20,
       formula: { mode: 'basic', scriptKey: '' },
@@ -221,6 +220,23 @@ describe('PropertyPanel range initialization', () => {
       };
       expect(currentWeapon.qualityLock).toBe(true);
       expect(currentWeapon.qualityLevel).toBe(5);
+    });
+  });
+
+  it('武器普通属性修改会被保存到 params', async () => {
+    useEditorStore.getState().loadData([null, createWeapon()], WEAPONS_FILE_PATH, 'data');
+
+    render(<PropertyPanel />);
+
+    await waitFor(() => {
+      expect(document.querySelector('#atk')).not.toBeNull();
+    });
+    const atkInput = document.querySelector('#atk') as HTMLInputElement;
+    fireEvent.change(atkInput, { target: { value: '15' } });
+
+    await waitFor(() => {
+      const currentWeapon = useEditorStore.getState().currentData?.[1] as RPGItem;
+      expect(currentWeapon.params?.[2]).toBe(15);
     });
   });
 

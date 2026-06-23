@@ -30,10 +30,11 @@ const SYSTEM_FILE_NAME = 'System.json';
 
 const ACTION_REPEAT_EQUIP_EFFECT_TYPES: ReadonlySet<GameEffectType> = new Set([
   'cunit_slot_action_repeat_bonus',
+  'base_slot_action_repeat_bonus',
   'pair_same_cunit_bonus',
 ]);
 
-const ACTION_REPEAT_EQUIP_HINT = '发射期连发只对“C 装槽位追加发射”和“双同型 C 装奖励”有效，会按条件字段写入命中的武器。其他效果类型即使旧数据里写了 vehicleParams.actionRepeat，战斗也不会读取。';
+const ACTION_REPEAT_EQUIP_HINT = '发射期连发只对“C 装槽位追加发射”“底盘槽位追加发射”和“双同型 C 装奖励”有效，会按条件字段写入命中的武器。其他效果类型即使旧数据里写了 vehicleParams.actionRepeat，战斗也不会读取。';
 const ACTION_REPEAT_OWNER_HINT = '当前模板会按条件字段给命中的武器增加发射期连发；槽位索引、装备槽位类型、武器类型、防具类型共同决定命中范围。';
 
 const splitTokens = (value: string): string[] =>

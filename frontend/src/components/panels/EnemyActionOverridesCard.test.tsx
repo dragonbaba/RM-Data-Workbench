@@ -41,6 +41,7 @@ const createOverrideValues = () => ({
         2: { radius: 900, angleDeg: 20 },
         3: { width: 80, length: 240 },
       },
+      forceWhenValid: false,
     },
   },
 });
@@ -64,6 +65,7 @@ describe('EnemyActionOverridesCard', () => {
     };
 
     render(<Wrapper />);
+    expect(screen.getByText('满足条件时强制选择')).toBeInTheDocument();
 
     await screen.findByText('扇形角度');
     expect(screen.getByText('扇形半径')).toBeInTheDocument();

@@ -46,7 +46,7 @@ describe('DataLoaderService', () => {
     expect(WriteJSON).not.toHaveBeenCalled();
   });
 
-  it('加载已有 EquipExtensions.json 时按 Actors.json 的 isTank 规范化战车固定槽', async () => {
+  it('加载已有 EquipExtensions.json 时按 Actors.json 的 isTank 规范化战车底盘槽', async () => {
     vi.mocked(FileExists).mockImplementation(async (filePath: string) => {
       return filePath.endsWith('Actors.json')
         || filePath.endsWith('Weapons.json')
@@ -74,7 +74,7 @@ describe('DataLoaderService', () => {
 
     const extensions = await DataLoaderService.ensureEquipExtensionsLoaded('D:/Project/data', { force: true });
 
-    expect(extensions?.actorEquipSlots[1]).toEqual([10, 0, 0, 0, 0, 7, 0, 8, 0, 0, 8, 9]);
+    expect(extensions?.actorEquipSlots[1]).toEqual([10, 0, 0, 0, 0, 7, 0, 8, 0, 0, 0, 9]);
     expect(extensions?.actorEquips[1]).toEqual([19, 0, 0, 0, 0, 68, 0, 112, 0, 140, 0, 0]);
     expect(WriteJSON).not.toHaveBeenCalled();
   });

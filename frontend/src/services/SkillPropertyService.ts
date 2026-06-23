@@ -44,7 +44,8 @@ export interface SkillDamageFormulaSpec {
 
 export interface SkillDamageSpec {
   damageType: SkillDamageType;
-  damageElementId: number;
+  damageElementIds: number[];
+  damageElementId?: number;
   allowCritical: boolean;
   damageScatter: number;
   formula: SkillDamageFormulaSpec;
@@ -162,6 +163,10 @@ const toIntOrZero = (value: unknown): number => {
   if (!Number.isFinite(numeric)) return 0;
   return Math.trunc(numeric);
 };
+
+const primaryDamageElementIdOf = (elementIds: number[]): number => (
+  elementIds.length > 0 ? toIntOrZero(elementIds[0]) : 0
+);
 
 const normalizeTargetType = (value: unknown): number => {
   const numeric = toIntOrZero(value);
@@ -453,10 +458,12 @@ const normalizeDamageFormula = (value: unknown): SkillDamageFormulaSpec => {
 
 const normalizeDamageSpecValue = (value: unknown): SkillDamageSpec => {
   const source = isRecord(value) ? value : {};
+  const damageElementIds = (source.damageElementIds as number[] | undefined) ?? [];
   const formula = normalizeDamageFormula(source.formula);
   return {
     damageType: normalizeDamageType(source.damageType),
-    damageElementId: Math.max(0, toIntOrZero(source.damageElementId)),
+    damageElementIds,
+    damageElementId: primaryDamageElementIdOf(damageElementIds),
     allowCritical: source.allowCritical === true,
     damageScatter: clampPercent(source.damageScatter),
     formula,
@@ -509,11 +516,14 @@ const areSkillDamageFormulaEqual = (left: SkillDamageFormulaSpec, right: SkillDa
 };
 
 const areSkillDamageSpecEqual = (left: SkillDamageSpec, right: SkillDamageSpec): boolean => {
-  return left.damageType === right.damageType
-    && left.damageElementId === right.damageElementId
-    && left.allowCritical === right.allowCritical
-    && left.damageScatter === right.damageScatter
-    && areSkillDamageFormulaEqual(left.formula, right.formula);
+  if (left.damageType !== right.damageType
+    || left.damageElementIds.length !== right.damageElementIds.length
+    || left.allowCritical !== right.allowCritical
+    || left.damageScatter !== right.damageScatter
+    || !areSkillDamageFormulaEqual(left.formula, right.formula)) {
+    return false;
+  }
+  return left.damageElementIds.every((id, i) => id === right.damageElementIds[i]);
 };
 
 const areSkillDurabilityChangeEqual = (left: SkillDurabilityChangeSpec, right: SkillDurabilityChangeSpec): boolean => {
@@ -623,6 +633,7 @@ export function normalizeSkillEditorValues(
       skillEffectSpec: {
         damage: {
           damageType: 'none',
+          damageElementIds: [],
           damageElementId: 0,
           allowCritical: false,
           damageScatter: DEFAULT_DAMAGE_SCATTER,

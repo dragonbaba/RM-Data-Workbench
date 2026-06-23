@@ -895,7 +895,7 @@ describe('DataAuditService', () => {
     expect(extensionsPayload.weaponEquipTypes).toEqual([null, 10, 11, 12]);
   });
 
-  it('修复模式会把错位的战车固定装备移回 C 装置和底盘槽', async () => {
+  it('修复模式会把错位的战车核心装备按槽位类型归位', async () => {
     const writes: Array<{ filePath: string; data: unknown }> = [];
     await auditAndRepairDataFiles('D:/Project/data', {
       readJson: vi.fn(async (filePath: string) => {

@@ -20,7 +20,7 @@ import {
 const defaultSkillEffectSpec: SkillEffectSpec = {
   damage: {
     damageType: 'none',
-    damageElementId: 0,
+    damageElementIds: [],
     allowCritical: false,
     damageScatter: 0,
     formula: {
@@ -47,7 +47,7 @@ describe('SkillPropertyService', () => {
       skillEffectSpec: {
         damage: {
           damageType: 'hp',
-          damageElementId: 7,
+          damageElementIds: [7],
           allowCritical: true,
           damageScatter: 18,
           formula: {
@@ -98,6 +98,7 @@ describe('SkillPropertyService', () => {
       skillEffectSpec: {
         damage: {
           damageType: 'hp',
+          damageElementIds: [7],
           damageElementId: 7,
           allowCritical: true,
           damageScatter: 18,
@@ -266,7 +267,7 @@ describe('SkillPropertyService', () => {
       skillEffectSpec: {
         damage: {
           damageType: 'heal',
-          damageElementId: 0,
+          damageElementIds: [],
           allowCritical: false,
           damageScatter: 12,
           formula: {
@@ -347,7 +348,7 @@ describe('SkillPropertyService', () => {
       skillEffectSpec: {
         damage: {
           damageType: 'none',
-          damageElementId: 0,
+          damageElementIds: [],
           allowCritical: false,
           damageScatter: 0,
           formula: {
@@ -406,7 +407,7 @@ describe('SkillPropertyService', () => {
       skillEffectSpec: {
         damage: {
           damageType: 'none',
-          damageElementId: 0,
+          damageElementIds: [],
           allowCritical: false,
           damageScatter: 0,
           formula: {
@@ -439,7 +440,7 @@ describe('SkillPropertyService', () => {
       skillEffectSpec: {
         damage: {
           damageType: 'none',
-          damageElementId: 0,
+          damageElementIds: [],
           allowCritical: false,
           damageScatter: 0,
           formula: {
@@ -470,7 +471,7 @@ describe('SkillPropertyService', () => {
       skillEffectSpec: {
         damage: {
           damageType: 'none',
-          damageElementId: 0,
+          damageElementIds: [],
           allowCritical: false,
           damageScatter: 0,
         },
@@ -524,7 +525,7 @@ describe('SkillPropertyService', () => {
           ...defaultSkillEffectSpec,
           damage: {
             ...defaultSkillEffectSpec.damage,
-            damageElementId: 3,
+            damageElementIds: [3],
           },
         },
       },
@@ -567,7 +568,7 @@ describe('SkillPropertyService', () => {
         skillEffectSpec: {
           damage: {
             damageType: 'hp',
-            damageElementId: 11,
+            damageElementIds: [11],
             allowCritical: true,
             damageScatter: 20,
             formula: {
@@ -612,6 +613,7 @@ describe('SkillPropertyService', () => {
       skillEffectSpec: {
         damage: {
           damageType: 'hp',
+          damageElementIds: [11],
           damageElementId: 11,
           allowCritical: true,
           damageScatter: 20,

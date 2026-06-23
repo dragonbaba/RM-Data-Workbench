@@ -242,8 +242,51 @@ describe('EnemyPropertyService', () => {
         repeatTimeFloat: 0,
         actionRepeat: 2,
         allowSkillBreak: false,
+        forceWhenValid: false,
       },
     });
     expect(Object.keys(saved.actionOverrides ?? {})).toEqual(['2']);
+  });
+
+  it('会规范强制选择标记默认值并保留显式开启', () => {
+    const values = normalizeEnemyEditorValues(
+      {
+        actions: [
+          { skillId: 5, rating: 9, conditionType: 2, conditionParam1: 0, conditionParam2: 0.5 },
+        ],
+        actionOverrides: {
+          5: {
+            forceWhenValid: true,
+          },
+        },
+      },
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        {
+          id: 5,
+          name: '阶段切换',
+          targetCamp: 1,
+          targetLifeState: 1,
+          selectMode: 1,
+          areaMode: 1,
+          shapeType: 0,
+          areaTargetCount: 0,
+          repeatTime: 1,
+          repeatTimeFloat: 0,
+        },
+      ],
+    );
+    const defaults = normalizeEnemyEditorValues({
+      actions: [
+        { skillId: 5, rating: 9, conditionType: 2, conditionParam1: 0, conditionParam2: 0.5 },
+      ],
+    });
+
+    expect(values.actionOverrides['5'].forceWhenValid).toBe(true);
+    expect(defaults.actionOverrides['5'].forceWhenValid).toBe(false);
   });
 });

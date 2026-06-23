@@ -155,6 +155,7 @@ export const normalizeEnemyActionOverride = (
     allowSkillBreak: normalizeAllowSkillBreak(source.allowSkillBreak),
     skillDurability: normalizeSkillDurability(source.skillDurability),
     skillUseCount: normalizeSkillUseCount(source.skillUseCount),
+    forceWhenValid: toBooleanFlag(source.forceWhenValid),
   };
 };
 

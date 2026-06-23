@@ -1,11 +1,13 @@
 export type GameEffectType =
   | 'single_engine_bonus'
   | 'single_cunit_bonus'
+  | 'single_base_bonus'
   | 'equip_count_bonus'
   | 'pair_same_engine_bonus'
   | 'pair_same_cunit_bonus'
   | 'pair_same_cunit_owner_bonus'
   | 'cunit_slot_action_repeat_bonus'
+  | 'base_slot_action_repeat_bonus'
   | 'equip_id_set_bonus';
 
 export type GameEffectOpKind = 'add' | 'mul' | 'set';

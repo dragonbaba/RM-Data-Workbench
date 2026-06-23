@@ -443,6 +443,18 @@ export function EnemyActionOverridesCard({
                 />
               </Form.Item>
               <Form.Item
+                name={[fieldKey, selectedKey, 'forceWhenValid']}
+                label={<span className="text-xs text-gray-400">满足条件时强制选择</span>}
+                className="mb-0"
+                valuePropName="checked"
+              >
+                <Switch
+                  disabled={!isOverrideEnabled}
+                  checkedChildren="强制"
+                  unCheckedChildren="随机"
+                />
+              </Form.Item>
+              <Form.Item
                 name={[fieldKey, selectedKey, 'skillUseCount']}
                 label={<span className="text-xs text-gray-400">技能使用次数上限</span>}
                 className="mb-0"

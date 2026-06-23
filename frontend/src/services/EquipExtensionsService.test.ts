@@ -219,7 +219,7 @@ describe('EquipExtensionsService', () => {
       }, { slots: [] }],
     }, 4, 1, [2, 3]);
 
-    expect(result.data.actorEquipSlots[2]).toEqual([10, 0, 0, 0, 0, 7, 0, 8, 0, 0, 8, 9]);
+    expect(result.data.actorEquipSlots[2]).toEqual([10, 0, 0, 0, 0, 7, 0, 8, 0, 0, 0, 9]);
 
     const actor2Slots = result.data.actorRefitRules[2]?.slots || [];
     const actor2Slot0Transitions = actor2Slots.find((slot) => slot.slotIndex === 0)?.transitions || [];
@@ -227,15 +227,14 @@ describe('EquipExtensionsService', () => {
       expect.objectContaining({ fromEquipTypeId: 10, toEquipTypeId: 11, goldCost: 11600 }),
       expect.objectContaining({ fromEquipTypeId: 10, toEquipTypeId: 12, goldCost: 21100 }),
     ]));
-    expect(actor2Slots.find((slot) => slot.slotIndex === 5)?.transitions).toEqual(expect.arrayContaining([
-      expect.objectContaining({ fromEquipTypeId: 7, toEquipTypeId: 8 }),
-      expect.objectContaining({ fromEquipTypeId: 8, toEquipTypeId: 7 }),
-    ]));
     expect(actor2Slots.find((slot) => slot.slotIndex === 9)?.transitions).toEqual(expect.arrayContaining([
       expect.objectContaining({ fromEquipTypeId: 0, toEquipTypeId: 7 }),
       expect.objectContaining({ fromEquipTypeId: 0, toEquipTypeId: 8 }),
     ]));
-    expect(actor2Slots.find((slot) => slot.slotIndex === 10)?.transitions).toEqual([]);
+    expect(actor2Slots.find((slot) => slot.slotIndex === 10)?.transitions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ fromEquipTypeId: 0, toEquipTypeId: 7 }),
+      expect.objectContaining({ fromEquipTypeId: 0, toEquipTypeId: 8 }),
+    ]));
     expect(actor2Slots.find((slot) => slot.slotIndex === 11)?.transitions).toEqual([]);
     expect(result.data.actorRefitRules[3]?.slots[0].transitions).toEqual(expect.arrayContaining([
       expect.objectContaining({ fromEquipTypeId: 0, toEquipTypeId: 10, goldCost: 13700 }),
@@ -247,7 +246,7 @@ describe('EquipExtensionsService', () => {
     ]));
   });
 
-  it('aligns tank actor equips to normalized fixed C-unit and chassis slots', () => {
+  it('aligns tank actor equips to normalized chassis slot while preserving existing core slots', () => {
     const result = normalizeEquipExtensions({
       weaponEquipTypes: [null],
       systemWeaponEquipTypes: [],
@@ -256,11 +255,11 @@ describe('EquipExtensionsService', () => {
       actorRefitRules: [null, { slots: [] }],
     }, 2, 1, [1]);
 
-    expect(result.data.actorEquipSlots[1]).toEqual([10, 0, 0, 0, 0, 7, 0, 8, 0, 0, 8, 9]);
+    expect(result.data.actorEquipSlots[1]).toEqual([10, 0, 0, 0, 0, 7, 0, 8, 0, 0, 0, 9]);
     expect(result.data.actorEquips[1]).toEqual([19, 0, 0, 0, 0, 68, 0, 112, 0, 140, 0, 0]);
   });
 
-  it('repair mode moves misplaced tank core equipment to matching fixed slots', () => {
+  it('repair mode moves misplaced tank core equipment to matching core slots', () => {
     const repaired = repairTankActorEquipsBySlotProtocol(
       [19, 0, 0, 0, 0, 68, 0, 0, 0, 140, 0, 112, 0],
       [10, 0, 0, 0, 0, 7, 0, 0, 8, 0, 0, 8, 9],

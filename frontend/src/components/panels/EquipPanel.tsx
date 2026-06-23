@@ -41,20 +41,9 @@ const getDisplayName = (item: RecordLike | null, fallback: string) => {
 const createDraftKey = () => `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const isTankActorRecord = (actor: RecordLike | null): boolean => actor?.isTank === true;
 
-const getTankFixedCUnitSlotIndex = (equipSlots: number[]): number => (
-  equipSlots.length > 1 ? equipSlots.length - 2 : -1
-);
+// Tank slot constraints are now enforced in runtime; editor editing keeps no fixed C/chassis assumptions.
+// 为了兼容历史数据，编辑器不再固定倒数第二槽位为 C 装置槽位，也不固定底盘槽位位置。
 
-const getTankFixedSlotType = (slotIndex: number, equipSlots: number[]): number => {
-  if (slotIndex === equipSlots.length - 1) return 9;
-  if (slotIndex === getTankFixedCUnitSlotIndex(equipSlots)) return 8;
-  return 0;
-};
-
-const getTankInsertSlotIndex = (equipSlots: number[]): number => {
-  const fixedCUnitSlotIndex = getTankFixedCUnitSlotIndex(equipSlots);
-  return fixedCUnitSlotIndex >= 0 ? fixedCUnitSlotIndex : equipSlots.length;
-};
 
 
 const buildEquipTypeDrafts = (systemData: unknown): EquipTypeDraft[] => {
@@ -201,15 +190,10 @@ export function EquipPanel() {
   const updateSlotType = useCallback((slotIndex: number, nextTypeId: number) => {
     const nextEquipSlots = [...actorEquipState.equipSlots];
     const nextEquips = [...actorEquipState.equips];
-    const fixedSlotType = isTankActor ? getTankFixedSlotType(slotIndex, nextEquipSlots) : 0;
-    const normalizedTypeId = fixedSlotType > 0 ? fixedSlotType : nextTypeId;
-    if (fixedSlotType > 0 && nextTypeId !== fixedSlotType) {
-      ToastManager.warning('战车固定 C 装置/底盘槽位类型不能改');
-    }
-    nextEquipSlots[slotIndex] = normalizedTypeId;
+    nextEquipSlots[slotIndex] = nextTypeId;
 
     const nextCandidates = getEquipCandidateOptions(
-      normalizedTypeId,
+      nextTypeId,
       weaponEquipTypes,
       equipExtensionsData?.weaponEquipTypes,
       weaponsData,
@@ -220,41 +204,60 @@ export function EquipPanel() {
     }
 
     applyActorUpdate(nextEquipSlots, nextEquips);
-  }, [actorEquipState.equipSlots, actorEquipState.equips, applyActorUpdate, armorsData, equipExtensionsData?.weaponEquipTypes, isTankActor, weaponEquipTypes, weaponsData]);
-
-  const updateEquipValue = useCallback((slotIndex: number, equipId: number) => {
-    const nextEquips = [...actorEquipState.equips];
-    nextEquips[slotIndex] = equipId;
-    applyActorUpdate([...actorEquipState.equipSlots], nextEquips);
-  }, [actorEquipState.equipSlots, actorEquipState.equips, applyActorUpdate]);
+  }, [
+    actorEquipState.equipSlots,
+    actorEquipState.equips,
+    applyActorUpdate,
+    armorsData,
+    equipExtensionsData?.weaponEquipTypes,
+    weaponEquipTypes,
+    weaponsData,
+  ]);
 
   const addSlot = useCallback(() => {
-    if (isTankActor) {
-      const insertIndex = getTankInsertSlotIndex(actorEquipState.equipSlots);
-      const nextEquipSlots = [...actorEquipState.equipSlots];
-      const nextEquips = [...actorEquipState.equips];
-      nextEquipSlots.splice(insertIndex, 0, 0);
-      nextEquips.splice(insertIndex, 0, 0);
-      applyActorUpdate(nextEquipSlots, nextEquips);
-      return;
-    }
     applyActorUpdate(
       [...actorEquipState.equipSlots, 0],
       [...actorEquipState.equips, 0],
     );
-  }, [actorEquipState.equipSlots, actorEquipState.equips, applyActorUpdate, isTankActor]);
+  }, [actorEquipState.equipSlots, actorEquipState.equips, applyActorUpdate]);
 
   const removeSlot = useCallback((slotIndex: number) => {
-    if (isTankActor && getTankFixedSlotType(slotIndex, actorEquipState.equipSlots) > 0) {
-      ToastManager.warning('战车固定 C 装置/底盘槽不能删除');
-      return;
-    }
     const nextEquipSlots = [...actorEquipState.equipSlots];
     const nextEquips = [...actorEquipState.equips];
+    if (slotIndex < 0 || slotIndex >= nextEquipSlots.length) {
+      return;
+    }
     nextEquipSlots.splice(slotIndex, 1);
     nextEquips.splice(slotIndex, 1);
     applyActorUpdate(nextEquipSlots, nextEquips);
-  }, [actorEquipState.equipSlots, actorEquipState.equips, applyActorUpdate, isTankActor]);
+  }, [actorEquipState.equipSlots, actorEquipState.equips, applyActorUpdate]);
+
+  const updateEquipValue = useCallback((slotIndex: number, nextEquipId: number) => {
+    const nextEquipSlots = [...actorEquipState.equipSlots];
+    const nextEquips = [...actorEquipState.equips];
+    const slotTypeId = nextEquipSlots[slotIndex] || 0;
+    nextEquips[slotIndex] = nextEquipId;
+    const nextCandidates = getEquipCandidateOptions(
+      slotTypeId,
+      weaponEquipTypes,
+      equipExtensionsData?.weaponEquipTypes,
+      weaponsData,
+      armorsData,
+    );
+    if (!isEquipCandidateValid(nextEquips[slotIndex] || 0, nextCandidates)) {
+      nextEquips[slotIndex] = 0;
+    }
+
+    applyActorUpdate(nextEquipSlots, nextEquips);
+  }, [
+    actorEquipState.equipSlots,
+    actorEquipState.equips,
+    applyActorUpdate,
+    armorsData,
+    equipExtensionsData?.weaponEquipTypes,
+    weaponEquipTypes,
+    weaponsData,
+  ]);
 
   const addEquipTypeDraft = useCallback(() => {
     setEquipTypeDrafts((current) => [...current, {

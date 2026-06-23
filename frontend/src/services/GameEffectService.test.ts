@@ -43,11 +43,13 @@ describe('GameEffectService', () => {
     expect(getGameEffectTypeDefinitions().map((definition) => definition.effectType)).toEqual([
       'single_engine_bonus',
       'single_cunit_bonus',
+      'single_base_bonus',
       'equip_count_bonus',
       'pair_same_engine_bonus',
       'pair_same_cunit_bonus',
       'pair_same_cunit_owner_bonus',
       'cunit_slot_action_repeat_bonus',
+      'base_slot_action_repeat_bonus',
       'equip_id_set_bonus',
     ]);
   });
@@ -57,6 +59,8 @@ describe('GameEffectService', () => {
     const equipCountDefinition = getGameEffectTypeDefinition('equip_count_bonus');
     const equipSetDefinition = getGameEffectTypeDefinition('equip_id_set_bonus');
     const cunitDefinition = getGameEffectTypeDefinition('single_cunit_bonus');
+    const baseDefinition = getGameEffectTypeDefinition('single_base_bonus');
+    const baseSlotDefinition = getGameEffectTypeDefinition('base_slot_action_repeat_bonus');
 
     expect(ownerParamDefinition.selectorMode).toBe('none');
     expect(ownerParamDefinition.argsMode).toBe('count+ops');
@@ -77,6 +81,18 @@ describe('GameEffectService', () => {
     ]);
     expect(cunitDefinition.selectorMode).toBe('none');
     expect(cunitDefinition.argsMode).toBe('ops');
+
+    expect(baseDefinition.label).toBe('底盘携带奖励');
+    expect(baseDefinition.example.description).toEqual([
+      '每个装备中的底盘会独立应用自身携带的属性奖励',
+      '可随多个底盘来源叠加',
+    ]);
+    expect(baseDefinition.selectorMode).toBe('none');
+    expect(baseDefinition.argsMode).toBe('ops');
+    expect(baseSlotDefinition.selectorMode).toBe('equip');
+    expect(baseSlotDefinition.allowedGroups.map((entry) => entry.group)).toEqual([
+      'vehicleParams',
+    ]);
 
     expect(equipCountDefinition.selectorMode).toBe('equip');
     expect(equipCountDefinition.selectorFields).toEqual(['etypeIds', 'wtypeIds', 'atypeIds']);
@@ -210,11 +226,17 @@ describe('GameEffectService', () => {
     ]);
     expect(getKeyOptions('single_cunit_bonus', 'specialParams')).toContainEqual({ value: 'hrg', label: 'HP 再生率' });
     expect(getOpOptions()).toEqual([
-      { value: 'add', label: '加算' },
-      { value: 'mul', label: '乘算' },
-      { value: 'set', label: '设定值' },
+      { value: 'add', label: '加算（+固定值）' },
+      { value: 'mul', label: '乘算（倍率：1.5=+50%，不是50）' },
+      { value: 'set', label: '设定值（覆盖最终值）' },
     ]);
     expect(createDefaultOpRow('cunit_slot_action_repeat_bonus')).toEqual({
+      group: 'vehicleParams',
+      key: 'actionRepeat',
+      op: 'add',
+      value: 0,
+    });
+    expect(createDefaultOpRow('base_slot_action_repeat_bonus')).toEqual({
       group: 'vehicleParams',
       key: 'actionRepeat',
       op: 'add',

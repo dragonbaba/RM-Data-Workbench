@@ -332,7 +332,7 @@ export function normalizeEquipmentDataEntry(
     const rangeValues = normalizeWeaponRangeValues(item);
     normalized.attackSkillId = Math.max(0, toIntOrZero(item.attackSkillId));
     normalized.interceptableMode = normalizeWeaponInterceptableMode(item.interceptableMode);
-    normalized.attackElementId = Math.max(0, toIntOrZero(item.attackElementId));
+    delete (normalized as unknown as Record<string, unknown>).attackElementId;
     normalized.weaponImageId = normalizeWeaponImageId(item.weaponImageId);
     delete normalized.elementRates;
     delete normalized.elementRateFloats;

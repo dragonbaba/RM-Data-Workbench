@@ -378,32 +378,21 @@ const getTankChassisSlotIndex = (equipSlots: number[] | null | undefined): numbe
   equipSlots && equipSlots.length > 0 ? equipSlots.length - 1 : -1
 );
 
-const getTankFixedCUnitSlotIndex = (equipSlots: number[] | null | undefined): number => {
-  const chassisSlotIndex = getTankChassisSlotIndex(equipSlots);
-  return chassisSlotIndex > 0 ? chassisSlotIndex - 1 : -1;
-};
-
 const isTankChassisSlot = (slotIndex: number, equipSlots: number[] | null | undefined): boolean => (
   slotIndex === getTankChassisSlotIndex(equipSlots)
 );
 
-const isTankFixedCUnitSlot = (slotIndex: number, equipSlots: number[] | null | undefined): boolean => (
-  slotIndex === getTankFixedCUnitSlotIndex(equipSlots)
-);
-
-const isTankFlexibleCoreSlot = (slotIndex: number, equipSlots: number[] | null | undefined): boolean => {
-  const fixedCUnitSlotIndex = getTankFixedCUnitSlotIndex(equipSlots);
-  return slotIndex >= TANK_CORE_SLOT_START && slotIndex < fixedCUnitSlotIndex;
+const isTankCoreSlot = (slotIndex: number, equipSlots: number[] | null | undefined): boolean => {
+  const chassisSlotIndex = getTankChassisSlotIndex(equipSlots);
+  return slotIndex >= TANK_CORE_SLOT_START && slotIndex < chassisSlotIndex;
 };
 
 const normalizeTankActorEquipSlots = (equipSlots: number[] | null): number[] | null => {
   if (!equipSlots || equipSlots.length === 0) return equipSlots;
   const normalized = equipSlots.slice();
   const chassisSlotIndex = getTankChassisSlotIndex(normalized);
-  const fixedCUnitSlotIndex = getTankFixedCUnitSlotIndex(normalized);
-  normalized[chassisSlotIndex] = TANK_BASE_EQUIP_TYPE;
-  if (fixedCUnitSlotIndex >= 0) {
-    normalized[fixedCUnitSlotIndex] = TANK_C_UNIT_EQUIP_TYPE;
+  if (chassisSlotIndex >= 0) {
+    normalized[chassisSlotIndex] = TANK_BASE_EQUIP_TYPE;
   }
   return normalized;
 };
@@ -504,10 +493,7 @@ const createDefaultTankRefitSlotRule = (
   if (isTankChassisSlot(slotIndex, equipSlots)) {
     return createDefaultActorRefitSlotRule(slotIndex, TANK_BASE_EQUIP_TYPE);
   }
-  if (isTankFixedCUnitSlot(slotIndex, equipSlots)) {
-    return createDefaultActorRefitSlotRule(slotIndex, TANK_C_UNIT_EQUIP_TYPE);
-  }
-  if (isTankFlexibleCoreSlot(slotIndex, equipSlots)) {
+  if (isTankCoreSlot(slotIndex, equipSlots)) {
     return {
       slotIndex,
       fromEquipTypeId: asInt(fromEquipTypeId),
@@ -600,10 +586,7 @@ const ensureTankFlexibleRefitSlotRule = (
   if (isTankChassisSlot(slot.slotIndex, equipSlots)) {
     return createDefaultActorRefitSlotRule(slot.slotIndex, TANK_BASE_EQUIP_TYPE);
   }
-  if (isTankFixedCUnitSlot(slot.slotIndex, equipSlots)) {
-    return createDefaultActorRefitSlotRule(slot.slotIndex, TANK_C_UNIT_EQUIP_TYPE);
-  }
-  if (!isTankFlexibleCoreSlot(slot.slotIndex, equipSlots)) return slot;
+  if (!isTankCoreSlot(slot.slotIndex, equipSlots)) return slot;
   return completeRefitSlotTransitions({
     slotIndex: slot.slotIndex,
     fromEquipTypeId: asInt(fromEquipTypeId),
@@ -627,15 +610,10 @@ const ensureTankFlexibleRefitRules = (
   ));
   const existingSlotIndexes = new Set(slots.map((slot) => slot.slotIndex));
   const chassisSlotIndex = getTankChassisSlotIndex(equipSlots);
-  const fixedCUnitSlotIndex = getTankFixedCUnitSlotIndex(equipSlots);
-  for (let slotIndex = TANK_CORE_SLOT_START; slotIndex < fixedCUnitSlotIndex; slotIndex++) {
+  for (let slotIndex = TANK_CORE_SLOT_START; slotIndex < chassisSlotIndex; slotIndex++) {
     if (existingSlotIndexes.has(slotIndex)) continue;
     slots.push(createDefaultTankRefitSlotRule(actorIndex, slotIndex, asInt(equipSlots?.[slotIndex]), equipSlots));
     existingSlotIndexes.add(slotIndex);
-  }
-  if (fixedCUnitSlotIndex >= 0 && !existingSlotIndexes.has(fixedCUnitSlotIndex)) {
-    slots.push(createDefaultActorRefitSlotRule(fixedCUnitSlotIndex, TANK_C_UNIT_EQUIP_TYPE));
-    existingSlotIndexes.add(fixedCUnitSlotIndex);
   }
   if (chassisSlotIndex >= 0 && !existingSlotIndexes.has(chassisSlotIndex)) {
     slots.push(createDefaultActorRefitSlotRule(chassisSlotIndex, TANK_BASE_EQUIP_TYPE));
@@ -644,6 +622,7 @@ const ensureTankFlexibleRefitRules = (
   return { slots };
 };
 
+// NOTE: only the current tank refit rule helper is kept; legacy fixed-slot helper removed.
 const normalizeIndexedActorRefitRules = (
   value: unknown,
   expectedLength: number,
