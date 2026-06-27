@@ -61,6 +61,10 @@ All notable changes to this project are documented in this file.
   - 平衡: 线性加成按 `0.1→0.03 / 0.2→0.06 / 0.3→0.09 / >=0.4→0.12` 收敛，所有经验/掉率/金币奖励加成数据上限不超过 `0.12`。
 
 ### Fixed
+- **[防具发射期连发脏循环修复]**: `PropertyPanel` 的装备模板 `vehicleParams` 保存链改为与修复模式统一使用完整 8 槽协议，保存 `Armors.json / Weapons.json` 时不再裁掉第 8 项 `发射期连发(actionRepeat)`，从而消除“保存全部后执行修复又把防具数据弄脏”的循环。 — by Zaun
+  - 类型: 回归修复（无方案包）
+  - 文件: `frontend/src/components/panels/PropertyPanel.tsx`, `frontend/src/components/panels/PropertyPanel.test.tsx`, `.helloagents/modules/frontend-interaction-and-performance.md`
+  - 验证: `npm test -- src/components/panels/PropertyPanel.test.tsx`; `npm run build`
 - **[战车固定槽初始装备修复]**: `DataLoaderService` 普通加载 `EquipExtensions.json` 时会按 `Actors.json.isTank` 传入战车索引；`EquipExtensionsService` 统一归一战车固定 C 装置/底盘槽与 `actorEquips` 长度，并提供同类型角色复制工具；修复模式会把错位的引擎/C 装置/底盘装备移回对应槽位；`EquipPanel` 禁止删除或改写战车固定 C 装置/底盘槽，战车新增槽位插入到固定槽之前，装备复制也只允许人类→人类、战车→战车，避免再次挤掉底盘或跨协议覆盖。 — by Zaun
   - 类型: 修复（无方案包）
   - 文件: `frontend/src/services/EquipExtensionsService.ts`, `frontend/src/services/DataAuditService.ts`, `frontend/src/services/DataLoaderService.ts`, `frontend/src/components/panels/EquipPanel.tsx`, `frontend/src/services/EquipExtensionsService.test.ts`, `frontend/src/services/DataAuditService.test.ts`, `frontend/src/services/DataLoaderService.test.ts`, `D:/RMProjects/MyGame/data/EquipExtensions.json`, `D:/RMProjects/MyTemp/MyGame-offline/data/EquipExtensions.json`

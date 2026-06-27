@@ -3,15 +3,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import PropertyPanel from './PropertyPanel';
 import { useEditorStore } from '../../stores/editorStore';
 import { DataLoaderService } from '../../services/DataLoaderService';
+import { auditAndRepairDataFiles } from '../../services/DataAuditService';
 import type { RPGItem } from '../../types';
 import { CLASS_LEVEL_EXTENSIONS_FILE_NAME } from '../../services/ClassLevelExtensionsService';
 import type { ClassGrowthMode } from '../../services/ClassLevelExtensionsService';
+import { normalizeEquipmentDataEntry } from '../../services/EquipmentPropertyService';
 
 const WEAPONS_FILE_PATH = 'D:/Project/data/Weapons.json';
+const ARMORS_FILE_PATH = 'D:/Project/data/Armors.json';
 const SKILLS_FILE_PATH = 'D:/Project/data/Skills.json';
 const ACTORS_FILE_PATH = 'D:/Project/data/Actors.json';
 const CLASSES_FILE_PATH = 'D:/Project/data/Classes.json';
 const CLASS_LEVEL_EXTENSIONS_FILE_PATH = 'D:/Project/data/ClassLevelExtensions.json';
+
+const createParamTemplate = (value: number) => ({
+  value,
+  floatValue: 0,
+  upgradeValue: 0,
+  upgradeFloatValue: 0,
+});
 
 const createWeapon = (overrides: Record<string, unknown> = {}) => ({
   id: 132,
@@ -50,6 +60,41 @@ const createWeapon = (overrides: Record<string, unknown> = {}) => ({
   customParams: {},
   ...overrides,
 });
+const createArmor = (overrides: Record<string, unknown> = {}): RPGItem => ({
+  id: 9,
+  name: '测试甲',
+  params: [0, 0, 0, 0, 0, 0, 0, 0],
+  floatParams: [0, 0, 0, 0, 0, 0, 0, 0],
+  extraParams: Array.from({ length: 6 }, () => createParamTemplate(0)),
+  vehicleParams: [
+    createParamTemplate(11),
+    createParamTemplate(12),
+    createParamTemplate(13),
+    createParamTemplate(14),
+    createParamTemplate(15),
+    createParamTemplate(16),
+    createParamTemplate(17),
+    createParamTemplate(19),
+  ],
+  upgradeParams: Array.from({ length: 3 }, () => createParamTemplate(0)),
+  ownerParams: {
+    baseParams: [0, 0, 0, 0, 0, 0, 0, 0],
+    paramRate: [0, 0, 0, 0, 0, 0, 0, 0],
+    extraParams: [0, 0, 0, 0, 0, 0],
+    scalar: [0, 0],
+    specialParams: [0, 0, 0, 0, 0, 0],
+  },
+  passiveStates: [],
+  effects: [],
+  qualityLock: false,
+  qualityLevel: 0,
+  price: 77,
+  elementRates: [0, 0],
+  elementRateFloats: [0, 0],
+  upgradeCosts: [],
+  customParams: {},
+  ...overrides,
+} as unknown as RPGItem);
 
 const createSkill = (id: number, overrides: Record<string, unknown> = {}): RPGItem => ({
   id,
@@ -102,6 +147,34 @@ const createActor = (overrides: Record<string, unknown> = {}): RPGItem => ({
   ...overrides,
 } as unknown as RPGItem);
 
+const cloneJson = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
+
+const AUDIT_SYSTEM_DATA = {
+  elements: ['', '通常'],
+  weaponTypes: ['', '主炮', '副炮', 'SE'],
+};
+
+const createAuditFixtureFiles = (armorsData: unknown) => new Map<string, unknown>([
+  ['D:/Project/data/System.json', AUDIT_SYSTEM_DATA],
+  ['D:/Project/data/Actors.json', [null]],
+  ['D:/Project/data/Classes.json', [null]],
+  ['D:/Project/data/States.json', [null]],
+  ['D:/Project/data/Enemies.json', [null]],
+  ['D:/Project/data/Items.json', [null]],
+  ['D:/Project/data/Weapons.json', [null]],
+  ['D:/Project/data/Armors.json', [null, armorsData]],
+  ['D:/Project/data/Projectiles.json', [null]],
+  ['D:/Project/data/Troops.json', [null]],
+  ['D:/Project/data/Skills.json', [null]],
+  ['D:/Project/data/Effects.json', [null]],
+  ['D:/Project/data/EquipExtensions.json', {
+    weaponEquipTypes: [null],
+    systemWeaponEquipTypes: [],
+    actorEquipSlots: [null],
+    actorEquips: [null],
+    actorRefitRules: [null],
+  }],
+]);
 const createClass = (overrides: Record<string, unknown> = {}): RPGItem => {
   const params = Array.from({ length: 8 }, (_, paramIndex) => {
     const levels = new Array(100).fill(0);
@@ -239,6 +312,56 @@ describe('PropertyPanel range initialization', () => {
       expect(currentWeapon.params?.[2]).toBe(15);
     });
   });
+
+  it('防具保存其他属性时会保留发射期连发模板字段', async () => {
+    useEditorStore.getState().loadData([null, createArmor()], ARMORS_FILE_PATH, 'data');
+
+    render(<PropertyPanel />);
+
+    expect(await screen.findByText('发射期连发')).toBeInTheDocument();
+    const priceInput = await screen.findByDisplayValue('77');
+    fireEvent.change(priceInput, { target: { value: '88' } });
+
+    await waitFor(() => {
+      const currentArmor = useEditorStore.getState().currentData?.[1] as RPGItem;
+      expect(currentArmor.price).toBe(88);
+      expect(currentArmor.vehicleParams).toHaveLength(8);
+      expect(currentArmor.vehicleParams?.[7]?.value).toBe(19);
+    });
+
+  });
+  it('防具保存结果再次经过修复模式不会写回 Armors.json', async () => {
+    DataLoaderService.cacheFileData('D:/Project/data/System.json', 'System.json', AUDIT_SYSTEM_DATA);
+    useEditorStore.getState().loadData([null, createArmor()], ARMORS_FILE_PATH, 'data');
+
+    render(<PropertyPanel />);
+
+    const priceInput = await screen.findByDisplayValue('77');
+    fireEvent.change(priceInput, { target: { value: '99' } });
+
+    let currentArmor: RPGItem | null = null;
+    await waitFor(() => {
+      currentArmor = useEditorStore.getState().currentData?.[1] as RPGItem;
+      expect(currentArmor?.price).toBe(99);
+      expect(currentArmor?.vehicleParams).toHaveLength(8);
+      expect(currentArmor?.vehicleParams?.[7]?.value).toBe(19);
+      expect(normalizeEquipmentDataEntry(currentArmor, { isArmor: true, systemData: AUDIT_SYSTEM_DATA })).toEqual(currentArmor);
+    });
+
+    const files = createAuditFixtureFiles(currentArmor);
+    const writeJson = vi.fn(async (filePath: string, data: unknown) => {
+      files.set(filePath, cloneJson(data));
+    });
+    const summary = await auditAndRepairDataFiles('D:/Project/data', {
+      readJson: vi.fn(async (filePath: string) => cloneJson(files.get(filePath))),
+      writeJson,
+    });
+
+    expect(summary.repairedFiles).toBe(0);
+    expect(summary.repairedEntries).toBe(0);
+    expect(writeJson).not.toHaveBeenCalled();
+  });
+
 
   it('角色属性面板会暴露并保存 owner 基础属性', async () => {
     useEditorStore.getState().loadData([null, createActor()], ACTORS_FILE_PATH, 'data');

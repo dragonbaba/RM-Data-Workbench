@@ -62,13 +62,13 @@ import { EnemyActionOverridesCard } from './EnemyActionOverridesCard';
 import { NotePanel } from './NotePanel';
 import { ClassLevelExtensionsPanel } from './ClassLevelExtensionsPanel';
 import {
+  COMPLETE_VEHICLE_PARAM_FIELDS,
   EXTRA_PARAM_FIELDS,
   normalizeArmorElementRateFloats,
   normalizeArmorElementRates,
   normalizeEquipUpgradeCosts,
   normalizeEquipmentDataEntry,
   UPGRADE_PARAM_FIELDS,
-  VEHICLE_PARAM_FIELDS,
 } from '../../services/EquipmentPropertyService';
 import { normalizeEquipmentQualityLevel } from '../../services/EquipmentQualityProtocolService';
 import {
@@ -1032,6 +1032,7 @@ export function PropertyPanel() {
   const supportsProjectileConfig = isSkillFile || isItemFile;
   const projectileConfigSourceName = isItemFile ? '物品' : '技能';
   const supportsTemplateParams = isWeaponItem || isArmorItem;
+  const equipmentVehicleParamFields = COMPLETE_VEHICLE_PARAM_FIELDS;
   const supportsOwnerParams = supportsOwnerParamsFile(currentFileName);
   const supportsOwnerElementRate = supportsOwnerParams && !isWeaponItem && !isArmorItem;
   const supportsPassiveStates = supportsPassiveStatesFile(currentFileName);
@@ -1474,14 +1475,14 @@ export function PropertyPanel() {
             ...baseFormValues,
             ...(supportsTemplateParams ? {
               extraParams: buildGroupFormValues(item.extraParams, EXTRA_PARAM_FIELDS),
-              vehicleParams: buildGroupFormValues(item.vehicleParams, VEHICLE_PARAM_FIELDS),
+              vehicleParams: buildGroupFormValues(item.vehicleParams, equipmentVehicleParamFields),
               upgradeParams: buildGroupFormValues(item.upgradeParams, UPGRADE_PARAM_FIELDS),
               [UPGRADE_COSTS_FIELD_KEY]: normalizeEquipUpgradeCosts(item.upgradeCosts),
             } : {}),
           };
       if (supportsTemplateParams && !pendingDraft?.baseValues) {
         nextBaseValues.extraParams = buildGroupFormValues(item.extraParams, EXTRA_PARAM_FIELDS);
-        nextBaseValues.vehicleParams = buildGroupFormValues(item.vehicleParams, VEHICLE_PARAM_FIELDS);
+        nextBaseValues.vehicleParams = buildGroupFormValues(item.vehicleParams, equipmentVehicleParamFields);
         nextBaseValues.upgradeParams = buildGroupFormValues(item.upgradeParams, UPGRADE_PARAM_FIELDS);
         nextBaseValues[UPGRADE_COSTS_FIELD_KEY] = normalizeEquipUpgradeCosts(item.upgradeCosts);
       }
@@ -1838,7 +1839,7 @@ export function PropertyPanel() {
       ? normalizeGroupValues<EquipExtraParamMap>(values.extraParams, EXTRA_PARAM_FIELDS)
       : null;
     const nextVehicleParams = supportsTemplateParams
-      ? normalizeGroupValues<EquipVehicleParamMap>(values.vehicleParams, VEHICLE_PARAM_FIELDS)
+      ? normalizeGroupValues<EquipVehicleParamMap>(values.vehicleParams, equipmentVehicleParamFields)
       : null;
     const nextUpgradeParams = supportsTemplateParams
       ? normalizeGroupValues<EquipUpgradeParamMap>(values.upgradeParams, UPGRADE_PARAM_FIELDS)
@@ -1915,7 +1916,7 @@ export function PropertyPanel() {
         || !areShapeParamsEqual(sourceItem.shapeParams, nextWeaponRangeValues.shapeParams)
       ))
       || (supportsTemplateParams && nextExtraParams !== null && !areParamGroupsEqual(sourceItem.extraParams, nextExtraParams, EXTRA_PARAM_FIELDS))
-      || (supportsTemplateParams && nextVehicleParams !== null && !areParamGroupsEqual(sourceItem.vehicleParams, nextVehicleParams, VEHICLE_PARAM_FIELDS))
+      || (supportsTemplateParams && nextVehicleParams !== null && !areParamGroupsEqual(sourceItem.vehicleParams, nextVehicleParams, equipmentVehicleParamFields))
       || (supportsTemplateParams && nextUpgradeParams !== null && !areParamGroupsEqual(sourceItem.upgradeParams, nextUpgradeParams, UPGRADE_PARAM_FIELDS))
       || (supportsTemplateParams && nextUpgradeCosts !== null && !arePlainDataEqual(normalizeEquipUpgradeCosts(sourceItem.upgradeCosts), nextUpgradeCosts))
       || (supportsOwnerParams && nextOwnerBaseParams !== null && !areOwnerNumberGroupsEqual(sourceItem.ownerParams?.baseParams, nextOwnerBaseParams, OWNER_BASE_PARAM_FIELDS))
@@ -4228,8 +4229,8 @@ export function PropertyPanel() {
         {supportsTemplateParams ? renderFixedParamCard(
           '车属性',
           'vehicleParams',
-          VEHICLE_PARAM_FIELDS,
-          '固定维护重量、承重、载重、耐久、弹舱、弹药价格和连发。实际获得值 = 未强化基准 ± 获得随机；每级强化增量 = 每级强化基准 ± 每级随机。载重量百分比加成不要填在这里，应在 Effects 的乘算中用 1.5 这类倍率。',
+          equipmentVehicleParamFields,
+          '固定维护重量、承重、载重、耐久、弹舱、弹药价格、连发和发射期连发。实际获得值 = 未强化基准 ± 获得随机；每级强化增量 = 每级强化基准 ± 每级随机。载重量百分比加成不要填在这里，应在 Effects 的乘算中用 1.5 这类倍率。',
         ) : null}
 
         {supportsTemplateParams ? renderFixedParamCard(
@@ -4341,7 +4342,7 @@ export function PropertyPanel() {
         }
       >
         <div className="text-xs text-gray-500 mb-4">
-          这里只保留非业务扩展字段。命中、回避、暴击、暴伤、载重、承重、连发、弹舱等固定属性请改上方模板。
+          这里只保留非业务扩展字段。命中、回避、暴击、暴伤、载重、承重、连发、发射期连发、弹舱等固定属性请改上方模板。
         </div>
         {customFields.length === 0 ? (
           <p className="text-gray-500 text-center py-4">暂无自定义属性</p>
