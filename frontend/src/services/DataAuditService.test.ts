@@ -1217,4 +1217,54 @@ describe('DataAuditService', () => {
     ]);
     expect((itemPayload[1] as any).name).toBe('等级突破药剂');
   });
+
+  it('修复模式会把挂名齐射效果收敛为无属性操作的 nominal_cunit_salvo', async () => {
+    const writes: Array<{ filePath: string; data: unknown }> = [];
+    const summary = await auditAndRepairDataFiles('D:/Project/data', {
+      readJson: vi.fn(async (filePath: string) => {
+        if (filePath.endsWith('System.json')) {
+          return {
+            elements: ['', '通常', '火炎'],
+            weaponTypes: ['', '主炮', '副炮', 'SE', '人类通用武器', '猎人武器', '机械师武器', '战士武器', '摔跤手武器', '护士武器', '实验体改造人武器', '艺术家武器', '波奇武器'],
+          };
+        }
+        if (filePath.endsWith('Effects.json')) {
+          return [null, {
+            id: 33,
+            name: '主炮齐射',
+            description: ['令所携带的主炮类型的装备一齐发射', '属于技能效果'],
+            effectType: 'nominal_cunit_salvo',
+            isStatic: true,
+            config: {
+              selector: {},
+              args: {
+                ops: [{ group: 'extraParams', key: 'interceptRate', op: 'add', value: 10 }],
+                requiredCount: 0,
+                weaponIds: [],
+                armorIds: [],
+              },
+            },
+          }];
+        }
+        return [null];
+      }),
+      writeJson: vi.fn(async (filePath: string, data: unknown) => {
+        writes.push({ filePath, data: JSON.parse(JSON.stringify(data)) });
+        return null;
+      }),
+    });
+
+    const effectPayload = writes.find((item) => item.filePath.endsWith('Effects.json'))?.data as unknown[];
+    expect(summary.repairedFiles).toBeGreaterThan(0);
+    expect(effectPayload?.[1]).toMatchObject({
+      id: 33,
+      name: '主炮齐射',
+      effectType: 'nominal_cunit_salvo',
+      isStatic: true,
+      config: {
+        selector: {},
+        args: {},
+      },
+    });
+  });
 });

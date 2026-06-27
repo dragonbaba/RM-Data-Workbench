@@ -43,6 +43,7 @@ describe('GameEffectService', () => {
     expect(getGameEffectTypeDefinitions().map((definition) => definition.effectType)).toEqual([
       'single_engine_bonus',
       'single_cunit_bonus',
+      'nominal_cunit_salvo',
       'single_base_bonus',
       'equip_count_bonus',
       'pair_same_engine_bonus',
@@ -381,4 +382,17 @@ describe('GameEffectService', () => {
       },
     })).toEqual({ valid: true });
   });
+  it('挂名齐射模板不暴露属性操作字段', () => {
+    const definition = getGameEffectTypeDefinition('nominal_cunit_salvo');
+    expect(definition.label).toBe('C 装挂名齐射');
+    expect(definition.argsMode).toBe('none');
+    expect(definition.argsFields).toEqual([]);
+    expect(definition.allowedGroups).toEqual([]);
+
+    const template = createGameEffectTemplate('nominal_cunit_salvo', wrappedSystemData);
+    expect(template.config.args).toEqual({});
+    expect(validateGameEffectEntry(template, wrappedSystemData)).toEqual({ valid: true });
+    expect(validateGameEffectConfig('nominal_cunit_salvo', template.config, wrappedSystemData)).toEqual({ valid: true });
+  });
+
 });

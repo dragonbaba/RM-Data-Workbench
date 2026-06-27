@@ -1,6 +1,7 @@
 export type GameEffectType =
   | 'single_engine_bonus'
   | 'single_cunit_bonus'
+  | 'nominal_cunit_salvo'
   | 'single_base_bonus'
   | 'equip_count_bonus'
   | 'pair_same_engine_bonus'
@@ -75,10 +76,10 @@ export type GameEffectAttributeOp =
   | GameEffectBaseParamRateOp;
 
 export interface GameEffectArgs {
-  ops: GameEffectAttributeOp[];
-  requiredCount: number;
-  weaponIds: number[];
-  armorIds: number[];
+  ops?: GameEffectAttributeOp[];
+  requiredCount?: number;
+  weaponIds?: number[];
+  armorIds?: number[];
 }
 
 export interface GameEffectConfig {

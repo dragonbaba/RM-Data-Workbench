@@ -33,7 +33,7 @@ export interface EffectOption<T extends string = string> {
 }
 
 export type GameEffectSelectorMode = 'none' | 'equip';
-export type GameEffectArgsMode = 'ops' | 'count+ops' | 'id-set+ops';
+export type GameEffectArgsMode = 'none' | 'ops' | 'count+ops' | 'id-set+ops';
 export type GameEffectSelectorFieldKey = 'slotIndexes' | 'etypeIds' | 'wtypeIds' | 'atypeIds';
 export type GameEffectArgsFieldKey = 'ops' | 'requiredCount' | 'weaponIds' | 'armorIds';
 
@@ -90,6 +90,7 @@ const EMPTY_ARGS_TEMPLATE = Object.freeze({
 });
 const SELECTOR_FIELD_KEYS: GameEffectSelectorFieldKey[] = ['slotIndexes', 'etypeIds', 'wtypeIds', 'atypeIds'];
 const ARGS_FIELDS_BY_MODE: Record<GameEffectArgsMode, GameEffectArgsFieldKey[]> = {
+  none: [],
   ops: ['ops'],
   'count+ops': ['requiredCount', 'ops'],
   'id-set+ops': ['weaponIds', 'armorIds', 'ops'],
@@ -309,10 +310,12 @@ const createTypeDefinition = (input: {
   selectorMode: input.selectorMode,
   argsMode: input.argsMode,
   selectorTemplate: cloneJsonValue(input.selectorTemplate),
-  argsTemplate: {
-    ...cloneJsonValue(EMPTY_ARGS_TEMPLATE),
-    ...cloneJsonValue(input.argsTemplate),
-  },
+  argsTemplate: input.argsMode === 'none'
+    ? cloneJsonValue(input.argsTemplate)
+    : {
+      ...cloneJsonValue(EMPTY_ARGS_TEMPLATE),
+      ...cloneJsonValue(input.argsTemplate),
+    },
   selectorFields: getSelectorFields(input.selectorMode, input.selectorTemplate),
   argsFields: [...ARGS_FIELDS_BY_MODE[input.argsMode]],
   allowedGroups: cloneAllowedGroups(input.allowedGroups),
@@ -322,10 +325,12 @@ const createTypeDefinition = (input: {
     input.exampleDescription,
     input.isStatic,
     cloneJsonValue(input.selectorTemplate) as GameEffectConfig['selector'],
-    {
-      ...cloneJsonValue(EMPTY_ARGS_TEMPLATE),
-      ...cloneJsonValue(input.argsTemplate),
-    },
+    input.argsMode === 'none'
+      ? cloneJsonValue(input.argsTemplate)
+      : {
+        ...cloneJsonValue(EMPTY_ARGS_TEMPLATE),
+        ...cloneJsonValue(input.argsTemplate),
+      },
   ),
 });
 
@@ -353,6 +358,18 @@ const GAME_EFFECT_TYPE_DEFINITIONS: GameEffectTypeDefinition[] = [
     selectorTemplate: {},
     argsTemplate: { ops: [{ group: 'extraParams', key: 'interceptRate', op: 'add', value: 10 }] },
     allowedGroups: OWNER_STATIC_GROUPS,
+  }),
+  createTypeDefinition({
+    effectType: 'nominal_cunit_salvo',
+    label: 'C 装挂名齐射',
+    isStatic: true,
+    selectorMode: 'none',
+    argsMode: 'none',
+    exampleName: '主炮齐射',
+    exampleDescription: '挂名效果，不产生数值加成，仅用于名称与描述展示',
+    selectorTemplate: {},
+    argsTemplate: {},
+    allowedGroups: [],
   }),
   createTypeDefinition({
     effectType: 'single_base_bonus',
@@ -567,19 +584,28 @@ const sanitizeEffectOpRows = (
 
 const sanitizeArgsRecord = (
   args: unknown,
-  definition: Pick<GameEffectTypeDefinition, 'effectType'>,
+  definition: Pick<GameEffectTypeDefinition, 'effectType' | 'argsFields'>,
   systemData?: unknown,
 ): Record<string, unknown> => {
+  if (definition.argsFields.length === 0) {
+    return {};
+  }
   const record = asRecord(args);
   if (!record) return {};
   const sanitized: Record<string, unknown> = {};
-  if (isFiniteNumber(record.requiredCount)) {
+  if (definition.argsFields.includes('requiredCount') && isFiniteNumber(record.requiredCount)) {
     sanitized.requiredCount = record.requiredCount;
   }
-  sanitized.weaponIds = sanitizeNumberArray(record.weaponIds) || [];
-  sanitized.armorIds = sanitizeNumberArray(record.armorIds) || [];
-  const ops = sanitizeEffectOpRows(record.ops, definition.effectType, systemData);
-  if (ops) sanitized.ops = ops;
+  if (definition.argsFields.includes('weaponIds')) {
+    sanitized.weaponIds = sanitizeNumberArray(record.weaponIds) || [];
+  }
+  if (definition.argsFields.includes('armorIds')) {
+    sanitized.armorIds = sanitizeNumberArray(record.armorIds) || [];
+  }
+  if (definition.argsFields.includes('ops')) {
+    const ops = sanitizeEffectOpRows(record.ops, definition.effectType, systemData);
+    if (ops) sanitized.ops = ops;
+  }
   return sanitized;
 };
 
@@ -698,6 +724,15 @@ export const createGameEffectConfig = (
   const argsTemplate = cloneJsonValue(definition.argsTemplate);
   const normalizedSelector = sanitizeSelectorRecord(value?.selector, definition.selectorFields);
   const normalizedArgs = sanitizeArgsRecord(value?.args, definition, systemData);
+  if (definition.argsFields.length === 0) {
+    return {
+      selector: {
+        ...cloneJsonValue(selectorTemplate),
+        ...normalizedSelector,
+      } as unknown as GameEffectConfig['selector'],
+      args: {} as GameEffectConfig['args'],
+    };
+  }
   const selector = {
     ...cloneJsonValue(selectorTemplate),
     ...normalizedSelector,

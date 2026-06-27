@@ -327,21 +327,24 @@ export function EffectPanel() {
       return false;
     }
 
-    const opValidation = validateEffectOpRows(effect.effectType, opRows, systemData);
-    if (!opValidation.valid) {
-      if (!silent) {
-        ToastManager.error(opValidation.message || '属性操作无效');
+    if (definition.argsFields.includes('ops')) {
+      const opValidation = validateEffectOpRows(effect.effectType, opRows, systemData);
+      if (!opValidation.valid) {
+        if (!silent) {
+          ToastManager.error(opValidation.message || '属性操作无效');
+        }
+        if (silent) {
+          lastAutoSaveFailedDraftRef.current = currentDraft;
+        }
+        return false;
       }
-      if (silent) {
-        lastAutoSaveFailedDraftRef.current = currentDraft;
-      }
-      return false;
     }
 
     const rawArgs = effect.config.args;
-    const argsPayload: Record<string, unknown> = {
-      ops: serializeRowsToOps(opRows),
-    };
+    const argsPayload: Record<string, unknown> = {};
+    if (definition.argsFields.includes('ops')) {
+      argsPayload.ops = serializeRowsToOps(opRows);
+    }
     if (definition.argsFields.includes('requiredCount')) {
       argsPayload.requiredCount = rawArgs.requiredCount;
     }
@@ -664,6 +667,16 @@ export function EffectPanel() {
                   }, systemData),
                 }) : current)}
                 placeholder="例如: 2, 5, 10"
+              />
+            </div>
+          ) : null}
+
+          {definition.argsMode === 'none' ? (
+            <div className="col-span-2">
+              <Alert
+                type="info"
+                showIcon
+                message="挂名效果不产生数值加成，仅通过名称与描述展示；请把具体机制写在 description 中。"
               />
             </div>
           ) : null}
