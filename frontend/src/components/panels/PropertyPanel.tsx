@@ -504,6 +504,7 @@ const ENEMY_BOOK_CHALLENGE_FIELD_KEY = 'enemyBookChallenge';
 const ENEMY_ACTION_OVERRIDES_FIELD_KEY = 'enemyActionOverrides';
 const STATE_WEAKNESS_EFFECTS_FIELD_KEY = 'stateWeaknessEffects';
 const STATE_CHARGE_CONFIG_FIELD_KEY = 'stateChargeConfig';
+const STATE_FORBID_HEAL_FIELD_KEY = 'stateForbidHeal';
 const PASSIVE_STATES_FIELD_KEY = 'passiveStates';
 const ORDER_EFFECTS_FIELD_KEY = 'orderEffects';
 const PASSIVE_STATE_HOST_FILE_NAMES = new Set([
@@ -1416,6 +1417,7 @@ export function PropertyPanel() {
       if (isStateFile) {
         baseFormValues[STATE_WEAKNESS_EFFECTS_FIELD_KEY] = normalizeStateWeaknessEffects(item.weaknessStateEffects);
         baseFormValues[STATE_CHARGE_CONFIG_FIELD_KEY] = normalizeStateChargeEditorValues(item.chargeConfig);
+        baseFormValues[STATE_FORBID_HEAL_FIELD_KEY] = item.forbidHeal === true;
       }
       if (isEnemyFile) {
         const enemyValues = normalizeEnemyEditorValues(item as RPGEnemy, skillsData);
@@ -1773,6 +1775,7 @@ export function PropertyPanel() {
     const nextStateChargeConfig = isStateFile
       ? buildStateChargeSaveData(values[STATE_CHARGE_CONFIG_FIELD_KEY])
       : null;
+    const nextStateForbidHeal = isStateFile ? values[STATE_FORBID_HEAL_FIELD_KEY] === true : false;
     const nextQualityLock = (isWeaponItem || isArmorItem)
       ? values[QUALITY_LOCK_FIELD_KEY] === true
       : false;
@@ -1927,8 +1930,8 @@ export function PropertyPanel() {
       || (supportsOwnerElementRate && nextOwnerElementRate !== null && !areFloatArraysEqual(normalizeOwnerElementRates(sourceItem.ownerParams?.elementRate, systemData), nextOwnerElementRate))
       || (!supportsOwnerElementRate && sourceItem.ownerParams != null && Object.prototype.hasOwnProperty.call(sourceItem.ownerParams, 'elementRate'))
       || (supportsOwnerParams && sourceItem.ownerParams == null)
+      || (isStateFile && (sourceItem.forbidHeal === true) !== nextStateForbidHeal)
       || (supportsPassiveStates && !arePassiveStatesEqual(sourceItem.passiveStates, nextPassiveStates))
-      || (isArmorItem && nextArmorElementRates !== null && !areFloatArraysEqual(sourceItem.elementRates, nextArmorElementRates))
       || (isArmorItem && nextElementRateFloats !== null && !areFloatArraysEqual(sourceItem.elementRateFloats, nextElementRateFloats))
       || (isEnemyFile && nextEnemyBaseWeaknessGroup !== null && !areEnemyWeaknessGroupsEqual((sourceItem as RPGEnemy).baseWeaknessGroup, nextEnemyBaseWeaknessGroup))
       || (isEnemyFile && nextEnemyDynamicWeaknessGroups !== null && !areEnemyWeaknessGroupListsEqual((sourceItem as RPGEnemy).dynamicWeaknessGroups, nextEnemyDynamicWeaknessGroups))
@@ -1972,7 +1975,7 @@ export function PropertyPanel() {
         ...(isArmorItem && nextArmorElementRates ? { elementRates: nextArmorElementRates } : {}),
         ...(isArmorItem && nextElementRateFloats ? { elementRateFloats: nextElementRateFloats } : {}),
         ...(isStateFile ? { weaknessStateEffects: nextStateWeaknessEffects ?? undefined } : {}),
-        ...(isStateFile ? { chargeConfig: nextStateChargeConfig ?? undefined } : {}),
+        ...(isStateFile ? { chargeConfig: nextStateChargeConfig ?? undefined, forbidHeal: nextStateForbidHeal } : {}),
         ...(isTroopFile ? { meetCondition: normalizeTroopMeetCondition(values['meetCondition']) } : {}),
         ...(isEnemyFile && nextEnemyBaseWeaknessGroup ? {
           baseWeaknessGroup: nextEnemyBaseWeaknessGroup,
@@ -2992,6 +2995,25 @@ export function PropertyPanel() {
     </div>
   );
 
+  const renderStateRecoveryRuleEditor = () => (
+    <Card
+      title="状态治疗限制"
+      className="mb-4"
+    >
+      <div className="text-xs text-gray-500 mb-4">
+        这里定义状态级 `forbidHeal`。开启后会阻止一切 `gainHp(value &gt; 0)` 来源的治疗回血，包括技能/物品恢复、吸血回血、自然再生与脚本显式调用 `gainHp()`；`recoverAll()` 和直接 `setHp()` 当前不受该字段影响。
+      </div>
+      <Form.Item
+        name={STATE_FORBID_HEAL_FIELD_KEY}
+        label={<span className="text-xs text-gray-400">禁止一切回血</span>}
+        valuePropName="checked"
+        className="mb-0"
+      >
+        <Switch />
+      </Form.Item>
+    </Card>
+  );
+
   const renderStateChargeEditor = () => (
     <Card
       title="状态蓄力配置"
@@ -3847,6 +3869,7 @@ export function PropertyPanel() {
         {isStateFile ? (
           <>
             {renderOwnerParamsSection('战斗属性')}
+            {renderStateRecoveryRuleEditor()}
             {renderStateChargeEditor()}
             <Card
               className="card-dark mb-4"

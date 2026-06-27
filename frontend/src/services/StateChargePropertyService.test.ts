@@ -77,7 +77,7 @@ describe('StateChargePropertyService', () => {
     )).toBe(true);
   });
 
-  it('规范化状态条目时会写回结构化 chargeConfig', () => {
+  it('规范化状态条目时会写回结构化 chargeConfig 和禁疗字段', () => {
     expect(normalizeStateDataEntry({
       id: 4,
       name: '蓄力',
@@ -85,6 +85,7 @@ describe('StateChargePropertyService', () => {
         blockActions: true,
         releaseSkillId: 18,
       },
+      forbidHeal: true,
     })).toEqual({
       id: 4,
       name: '蓄力',
@@ -95,10 +96,11 @@ describe('StateChargePropertyService', () => {
         queueScope: 0,
         queueShift: 0,
       },
+      forbidHeal: true,
     });
   });
 
-  it('空或默认 chargeConfig 会在规范化时补齐默认对象', () => {
+  it('空或默认 chargeConfig 会在规范化时补齐默认对象，并默认禁疗为 false', () => {
     expect(normalizeStateDataEntry({
       id: 5,
       name: '空蓄力',
@@ -119,6 +121,7 @@ describe('StateChargePropertyService', () => {
         queueScope: 0,
         queueShift: 0,
       },
+      forbidHeal: false,
     });
     expect(normalizeStateDataEntry({
       id: 6,
@@ -133,6 +136,7 @@ describe('StateChargePropertyService', () => {
         queueScope: 0,
         queueShift: 0,
       },
+      forbidHeal: false,
     });
   });
 });

@@ -80,6 +80,7 @@ describe('DataAuditService', () => {
             blockActions: true,
             releaseSkillId: 6,
           },
+          forbidHeal: true,
         },
         {
           id: 2,
@@ -297,6 +298,7 @@ describe('DataAuditService', () => {
         queueScope: 0,
         queueShift: 0,
       },
+      forbidHeal: true,
     });
     expect(statePayload[2]).toMatchObject({
       id: 2,
@@ -308,6 +310,7 @@ describe('DataAuditService', () => {
         queueScope: 0,
         queueShift: 0,
       },
+      forbidHeal: false,
       ownerParams: createDefaultOwnerParams(3),
     });
     expect(statePayload[1]).not.toHaveProperty('params');
@@ -808,6 +811,7 @@ describe('DataAuditService', () => {
               queueScope: 0,
               queueShift: 0,
             },
+            forbidHeal: false,
             ownerParams: createDefaultOwnerParams(),
           }];
         }

@@ -11,6 +11,7 @@ import { normalizeEquipmentDataEntry } from '../../services/EquipmentPropertySer
 
 const WEAPONS_FILE_PATH = 'D:/Project/data/Weapons.json';
 const ARMORS_FILE_PATH = 'D:/Project/data/Armors.json';
+const STATES_FILE_PATH = 'D:/Project/data/States.json';
 const SKILLS_FILE_PATH = 'D:/Project/data/Skills.json';
 const ACTORS_FILE_PATH = 'D:/Project/data/Actors.json';
 const CLASSES_FILE_PATH = 'D:/Project/data/Classes.json';
@@ -127,6 +128,30 @@ const createSkill = (id: number, overrides: Record<string, unknown> = {}): RPGIt
   },
   ...overrides,
 } as unknown as RPGItem);
+const createState = (overrides: Record<string, unknown> = {}): RPGItem => ({
+  id: 7,
+  name: '禁疗状态',
+  ownerParams: {
+    baseParams: [0, 0, 0, 0, 0, 0, 0, 0],
+    paramRate: [0, 0, 0, 0, 0, 0, 0, 0],
+    elementRate: [0],
+    extraParams: [0, 0, 0, 0, 0, 0],
+    scalar: [0],
+    specialParams: [0, 0, 0, 0, 0, 0],
+  },
+  passiveStates: [],
+  effects: [],
+  chargeConfig: {
+    blockActions: false,
+    grantAction: false,
+    releaseSkillId: 0,
+    queueScope: 0,
+    queueShift: 0,
+  },
+  forbidHeal: false,
+  ...overrides,
+} as unknown as RPGItem);
+
 
 const createActor = (overrides: Record<string, unknown> = {}): RPGItem => ({
   id: 1,
@@ -361,6 +386,20 @@ describe('PropertyPanel range initialization', () => {
     expect(summary.repairedEntries).toBe(0);
     expect(writeJson).not.toHaveBeenCalled();
   });
+  it('状态禁疗开关会写回 forbidHeal 字段', async () => {
+    useEditorStore.getState().loadData([null, createState()], STATES_FILE_PATH, 'data');
+
+    render(<PropertyPanel />);
+
+    const forbidHealSwitch = await screen.findByRole('switch', { name: '禁止一切回血' });
+    fireEvent.click(forbidHealSwitch);
+
+    await waitFor(() => {
+      const currentState = useEditorStore.getState().currentData?.[1] as RPGItem;
+      expect(currentState.forbidHeal).toBe(true);
+    });
+  });
+
 
 
   it('角色属性面板会暴露并保存 owner 基础属性', async () => {

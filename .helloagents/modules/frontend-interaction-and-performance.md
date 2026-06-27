@@ -166,6 +166,24 @@
   - 正在校验脚本导出时不显示瞬时误报
   - 当前技能没有可用 `damageFormula` 导出，或 `scriptKey` 已失效时，会持续显示 warning
 
+## 状态协议当前规则
+- `PropertyPanel` 在 `States.json` 模式下当前额外维护两类状态协议：
+  - `chargeConfig`
+  - `forbidHeal`
+- `forbidHeal` 是状态顶层布尔字段：
+  - `true` = 禁止一切 `gainHp(value > 0)` 来源的治疗回血
+  - `false` = 不拦截治疗
+- 编辑器当前口径明确限定：
+  - 技能/物品治疗
+  - 吸血回血
+  - 再生回血
+  - 脚本直接 `gainHp(...)`
+  以上都会被 `forbidHeal` 拦截；
+  `recoverAll()` 与直接 `setHp()` 当前不在该字段拦截范围内。
+- `StateChargePropertyService.normalizeStateDataEntry()` 与 `DataAuditService` 修复模式当前会为所有状态补齐固定默认值：
+  - `forbidHeal: false`
+  - 不再区分“缺字段”和“显式 false”
+
 ## 范围表单初始化当前规则
 - `PropertyPanel` 与 `EnemyActionOverridesCard` 的范围字段收口逻辑当前必须基于表单存储中的真实值执行，不能直接信任 `Form.useWatch(... ) ?? 默认值`。
 - 原因是范围相关字段存在条件挂载：

@@ -61,6 +61,10 @@ All notable changes to this project are documented in this file.
   - 平衡: 线性加成按 `0.1→0.03 / 0.2→0.06 / 0.3→0.09 / >=0.4→0.12` 收敛，所有经验/掉率/金币奖励加成数据上限不超过 `0.12`。
 
 ### Fixed
+- **[状态禁疗协议]**: `States.json` 新增顶层布尔字段 `forbidHeal`；属性模式新增“状态治疗限制”开关，修复模式统一补默认值 `false`。当前编辑器口径只声明并保存 `gainHp(value > 0)` 治疗拦截语义，不扩展到 `recoverAll()/setHp()`。 — by Zaun
+  - 类型: 功能新增（无方案包）
+  - 文件: `frontend/src/components/panels/PropertyPanel.tsx`, `frontend/src/components/panels/PropertyPanel.test.tsx`, `frontend/src/services/StateChargePropertyService.ts`, `frontend/src/services/StateChargePropertyService.test.ts`, `frontend/src/services/DataAuditService.test.ts`, `frontend/src/types/index.ts`, `.helloagents/modules/frontend-interaction-and-performance.md`
+  - 验证: `npm test -- src/services/StateChargePropertyService.test.ts src/services/DataAuditService.test.ts src/components/panels/PropertyPanel.test.tsx`; `npm run build`
 - **[防具发射期连发脏循环修复]**: `PropertyPanel` 的装备模板 `vehicleParams` 保存链改为与修复模式统一使用完整 8 槽协议，保存 `Armors.json / Weapons.json` 时不再裁掉第 8 项 `发射期连发(actionRepeat)`，从而消除“保存全部后执行修复又把防具数据弄脏”的循环。 — by Zaun
   - 类型: 回归修复（无方案包）
   - 文件: `frontend/src/components/panels/PropertyPanel.tsx`, `frontend/src/components/panels/PropertyPanel.test.tsx`, `.helloagents/modules/frontend-interaction-and-performance.md`

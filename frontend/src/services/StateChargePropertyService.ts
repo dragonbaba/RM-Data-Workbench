@@ -85,6 +85,7 @@ export function normalizeStateDataEntry(state: unknown): RPGItem | null {
   const nextState: RPGItem = {
     ...(state as unknown as RPGItem),
     chargeConfig,
+    forbidHeal: state.forbidHeal === true,
   };
   return nextState;
 }

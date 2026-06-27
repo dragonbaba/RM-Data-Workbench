@@ -301,6 +301,7 @@ export interface RPGItem {
   skillEffectSpec?: SkillEffectSpec;
   weaknessStateEffects?: StateWeaknessEffects;
   chargeConfig?: StateChargeConfig;
+  forbidHeal?: boolean;
   elementRates?: number[];
   elementRateFloats?: number[];
   qualityLock?: boolean;
