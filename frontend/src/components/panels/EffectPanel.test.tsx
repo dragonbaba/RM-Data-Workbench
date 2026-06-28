@@ -59,6 +59,22 @@ describe('EffectPanel draft flush', () => {
     vi.useRealTimers();
   });
 
+
+  it('自动保存后会清除脏标记', async () => {
+    useEditorStore.getState().loadData([null, createEffect('旧效果')], EFFECTS_FILE_PATH, 'data');
+
+    const { container } = render(<EffectPanel />);
+
+    fireEvent.change(screen.getByPlaceholderText('输入效果描述，每行会保存为 description 数组的一项'), {
+      target: { value: '第一行描述\n第二行描述' },
+    });
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(container.querySelector('.ant-badge-dot')).toBeNull();
+  });
   it('保存全部前会同步写入当前效果草稿并保留所有脏索引', () => {
     useEditorStore.getState().loadData([null, createEffect('旧效果')], EFFECTS_FILE_PATH, 'data');
     useEditorStore.getState().markItemDirty(EFFECTS_FILE_PATH, 2);

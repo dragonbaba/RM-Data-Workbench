@@ -4,6 +4,7 @@ import {
   buildDataReloadConfirmMessage,
   normalizeDataPathKey,
   resolveDataChangeBatch,
+  isReloadableDataFile,
   resolveDataChangeImpact,
 } from './BaseDataReloadService';
 
@@ -44,6 +45,64 @@ describe('BaseDataReloadService', () => {
     });
   });
 
+
+  it('防具属性面板依赖 Effects 时需要确认刷新', () => {
+    const impact = resolveDataChangeImpact({
+      uiMode: 'property',
+      currentFilePath: 'D:/Project/data/Armors.json',
+      currentMapId: null,
+    }, {
+      filePath: 'D:/Project/data/Effects.json',
+      fileName: 'Effects.json',
+      changeType: 'write',
+    });
+
+    expect(impact).toEqual({
+      shouldReload: true,
+      shouldConfirm: true,
+      target: 'dependency',
+    });
+  });
+
+  it('敌人属性面板依赖 Troops 时需要确认刷新', () => {
+    const impact = resolveDataChangeImpact({
+      uiMode: 'property',
+      currentFilePath: 'D:/Project/data/Enemies.json',
+      currentMapId: null,
+    }, {
+      filePath: 'D:/Project/data/Troops.json',
+      fileName: 'Troops.json',
+      changeType: 'write',
+    });
+
+    expect(impact).toEqual({
+      shouldReload: true,
+      shouldConfirm: true,
+      target: 'dependency',
+    });
+  });
+
+  it('效果模式依赖 System 时需要确认刷新', () => {
+    const impact = resolveDataChangeImpact({
+      uiMode: 'effect',
+      currentFilePath: 'D:/Project/data/Effects.json',
+      currentMapId: null,
+    }, {
+      filePath: 'D:/Project/data/System.json',
+      fileName: 'System.json',
+      changeType: 'write',
+    });
+
+    expect(impact).toEqual({
+      shouldReload: true,
+      shouldConfirm: true,
+      target: 'dependency',
+    });
+  });
+
+  it('Effects.json 属于可重载基础数据文件', () => {
+    expect(isReloadableDataFile('Effects.json')).toBe(true);
+  });
   it('武器属性面板依赖 EquipExtensions 时需要确认刷新', () => {
     const impact = resolveDataChangeImpact({
       uiMode: 'property',

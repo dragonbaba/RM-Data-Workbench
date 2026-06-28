@@ -397,11 +397,12 @@ export function EffectPanel() {
       markItemDirty(currentFilePath, currentItemIndex);
     }
     const nextRows = parseEffectOpRows(normalized);
+    const savedDescription = stringifyDescription(normalized.description);
     setEffect(normalized);
     setOriginalEffect(normalized);
+    setOriginalDescriptionText(savedDescription);
     if (!silent) {
-      setDescriptionText(stringifyDescription(normalized.description));
-      setOriginalDescriptionText(stringifyDescription(normalized.description));
+      setDescriptionText(savedDescription);
       setSelectorTexts(createSelectorTextState(normalized.config.selector, definition.selectorFields));
     }
     setOpRows(nextRows);

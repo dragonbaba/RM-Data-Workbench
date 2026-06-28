@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { ToastManager } from '../common/ToastManager';
 import { CopyToTargetModal } from '../common/CopyToTargetModal';
+import { isReloadableDataFile } from '../../services/BaseDataReloadService';
 import { DataLoaderService } from '../../services/DataLoaderService';
 import { EventSystem } from '../../core/EventSystem';
 import { getEquipTypeOptions, getSystemRecord } from '../../services/EquipDataService';
@@ -1301,19 +1302,7 @@ export function PropertyPanel() {
       const fileName = payload && typeof payload === 'object' && !Array.isArray(payload) && 'fileName' in payload
         ? String((payload as { fileName?: unknown }).fileName || '').toLowerCase()
         : '';
-      if (!fileName || [
-        CLASS_LEVEL_EXTENSIONS_FILE_NAME.toLowerCase(),
-        EQUIP_EXTENSIONS_FILE_NAME.toLowerCase(),
-        SYSTEM_FILE_NAME.toLowerCase(),
-        SKILLS_FILE_NAME.toLowerCase(),
-        ITEMS_FILE_NAME.toLowerCase(),
-        WEAPONS_FILE_NAME.toLowerCase(),
-        ARMORS_FILE_NAME.toLowerCase(),
-        PROJECTILES_FILE_NAME.toLowerCase(),
-        EFFECTS_FILE_NAME.toLowerCase(),
-        CLASSES_FILE_NAME.toLowerCase(),
-        ANIMATIONS_FILE_NAME.toLowerCase(),
-      ].includes(fileName)) {
+      if (!fileName || isReloadableDataFile(fileName)) {
         setReferenceRevision((value) => value + 1);
       }
     };

@@ -71,9 +71,19 @@ const DROP_DEPENDENCY_FILES = new Set([
 import { BACKSLASH_REGEXP, MAP_ID_REGEXP, WINDOWS_DRIVE_REGEXP } from '../constants/regexp';
 
 const PROPERTY_DEPENDENCY_FILES = new Map<string, Set<string>>([
+  ['actors.json', new Set(['classes.json', 'states.json', 'skills.json', 'system.json'])],
   ['classes.json', new Set(['classlevelextensions.json'])],
-  ['weapons.json', new Set(['system.json', 'skills.json', 'equipextensions.json'])],
+  ['enemies.json', new Set(['troops.json', 'skills.json', 'animations.json', 'classes.json'])],
+  ['armors.json', new Set(['system.json', 'skills.json', 'effects.json', 'equipextensions.json'])],
+  ['items.json', new Set(['skills.json', 'projectiles.json', 'effects.json'])],
+  ['states.json', new Set(['skills.json'])],
+  ['troops.json', new Set(['enemies.json'])],
+  ['weapons.json', new Set(['system.json', 'skills.json', 'effects.json', 'equipextensions.json'])],
   ['skills.json', new Set(['projectiles.json'])],
+]);
+
+const EFFECT_DEPENDENCY_FILES = new Set([
+  'system.json',
 ]);
 
 export const normalizeDataPathKey = (value: string): string => {
@@ -100,6 +110,7 @@ export const isReloadableDataFile = (fileName: string): boolean => {
     'classes.json',
     'classlevelextensions.json',
     'commonevents.json',
+    'effects.json',
     'equipextensions.json',
     'enemies.json',
     'items.json',
@@ -133,6 +144,10 @@ export const resolveDataChangeImpact = (
   const currentFileName = normalizeFileName(extractFileName(snapshot.currentFilePath));
   const propertyDependencies = PROPERTY_DEPENDENCY_FILES.get(currentFileName);
   if (snapshot.uiMode === 'property' && propertyDependencies?.has(fileName)) {
+    return { shouldReload: true, shouldConfirm: true, target: 'dependency' };
+  }
+
+  if (snapshot.uiMode === 'effect' && currentFileName === 'effects.json' && EFFECT_DEPENDENCY_FILES.has(fileName)) {
     return { shouldReload: true, shouldConfirm: true, target: 'dependency' };
   }
 
