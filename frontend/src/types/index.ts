@@ -9,7 +9,8 @@ export type GameEffectType =
   | 'pair_same_cunit_owner_bonus'
   | 'cunit_slot_action_repeat_bonus'
   | 'base_slot_action_repeat_bonus'
-  | 'equip_id_set_bonus';
+  | 'equip_id_set_bonus'
+  | 'equip_id_set_passive_state';
 
 export type GameEffectOpKind = 'add' | 'mul' | 'set';
 export type GameEffectOpGroup =
@@ -80,6 +81,7 @@ export interface GameEffectArgs {
   requiredCount?: number;
   weaponIds?: number[];
   armorIds?: number[];
+  passiveStates?: number[];
 }
 
 export interface GameEffectConfig {

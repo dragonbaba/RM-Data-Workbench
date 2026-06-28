@@ -22,11 +22,14 @@ import {
   serializeRowsToOps,
   validateEffectOpRows,
   validateGameEffectEntry,
+  normalizeEffectIdList,
 } from '../../services/GameEffectService';
 import { arePlainDataEqual } from '../../services/PlainDataCompare';
+import { normalizePassiveStates } from '../../services/PassiveStatePropertyService';
 import { COMMA_OR_NEWLINE_REGEXP, NEWLINE_REGEXP, PATH_SEPARATOR_REGEXP } from '../../constants/regexp';
 
 const SYSTEM_FILE_NAME = 'System.json';
+const STATES_FILE_NAME = 'States.json';
 
 const ACTION_REPEAT_EQUIP_EFFECT_TYPES: ReadonlySet<GameEffectType> = new Set([
   'cunit_slot_action_repeat_bonus',
@@ -49,9 +52,61 @@ const parseNumberListText = (value: string): number[] =>
     .filter((token) => Number.isFinite(token));
 
 const stringifyNumberList = (value: unknown): string =>
-  Array.isArray(value) ? value.join(', ') : '';
+  Array.isArray(value) ? value.join('，') : '';
+
+
+const buildDataOptions = (data: unknown[] | null, emptyLabel: string) => {
+  const options: Array<{ value: number; label: string }> = [{ value: 0, label: `0 : ${emptyLabel}` }];
+  if (!Array.isArray(data) || data.length < 2) {
+    return options;
+  }
+  for (let index = 1; index < data.length; index++) {
+    const item = data[index] as Record<string, unknown> | null;
+    if (!item || typeof item !== 'object') continue;
+    const id = typeof item.id === 'number' && Number.isFinite(item.id) ? Math.trunc(item.id) : index;
+    const rawName = typeof item.name === 'string' ? item.name.trim() : '';
+    options.push({ value: id, label: `${id} : ${rawName || `未命名 ${id}`}` });
+  }
+  return options;
+};
 
 type SelectorTextState = Partial<Record<GameEffectSelectorFieldKey, string>>;
+
+type ArgsTextFieldKey = 'weaponIds' | 'armorIds';
+
+type ArgsTextState = Partial<Record<ArgsTextFieldKey, string>>;
+
+const isArgsTextFieldKey = (field: string): field is ArgsTextFieldKey =>
+  field === 'weaponIds' || field === 'armorIds';
+
+const createArgsTextState = (
+  args: GameEffectEntry['config']['args'],
+  fields: readonly string[],
+): ArgsTextState => {
+  const result: ArgsTextState = {};
+  for (const field of fields) {
+    if (!isArgsTextFieldKey(field)) continue;
+    result[field] = stringifyNumberList(args[field]);
+  }
+  return result;
+};
+
+const ARGS_TEXT_FIELD_DEFINITIONS: Array<{
+  key: ArgsTextFieldKey;
+  label: string;
+  placeholder: string;
+}> = [
+  {
+    key: 'weaponIds',
+    label: '武器 ID 合集',
+    placeholder: '例如: 1，2，3',
+  },
+  {
+    key: 'armorIds',
+    label: '非武器 ID 合集',
+    placeholder: '例如: 2，5，10',
+  },
+];
 
 const createSelectorTextState = (
   selector: GameEffectEntry['config']['selector'],
@@ -90,28 +145,28 @@ const SELECTOR_FIELD_DEFINITIONS: Array<{
   {
     key: 'slotIndexes',
     label: '槽位索引',
-    placeholder: '例如: 0, 1',
+    placeholder: '例如: 0，1',
     parse: parseNumberListText,
     stringify: stringifyNumberList,
   },
   {
     key: 'etypeIds',
     label: '装备槽位类型',
-    placeholder: '例如: 10, 11',
+    placeholder: '例如: 10，11',
     parse: parseNumberListText,
     stringify: stringifyNumberList,
   },
   {
     key: 'wtypeIds',
     label: '武器类型',
-    placeholder: '例如: 1, 2, 3',
+    placeholder: '例如: 1，2，3',
     parse: parseNumberListText,
     stringify: stringifyNumberList,
   },
   {
     key: 'atypeIds',
     label: '防具类型',
-    placeholder: '例如: 1, 2, 10',
+    placeholder: '例如: 1，2，10',
     parse: parseNumberListText,
     stringify: stringifyNumberList,
   },
@@ -143,11 +198,22 @@ export function EffectPanel() {
     [referenceRevision],
   );
 
+  const statesData = useMemo(
+    () => DataLoaderService.getCachedDataByName<unknown[]>(STATES_FILE_NAME),
+    [referenceRevision],
+  );
+
+  const passiveStateOptions = useMemo(
+    () => buildDataOptions(statesData, '未选择状态').filter((option) => option.value > 0),
+    [statesData],
+  );
+
   const [effect, setEffect] = useState<GameEffectEntry | null>(null);
   const [originalEffect, setOriginalEffect] = useState<GameEffectEntry | null>(null);
   const [descriptionText, setDescriptionText] = useState('');
   const [originalDescriptionText, setOriginalDescriptionText] = useState('');
   const [selectorTexts, setSelectorTexts] = useState<SelectorTextState>({});
+  const [argsTexts, setArgsTexts] = useState<ArgsTextState>({});
   const [opRows, setOpRows] = useState<EffectOpRow[]>([]);
   const [originalOpRows, setOriginalOpRows] = useState<EffectOpRow[]>([]);
   const lastAutoSaveFailedDraftRef = useRef<{
@@ -163,7 +229,7 @@ export function EffectPanel() {
       const fileName = payload && typeof payload === 'object' && !Array.isArray(payload) && 'fileName' in payload
         ? String((payload as { fileName?: unknown }).fileName || '').toLowerCase()
         : '';
-      if (!fileName || fileName === SYSTEM_FILE_NAME.toLowerCase()) {
+      if (!fileName || fileName === SYSTEM_FILE_NAME.toLowerCase() || fileName === STATES_FILE_NAME.toLowerCase()) {
         setReferenceRevision((value) => value + 1);
       }
     };
@@ -213,6 +279,7 @@ export function EffectPanel() {
       setOriginalEffect(null);
       setDescriptionText('');
       setSelectorTexts({});
+      setArgsTexts({});
       setOriginalDescriptionText('');
       setOpRows([]);
       setOriginalOpRows([]);
@@ -226,6 +293,7 @@ export function EffectPanel() {
       setDescriptionText('');
       setOriginalDescriptionText('');
       setSelectorTexts({});
+      setArgsTexts({});
       setOpRows([]);
       setOriginalOpRows([]);
       return;
@@ -240,6 +308,7 @@ export function EffectPanel() {
     } else {
       setDescriptionText(stringifyDescription(normalized.description));
       setSelectorTexts(createSelectorTextState(normalized.config.selector, nextDefinition.selectorFields));
+      setArgsTexts(createArgsTextState(normalized.config.args, nextDefinition.argsFields));
       setOriginalDescriptionText(stringifyDescription(normalized.description));
     }
     setOpRows(nextRows);
@@ -273,6 +342,7 @@ export function EffectPanel() {
     setEffect(template);
     setDescriptionText(stringifyDescription(template.description));
     setSelectorTexts(createSelectorTextState(template.config.selector, getGameEffectTypeDefinition(effectType).selectorFields));
+    setArgsTexts(createArgsTextState(template.config.args, getGameEffectTypeDefinition(effectType).argsFields));
     setOpRows(parseEffectOpRows(template));
   };
 
@@ -327,7 +397,12 @@ export function EffectPanel() {
       return false;
     }
 
-    if (definition.argsFields.includes('ops')) {
+    const configuredPassiveStates = definition.argsFields.includes('passiveStates')
+      ? normalizePassiveStates(effect.config.args.passiveStates)
+      : [];
+    const shouldValidateOps = definition.argsFields.includes('ops')
+      && (effect.effectType !== 'equip_id_set_bonus' || configuredPassiveStates.length === 0 || opRows.length > 0);
+    if (shouldValidateOps) {
       const opValidation = validateEffectOpRows(effect.effectType, opRows, systemData);
       if (!opValidation.valid) {
         if (!silent) {
@@ -353,6 +428,9 @@ export function EffectPanel() {
     }
     if (definition.argsFields.includes('armorIds')) {
       argsPayload.armorIds = rawArgs.armorIds;
+    }
+    if (definition.argsFields.includes('passiveStates')) {
+      argsPayload.passiveStates = normalizePassiveStates(rawArgs.passiveStates);
     }
 
     const nextConfig = createGameEffectConfig(effect.effectType, {
@@ -404,6 +482,7 @@ export function EffectPanel() {
     if (!silent) {
       setDescriptionText(savedDescription);
       setSelectorTexts(createSelectorTextState(normalized.config.selector, definition.selectorFields));
+      setArgsTexts(createArgsTextState(normalized.config.args, definition.argsFields));
     }
     setOpRows(nextRows);
     setOriginalOpRows(nextRows);
@@ -632,43 +711,120 @@ export function EffectPanel() {
             </div>
           ) : null}
 
-          {definition.argsFields.includes('weaponIds') ? (
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">武器 ID 合集</label>
-              <Input
-                value={stringifyNumberList(argsRecord.weaponIds)}
-                onChange={(event) => setEffect((current) => current ? ({
-                  ...current,
-                  config: createGameEffectConfig(current.effectType, {
-                    selector: current.config.selector,
-                    args: {
-                      ...current.config.args,
-                      weaponIds: parseNumberListText(event.target.value),
-                    },
-                  }, systemData),
-                }) : current)}
-                placeholder="例如: 1, 2, 3"
-              />
-            </div>
-          ) : null}
+          {ARGS_TEXT_FIELD_DEFINITIONS
+            .filter((field) => definition.argsFields.includes(field.key))
+            .map((field) => (
+              <div key={field.key}>
+                <label className="block text-xs text-gray-400 mb-1">{field.label}</label>
+                <Input
+                  value={argsTexts[field.key] ?? stringifyNumberList(argsRecord[field.key])}
+                  onChange={(event) => {
+                    const nextText = event.target.value;
+                    setArgsTexts((current) => ({
+                      ...current,
+                      [field.key]: nextText,
+                    }));
+                    setEffect((current) => current ? ({
+                      ...current,
+                      config: createGameEffectConfig(current.effectType, {
+                        selector: current.config.selector,
+                        args: {
+                          ...current.config.args,
+                          [field.key]: parseNumberListText(nextText),
+                        },
+                      }, systemData),
+                    }) : current);
+                  }}
+                  placeholder={field.placeholder}
+                />
+              </div>
+            ))}
 
-          {definition.argsFields.includes('armorIds') ? (
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">非武器 ID 合集</label>
-              <Input
-                value={stringifyNumberList(argsRecord.armorIds)}
-                onChange={(event) => setEffect((current) => current ? ({
-                  ...current,
-                  config: createGameEffectConfig(current.effectType, {
-                    selector: current.config.selector,
-                    args: {
-                      ...current.config.args,
-                      armorIds: parseNumberListText(event.target.value),
-                    },
-                  }, systemData),
-                }) : current)}
-                placeholder="例如: 2, 5, 10"
-              />
+          {definition.argsFields.includes('passiveStates') ? (
+            <div className="col-span-2">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <div className="text-xs text-gray-400">被动状态</div>
+                  <div className="text-xs text-gray-500 mt-1">凑齐装备 ID 合集后授予的被动状态 id 列表。</div>
+                </div>
+                <Button
+                  icon={<PlusOutlined />}
+                  onClick={() => setEffect((current) => {
+                    if (!current) return current;
+                    const nextPassiveStates = normalizePassiveStates(current.config.args.passiveStates);
+                    return {
+                      ...current,
+                      config: createGameEffectConfig(current.effectType, {
+                        selector: current.config.selector,
+                        args: {
+                          ...current.config.args,
+                          passiveStates: [...nextPassiveStates, 0],
+                        },
+                      }, systemData),
+                    };
+                  })}
+                >
+                  添加被动状态
+                </Button>
+              </div>
+              {normalizePassiveStates(argsRecord.passiveStates).length === 0 ? (
+                <div className="rounded border border-dashed border-gray-600 px-4 py-4 text-sm text-gray-500">
+                  当前没有被动状态。
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  {normalizePassiveStates(argsRecord.passiveStates).map((stateId, index) => (
+                    <div key={`passive-state-${index}`}>
+                      <label className="block text-xs text-gray-400 mb-1">被动状态 {index + 1}</label>
+                      <Space.Compact className="w-full">
+                        <Select
+                          value={stateId > 0 ? stateId : undefined}
+                          options={passiveStateOptions}
+                          className="w-full"
+                          placeholder="选择被动状态"
+                          showSearch
+                          allowClear
+                          optionFilterProp="label"
+                          onChange={(value) => setEffect((current) => {
+                            if (!current) return current;
+                            const nextPassiveStates = [...normalizePassiveStates(current.config.args.passiveStates)];
+                            nextPassiveStates[index] = typeof value === 'number' ? value : 0;
+                            return {
+                              ...current,
+                              config: createGameEffectConfig(current.effectType, {
+                                selector: current.config.selector,
+                                args: {
+                                  ...current.config.args,
+                                  passiveStates: normalizeEffectIdList(nextPassiveStates),
+                                },
+                              }, systemData),
+                            };
+                          })}
+                        />
+                        <Button
+                          icon={<DeleteOutlined />}
+                          danger
+                          onClick={() => setEffect((current) => {
+                            if (!current) return current;
+                            const nextPassiveStates = [...normalizePassiveStates(current.config.args.passiveStates)];
+                            nextPassiveStates.splice(index, 1);
+                            return {
+                              ...current,
+                              config: createGameEffectConfig(current.effectType, {
+                                selector: current.config.selector,
+                                args: {
+                                  ...current.config.args,
+                                  passiveStates: nextPassiveStates,
+                                },
+                              }, systemData),
+                            };
+                          })}
+                        />
+                      </Space.Compact>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ) : null}
 

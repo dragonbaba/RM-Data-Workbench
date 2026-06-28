@@ -52,6 +52,7 @@ describe('GameEffectService', () => {
       'cunit_slot_action_repeat_bonus',
       'base_slot_action_repeat_bonus',
       'equip_id_set_bonus',
+      'equip_id_set_passive_state',
     ]);
   });
 
@@ -100,7 +101,7 @@ describe('GameEffectService', () => {
     expect(equipCountDefinition.allowedGroups.map((entry) => entry.group)).toEqual([
       'extraParams',
     ]);
-    expect(equipSetDefinition.argsFields).toEqual(['weaponIds', 'armorIds', 'ops']);
+    expect(equipSetDefinition.argsFields).toEqual(['weaponIds', 'armorIds', 'ops', 'passiveStates']);
     expect(equipSetDefinition.allowedGroups.map((entry) => entry.group)).toEqual([
       'baseParams',
       'extraParams',
@@ -123,6 +124,7 @@ describe('GameEffectService', () => {
           requiredCount: 2,
           weaponIds: [],
           armorIds: [],
+          passiveStates: [],
           ops: [{ group: 'extraParams', key: 'hitRate', op: 'add', value: 1 }],
         },
       },
@@ -134,6 +136,7 @@ describe('GameEffectService', () => {
         requiredCount: 2,
         weaponIds: [],
         armorIds: [],
+        passiveStates: [],
         ops: [{ group: 'vehicleParams', key: 'loadValue', op: 'add', value: 5000 }],
       },
     });
@@ -393,6 +396,56 @@ describe('GameEffectService', () => {
     expect(template.config.args).toEqual({});
     expect(validateGameEffectEntry(template, wrappedSystemData)).toEqual({ valid: true });
     expect(validateGameEffectConfig('nominal_cunit_salvo', template.config, wrappedSystemData)).toEqual({ valid: true });
+  });
+
+
+  it('装备合集模板支持 passiveStates，且 ops 与 passiveStates 至少配置一项', () => {
+    expect(validateGameEffectConfig('equip_id_set_bonus', {
+      selector: {},
+      args: {
+        weaponIds: [1],
+        armorIds: [2],
+        passiveStates: [5],
+      },
+    }, systemData)).toEqual({ valid: true });
+
+    expect(validateGameEffectConfig('equip_id_set_bonus', {
+      selector: {},
+      args: {
+        weaponIds: [1],
+        armorIds: [2],
+      },
+    }, systemData)).toEqual({
+      valid: false,
+      message: 'args.ops 与 args.passiveStates 至少需要配置一项',
+    });
+  });
+
+  it('装备合集被动状态模板会校验 passiveStates', () => {
+    const passiveSetDefinition = getGameEffectTypeDefinition('equip_id_set_passive_state');
+    expect(passiveSetDefinition.argsFields).toEqual(['weaponIds', 'armorIds', 'passiveStates']);
+    expect(passiveSetDefinition.allowedGroups).toEqual([]);
+
+    expect(validateGameEffectConfig('equip_id_set_passive_state', {
+      selector: {},
+      args: {
+        weaponIds: [1],
+        armorIds: [2, 5],
+        passiveStates: [3],
+      },
+    }, systemData)).toEqual({ valid: true });
+
+    expect(validateGameEffectConfig('equip_id_set_passive_state', {
+      selector: {},
+      args: {
+        weaponIds: [1],
+        armorIds: [2],
+        passiveStates: [],
+      },
+    }, systemData)).toEqual({
+      valid: false,
+      message: 'args.passiveStates 必须至少包含一个有效状态 id',
+    });
   });
 
 });

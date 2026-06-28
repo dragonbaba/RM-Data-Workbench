@@ -9,6 +9,7 @@ import type {
 } from '../types';
 import { extractSystemRecord } from './DataFileFormatService';
 import { NEWLINE_OR_COMMA_REGEXP } from '../constants/regexp';
+import { normalizePassiveStates } from './PassiveStatePropertyService';
 
 export interface EnsureItemEffectsResult<T> {
   item: T;
@@ -33,9 +34,9 @@ export interface EffectOption<T extends string = string> {
 }
 
 export type GameEffectSelectorMode = 'none' | 'equip';
-export type GameEffectArgsMode = 'none' | 'ops' | 'count+ops' | 'id-set+ops';
+export type GameEffectArgsMode = 'none' | 'ops' | 'count+ops' | 'id-set+ops' | 'id-set+ops+passive' | 'id-set+passive';
 export type GameEffectSelectorFieldKey = 'slotIndexes' | 'etypeIds' | 'wtypeIds' | 'atypeIds';
-export type GameEffectArgsFieldKey = 'ops' | 'requiredCount' | 'weaponIds' | 'armorIds';
+export type GameEffectArgsFieldKey = 'ops' | 'requiredCount' | 'weaponIds' | 'armorIds' | 'passiveStates';
 
 export interface GameEffectAllowedGroupDefinition {
   group: GameEffectOpGroup;
@@ -87,6 +88,7 @@ const EMPTY_ARGS_TEMPLATE = Object.freeze({
   requiredCount: 0,
   weaponIds: [],
   armorIds: [],
+  passiveStates: [],
 });
 const SELECTOR_FIELD_KEYS: GameEffectSelectorFieldKey[] = ['slotIndexes', 'etypeIds', 'wtypeIds', 'atypeIds'];
 const ARGS_FIELDS_BY_MODE: Record<GameEffectArgsMode, GameEffectArgsFieldKey[]> = {
@@ -94,6 +96,8 @@ const ARGS_FIELDS_BY_MODE: Record<GameEffectArgsMode, GameEffectArgsFieldKey[]> 
   ops: ['ops'],
   'count+ops': ['requiredCount', 'ops'],
   'id-set+ops': ['weaponIds', 'armorIds', 'ops'],
+  'id-set+ops+passive': ['weaponIds', 'armorIds', 'ops', 'passiveStates'],
+  'id-set+passive': ['weaponIds', 'armorIds', 'passiveStates'],
 };
 const GROUP_LABELS: Record<GameEffectOpGroup, string> = {
   baseParams: '基础属性',
@@ -460,16 +464,33 @@ const GAME_EFFECT_TYPE_DEFINITIONS: GameEffectTypeDefinition[] = [
     label: '装备 ID 合集奖励',
     isStatic: true,
     selectorMode: 'none',
-    argsMode: 'id-set+ops',
+    argsMode: 'id-set+ops+passive',
     exampleName: '指定组件联动',
-    exampleDescription: 'owner 同时装备指定武器/非武器 id 集合时应用属性',
+    exampleDescription: 'owner 同时装备指定武器/非武器 id 集合时应用属性，可选附带被动状态',
     selectorTemplate: {},
     argsTemplate: {
       weaponIds: [1],
       armorIds: [2, 5, 10],
       ops: [{ group: 'baseParamRate', key: 'mhp', op: 'mul', value: 1.2 }],
+      passiveStates: [],
     },
     allowedGroups: OWNER_EXTENDED_GROUPS,
+  }),
+  createTypeDefinition({
+    effectType: 'equip_id_set_passive_state',
+    label: '装备 ID 合集被动状态',
+    isStatic: true,
+    selectorMode: 'none',
+    argsMode: 'id-set+passive',
+    exampleName: '套装被动联动',
+    exampleDescription: 'owner 同时装备指定武器/非武器 id 集合时授予被动状态',
+    selectorTemplate: {},
+    argsTemplate: {
+      weaponIds: [1],
+      armorIds: [2, 5, 10],
+      passiveStates: [1],
+    },
+    allowedGroups: [],
   }),
 ];
 
@@ -605,6 +626,9 @@ const sanitizeArgsRecord = (
   if (definition.argsFields.includes('ops')) {
     const ops = sanitizeEffectOpRows(record.ops, definition.effectType, systemData);
     if (ops) sanitized.ops = ops;
+  }
+  if (definition.argsFields.includes('passiveStates')) {
+    sanitized.passiveStates = normalizePassiveStates(record.passiveStates);
   }
   return sanitized;
 };
@@ -818,6 +842,19 @@ export const normalizeEffectRegistry = (
   return result;
 };
 
+
+const hasPassiveStateArgs = (value: unknown): boolean =>
+  normalizePassiveStates(value).length > 0;
+
+const hasValidEffectOpsArgs = (
+  effectType: GameEffectType,
+  value: unknown,
+  systemData?: unknown,
+): boolean => {
+  const opRows = sanitizeEffectOpRows(value, effectType, systemData);
+  return !!opRows && opRows.length > 0;
+};
+
 export const validateGameEffectConfig = (
   effectType: GameEffectType,
   value: unknown,
@@ -858,14 +895,43 @@ export const validateGameEffectConfig = (
   if (definition.argsFields.includes('armorIds') && !sanitizeNumberArray((record.args as Record<string, unknown>).armorIds)) {
     return { valid: false, message: 'args.armorIds 必须是数字数组' };
   }
+  const argsRecord = record.args as Record<string, unknown>;
   if (definition.argsFields.includes('ops')) {
-    const opRows = sanitizeEffectOpRows((record.args as Record<string, unknown>).ops, effectType, systemData);
-    if (!opRows || opRows.length === 0) {
+    const hasOps = hasValidEffectOpsArgs(effectType, argsRecord.ops, systemData);
+    const hasPassiveStates = definition.argsFields.includes('passiveStates')
+      ? hasPassiveStateArgs(argsRecord.passiveStates)
+      : false;
+    if (effectType === 'equip_id_set_bonus') {
+      if (argsRecord.ops !== undefined && !hasOps && !hasPassiveStates) {
+        return {
+          valid: false,
+          message: 'args.ops 格式非法，且 args.passiveStates 也未配置，至少需要一项有效',
+        };
+      }
+      if (!hasOps && !hasPassiveStates) {
+        return {
+          valid: false,
+          message: 'args.ops 与 args.passiveStates 至少需要配置一项',
+        };
+      }
+    } else if (effectType === 'equip_id_set_passive_state') {
+      if (!hasPassiveStates) {
+        return {
+          valid: false,
+          message: 'args.passiveStates 必须至少包含一个有效状态 id',
+        };
+      }
+    } else if (!hasOps) {
       return {
         valid: false,
         message: 'args.ops 必须是合法的对象数组，且属性分组与 key 必须符合当前模板约束',
       };
     }
+  } else if (definition.argsFields.includes('passiveStates') && !hasPassiveStateArgs(argsRecord.passiveStates)) {
+    return {
+      valid: false,
+      message: 'args.passiveStates 必须至少包含一个有效状态 id',
+    };
   }
   return { valid: true };
 };
