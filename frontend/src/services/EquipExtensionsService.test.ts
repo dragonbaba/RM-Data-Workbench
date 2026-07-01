@@ -188,6 +188,34 @@ describe('EquipExtensionsService', () => {
     ]));
   });
 
+  it('preserves drill-open transitions whose fromEquipTypeId is 0 even when slot base type is non-zero', () => {
+    const result = normalizeEquipExtensions({
+      weaponEquipTypes: [null],
+      systemWeaponEquipTypes: [],
+      actorEquipSlots: [null, [0, 0, 0, 0, 0, 0, 0, 0, 8]],
+      actorEquips: [null, [0, 0, 0, 0, 0, 0, 0, 0, 0]],
+      actorRefitRules: [null, {
+        slots: [{
+          slotIndex: 8,
+          fromEquipTypeId: 8,
+          transitions: [
+            { fromEquipTypeId: 8, toEquipTypeId: 7, goldCost: 26500, conditions: [{ kind: 'none' }] },
+            { fromEquipTypeId: 0, toEquipTypeId: 7, goldCost: 14100, conditions: [{ kind: 'variable', variableId: 7, op: '>=', value: 400 }] },
+            { fromEquipTypeId: 0, toEquipTypeId: 8, goldCost: 22700, conditions: [{ kind: 'none' }] },
+          ],
+        }],
+      }],
+    }, 2, 1);
+
+    const transitions = result.data.actorRefitRules[1]?.slots[0].transitions || [];
+    const drillOpen = transitions.filter((t) => t.fromEquipTypeId === 0);
+    expect(drillOpen.length).toBe(2);
+    expect(drillOpen).toEqual(expect.arrayContaining([
+      expect.objectContaining({ fromEquipTypeId: 0, toEquipTypeId: 7, goldCost: 14100 }),
+      expect.objectContaining({ fromEquipTypeId: 0, toEquipTypeId: 8, goldCost: 22700 }),
+    ]));
+  });
+
   it('fills missing tank actor refit rules from the default monotonic template', () => {
     const result = normalizeEquipExtensions({
       weaponEquipTypes: [null],

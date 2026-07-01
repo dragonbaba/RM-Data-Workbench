@@ -270,7 +270,10 @@ const normalizeRefitTransitionRule = (value: unknown, fallbackFromTypeId: number
   if (toEquipTypeId <= 0) return null;
 
   return {
-    fromEquipTypeId: asJsonInt(source.fromEquipTypeId) || fallbackFromTypeId,
+    fromEquipTypeId:
+      typeof source.fromEquipTypeId === 'number' && Number.isInteger(source.fromEquipTypeId) && source.fromEquipTypeId >= 0
+        ? source.fromEquipTypeId
+        : fallbackFromTypeId,
     toEquipTypeId,
     goldCost: asJsonInt(source.goldCost),
     conditions: normalizeRefitConditions(source.conditions),
