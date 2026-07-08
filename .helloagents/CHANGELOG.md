@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **[强化耗材智能补齐]**: `PropertyPanel` 在武器/防具属性模式下监听 `upgradeParams[0].value/floatValue`，自动把 `upgradeCosts[]` 对齐到 `value + max(0, floatValue)`；已有逐级行保留，缺失行优先复用当前数据中可覆盖目标等级的完整模板（40 级优先命中 `暴君` 等完整链），无来源时使用内置 1-40 级预填链，减少 30/35/40 级装备手动逐行录入。 — by Zaun
+  - 类型: 功能新增（无方案包）
+  - 文件: `frontend/src/services/EquipmentPropertyService.ts`, `frontend/src/components/panels/PropertyPanel.tsx`, `frontend/src/services/EquipmentPropertyService.test.ts`, `frontend/src/components/panels/PropertyPanel.test.tsx`, `.helloagents/modules/equip-mode-and-system-rules.md`
+  - 验证: `npm test -- src/services/EquipmentPropertyService.test.ts src/components/panels/PropertyPanel.test.tsx`; `npm run build`
+- **[EquipmentRevertTimesEditor]**: `PropertyPanel` 在武器/防具基础属性中新增 `revertTimes`（还原次数）编辑项，保存时随装备数据写回；`EquipmentPropertyService` 会按强化上限为缺失/非法值补默认还原次数，确保运行时可从当前数据库读取旧存档缺失的还原次数上限。 — by Zaun
+  - 类型: 装备属性编辑与修复协议补齐（无迁移）
+  - 文件: `frontend/src/components/panels/PropertyPanel.tsx`, `frontend/src/types/index.ts`, `frontend/src/services/EquipmentPropertyService.ts`, `frontend/src/services/EquipmentPropertyService.test.ts`, `frontend/src/components/panels/PropertyPanel.test.tsx`
+  - 验证: `npm test -- src/services/EquipmentPropertyService.test.ts src/components/panels/PropertyPanel.test.tsx`; `npm run build`
 - **[物品等级上限特殊效果编辑]**: `PropertyPanel` 在 `Items.json` 属性模式下改为编辑顶层 `levelLimitBreakAmount`，避免 RPG Maker 编辑器写回 `effects` 时丢失等级上限提升量；`RPGItem` 类型新增该字段，`DataAuditService` 回归覆盖该字段和标准 effects 对象不被修复清除。 — by Zaun
   - 类型: 功能新增（无方案包）
   - 文件: `frontend/src/components/panels/PropertyPanel.tsx`, `frontend/src/types/index.ts`, `frontend/src/services/DataAuditService.test.ts`, `.helloagents/modules/equip-mode-and-system-rules.md`
@@ -61,6 +69,10 @@ All notable changes to this project are documented in this file.
   - 平衡: 线性加成按 `0.1→0.03 / 0.2→0.06 / 0.3→0.09 / >=0.4→0.12` 收敛，所有经验/掉率/金币奖励加成数据上限不超过 `0.12`。
 
 ### Fixed
+- **[防具元素属性率脏标志修复]**: `PropertyPanel` 的属性模式保存链补齐 `elementRates` 基础值变更检测；修改防具“元素属性率”基础值时会写回 `Armors.json`、标记文件与条目 dirty，并进入保存全部链路。 — by Zaun
+  - 类型: 快速修改（无方案包）
+  - 文件: `frontend/src/components/panels/PropertyPanel.tsx:1991`, `frontend/src/components/panels/PropertyPanel.test.tsx:382-400`
+  - 验证: `npm test -- PropertyPanel.test.tsx --run`
 - **[状态禁疗协议]**: `States.json` 新增顶层布尔字段 `forbidHeal`；属性模式新增“状态治疗限制”开关，修复模式统一补默认值 `false`。当前编辑器口径只声明并保存 `gainHp(value > 0)` 治疗拦截语义，不扩展到 `recoverAll()/setHp()`。 — by Zaun
   - 类型: 功能新增（无方案包）
   - 文件: `frontend/src/components/panels/PropertyPanel.tsx`, `frontend/src/components/panels/PropertyPanel.test.tsx`, `frontend/src/services/StateChargePropertyService.ts`, `frontend/src/services/StateChargePropertyService.test.ts`, `frontend/src/services/DataAuditService.test.ts`, `frontend/src/types/index.ts`, `.helloagents/modules/frontend-interaction-and-performance.md`

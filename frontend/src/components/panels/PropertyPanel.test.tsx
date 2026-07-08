@@ -338,23 +338,107 @@ describe('PropertyPanel range initialization', () => {
     });
   });
 
+  it('武器基础属性会显示并保存还原次数', async () => {
+    useEditorStore.getState().loadData([null, createWeapon({ revertTimes: 2 })], WEAPONS_FILE_PATH, 'data');
+
+    render(<PropertyPanel />);
+
+    await screen.findByText('还原次数');
+    const revertTimesInput = document.querySelector('#revertTimes') as HTMLInputElement | null;
+    if (revertTimesInput === null) throw new Error('revertTimes input not found');
+    fireEvent.change(revertTimesInput, { target: { value: '5' } });
+
+    await waitFor(() => {
+      const currentWeapon = useEditorStore.getState().currentData?.[1] as {
+        revertTimes?: number;
+      };
+      expect(currentWeapon.revertTimes).toBe(5);
+    });
+  });
+
   it('防具保存其他属性时会保留发射期连发模板字段', async () => {
-    useEditorStore.getState().loadData([null, createArmor()], ARMORS_FILE_PATH, 'data');
+    useEditorStore.getState().loadData([null, createArmor({ revertTimes: 4 })], ARMORS_FILE_PATH, 'data');
 
     render(<PropertyPanel />);
 
     expect(await screen.findByText('发射期连发')).toBeInTheDocument();
+    await screen.findByText('还原次数');
+    const revertTimesInput = document.querySelector('#revertTimes') as HTMLInputElement | null;
+    if (revertTimesInput === null) throw new Error('revertTimes input not found');
+    fireEvent.change(revertTimesInput, { target: { value: '6' } });
     const priceInput = await screen.findByDisplayValue('77');
     fireEvent.change(priceInput, { target: { value: '88' } });
 
     await waitFor(() => {
       const currentArmor = useEditorStore.getState().currentData?.[1] as RPGItem;
       expect(currentArmor.price).toBe(88);
+      expect(currentArmor.revertTimes).toBe(6);
       expect(currentArmor.vehicleParams).toHaveLength(8);
       expect(currentArmor.vehicleParams?.[7]?.value).toBe(19);
     });
 
   });
+
+  it('防具元素属性率基础值修改会标记 Armors.json 脏标志', async () => {
+    DataLoaderService.cacheFileData('D:/Project/data/System.json', 'System.json', AUDIT_SYSTEM_DATA);
+    useEditorStore.getState().loadData([null, createArmor()], ARMORS_FILE_PATH, 'data');
+
+    render(<PropertyPanel />);
+
+    await screen.findByText('元素属性率');
+    const elementRateInput = document.querySelector('#elementRates_1') as HTMLInputElement | null;
+    if (elementRateInput === null) throw new Error('elementRates_1 input not found');
+    fireEvent.change(elementRateInput, { target: { value: '-0.25' } });
+
+    await waitFor(() => {
+      const state = useEditorStore.getState();
+      const currentArmor = state.currentData?.[1] as RPGItem;
+      expect(currentArmor.elementRates?.[1]).toBeCloseTo(-0.25);
+      expect(state.dirtyFiles['d:/project/data/armors.json']).toBe(true);
+      expect(state.getDirtyItemIndexes(ARMORS_FILE_PATH)).toEqual([1]);
+    });
+  });
+
+  it('修改强化次数时会按模板自动补齐逐级耗材', async () => {
+    const tyrantCosts = Array.from({ length: 40 }, (_, index) => ({
+      successRate: index === 39 ? 1 : 90,
+      goldCost: (index + 1) * 1000,
+      requiredItemId: index >= 30 ? 183 : 90,
+      requiredItemAmount: index + 1,
+      protectItemId: index >= 31 ? 167 : 166,
+      protectItemAmount: index + 2,
+    }));
+    useEditorStore.getState().loadData([
+      null,
+      createArmor(),
+      createArmor({
+        id: 368,
+        name: '暴君',
+        upgradeParams: [
+          { value: 40, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
+          createParamTemplate(0),
+          createParamTemplate(0),
+        ],
+        upgradeCosts: tyrantCosts,
+      }),
+    ], ARMORS_FILE_PATH, 'data');
+
+    render(<PropertyPanel />);
+
+    await waitFor(() => {
+      expect(document.querySelector('#upgradeParams_0_value')).not.toBeNull();
+    });
+    const timesInput = document.querySelector('#upgradeParams_0_value') as HTMLInputElement;
+    fireEvent.change(timesInput, { target: { value: '40' } });
+
+    await waitFor(() => {
+      const currentArmor = useEditorStore.getState().currentData?.[1] as RPGItem;
+      expect(currentArmor.upgradeParams?.[0]?.value).toBe(40);
+      expect(currentArmor.upgradeCosts).toHaveLength(40);
+      expect(currentArmor.upgradeCosts?.[39]).toEqual(tyrantCosts[39]);
+    });
+  });
+
   it('防具保存结果再次经过修复模式不会写回 Armors.json', async () => {
     DataLoaderService.cacheFileData('D:/Project/data/System.json', 'System.json', AUDIT_SYSTEM_DATA);
     useEditorStore.getState().loadData([null, createArmor()], ARMORS_FILE_PATH, 'data');

@@ -64,6 +64,49 @@ const EMPTY_UPGRADE_COST_ENTRY: EquipUpgradeCostEntry = Object.freeze({
   protectItemAmount: 0,
 });
 
+const DEFAULT_UPGRADE_COST_TEMPLATES: readonly EquipUpgradeCostEntry[] = Object.freeze([
+  { successRate: 95, goldCost: 320, requiredItemId: 90, requiredItemAmount: 5, protectItemId: 162, protectItemAmount: 1 },
+  { successRate: 90, goldCost: 400, requiredItemId: 90, requiredItemAmount: 7, protectItemId: 162, protectItemAmount: 1 },
+  { successRate: 85, goldCost: 500, requiredItemId: 90, requiredItemAmount: 9, protectItemId: 162, protectItemAmount: 1 },
+  { successRate: 80, goldCost: 625, requiredItemId: 90, requiredItemAmount: 12, protectItemId: 162, protectItemAmount: 2 },
+  { successRate: 75, goldCost: 781, requiredItemId: 90, requiredItemAmount: 15, protectItemId: 162, protectItemAmount: 2 },
+  { successRate: 70, goldCost: 1200, requiredItemId: 90, requiredItemAmount: 25, protectItemId: 162, protectItemAmount: 3 },
+  { successRate: 66, goldCost: 2400, requiredItemId: 90, requiredItemAmount: 27, protectItemId: 162, protectItemAmount: 3 },
+  { successRate: 60, goldCost: 2800, requiredItemId: 90, requiredItemAmount: 30, protectItemId: 162, protectItemAmount: 3 },
+  { successRate: 55, goldCost: 3600, requiredItemId: 90, requiredItemAmount: 35, protectItemId: 162, protectItemAmount: 4 },
+  { successRate: 50, goldCost: 4000, requiredItemId: 150, requiredItemAmount: 5, protectItemId: 162, protectItemAmount: 4 },
+  { successRate: 48, goldCost: 4200, requiredItemId: 150, requiredItemAmount: 7, protectItemId: 163, protectItemAmount: 1 },
+  { successRate: 46, goldCost: 4600, requiredItemId: 150, requiredItemAmount: 10, protectItemId: 163, protectItemAmount: 2 },
+  { successRate: 44, goldCost: 5000, requiredItemId: 150, requiredItemAmount: 15, protectItemId: 163, protectItemAmount: 2 },
+  { successRate: 42, goldCost: 7500, requiredItemId: 150, requiredItemAmount: 20, protectItemId: 163, protectItemAmount: 3 },
+  { successRate: 40, goldCost: 9200, requiredItemId: 151, requiredItemAmount: 5, protectItemId: 163, protectItemAmount: 3 },
+  { successRate: 38, goldCost: 10800, requiredItemId: 151, requiredItemAmount: 10, protectItemId: 163, protectItemAmount: 4 },
+  { successRate: 35, goldCost: 12400, requiredItemId: 151, requiredItemAmount: 16, protectItemId: 163, protectItemAmount: 4 },
+  { successRate: 32, goldCost: 15200, requiredItemId: 151, requiredItemAmount: 20, protectItemId: 163, protectItemAmount: 6 },
+  { successRate: 29, goldCost: 18600, requiredItemId: 152, requiredItemAmount: 12, protectItemId: 164, protectItemAmount: 2 },
+  { successRate: 25, goldCost: 22500, requiredItemId: 152, requiredItemAmount: 22, protectItemId: 164, protectItemAmount: 5 },
+  { successRate: 22, goldCost: 26300, requiredItemId: 152, requiredItemAmount: 30, protectItemId: 164, protectItemAmount: 5 },
+  { successRate: 18, goldCost: 30000, requiredItemId: 152, requiredItemAmount: 36, protectItemId: 164, protectItemAmount: 3 },
+  { successRate: 16, goldCost: 35600, requiredItemId: 168, requiredItemAmount: 10, protectItemId: 165, protectItemAmount: 1 },
+  { successRate: 14, goldCost: 39200, requiredItemId: 168, requiredItemAmount: 15, protectItemId: 165, protectItemAmount: 1 },
+  { successRate: 12, goldCost: 46500, requiredItemId: 168, requiredItemAmount: 20, protectItemId: 165, protectItemAmount: 2 },
+  { successRate: 10, goldCost: 56000, requiredItemId: 168, requiredItemAmount: 25, protectItemId: 166, protectItemAmount: 1 },
+  { successRate: 8, goldCost: 67000, requiredItemId: 169, requiredItemAmount: 5, protectItemId: 166, protectItemAmount: 1 },
+  { successRate: 6, goldCost: 78000, requiredItemId: 169, requiredItemAmount: 10, protectItemId: 166, protectItemAmount: 3 },
+  { successRate: 4, goldCost: 99000, requiredItemId: 169, requiredItemAmount: 15, protectItemId: 166, protectItemAmount: 5 },
+  { successRate: 3, goldCost: 120000, requiredItemId: 169, requiredItemAmount: 20, protectItemId: 166, protectItemAmount: 10 },
+  { successRate: 2.8, goldCost: 123000, requiredItemId: 183, requiredItemAmount: 22, protectItemId: 166, protectItemAmount: 12 },
+  { successRate: 2.7, goldCost: 135000, requiredItemId: 183, requiredItemAmount: 22, protectItemId: 167, protectItemAmount: 13 },
+  { successRate: 2.6, goldCost: 146000, requiredItemId: 183, requiredItemAmount: 23, protectItemId: 167, protectItemAmount: 15 },
+  { successRate: 2.5, goldCost: 148000, requiredItemId: 183, requiredItemAmount: 25, protectItemId: 167, protectItemAmount: 15 },
+  { successRate: 2.3, goldCost: 156000, requiredItemId: 183, requiredItemAmount: 27, protectItemId: 167, protectItemAmount: 16 },
+  { successRate: 2.2, goldCost: 165000, requiredItemId: 183, requiredItemAmount: 28, protectItemId: 167, protectItemAmount: 18 },
+  { successRate: 2, goldCost: 178000, requiredItemId: 183, requiredItemAmount: 29, protectItemId: 167, protectItemAmount: 19 },
+  { successRate: 1.5, goldCost: 192000, requiredItemId: 183, requiredItemAmount: 30, protectItemId: 167, protectItemAmount: 22 },
+  { successRate: 1.2, goldCost: 201000, requiredItemId: 183, requiredItemAmount: 35, protectItemId: 167, protectItemAmount: 26 },
+  { successRate: 1, goldCost: 223000, requiredItemId: 183, requiredItemAmount: 40, protectItemId: 167, protectItemAmount: 30 },
+]);
+
 export const EXTRA_PARAM_FIELDS: FixedParamFieldDefinition[] = [
   { index: 0, key: EQUIP_EXTRA_PARAM_KEYS[0], label: '迎击率' },
   { index: 1, key: EQUIP_EXTRA_PARAM_KEYS[1], label: '回避率' },
@@ -209,6 +252,76 @@ export const normalizeEquipUpgradeCosts = (value: unknown): EquipUpgradeCostEntr
   return normalized;
 };
 
+export const createEquipUpgradeCostTemplateEntry = (index: number): EquipUpgradeCostEntry => {
+  const template = DEFAULT_UPGRADE_COST_TEMPLATES[index];
+  if (template) return { ...template };
+  return {
+    ...EMPTY_UPGRADE_COST_ENTRY,
+    successRate: getDefaultUpgradeSuccessRate(index),
+  };
+};
+
+const readUpgradeTimesTemplate = (upgradeParams: unknown): ParamTemplate => {
+  if (Array.isArray(upgradeParams)) {
+    return normalizeParamTemplate(upgradeParams[0]);
+  }
+  if (isRecord(upgradeParams) && hasOwn(upgradeParams, EQUIP_UPGRADE_PARAM_KEYS[0])) {
+    return normalizeParamTemplate(upgradeParams[EQUIP_UPGRADE_PARAM_KEYS[0]]);
+  }
+  return { ...EMPTY_PARAM_TEMPLATE };
+};
+
+export const resolveEquipUpgradeCostTargetCount = (upgradeParams: unknown): number => {
+  const times = readUpgradeTimesTemplate(upgradeParams);
+  const baseTimes = Math.max(0, toIntOrZero(times.value));
+  const floatTimes = Math.max(0, toIntOrZero(times.floatValue));
+  return baseTimes + floatTimes;
+};
+export const normalizeEquipmentRevertTimes = (value: unknown, upgradeParams: unknown): number => {
+  const upgradeCap = resolveEquipUpgradeCostTargetCount(upgradeParams);
+  let fallback = 0;
+  if (upgradeCap >= 40) {
+    fallback = 3;
+  } else if (upgradeCap >= 35) {
+    fallback = 2;
+  } else if (upgradeCap > 0) {
+    fallback = 1;
+  }
+
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+
+  const trimmedValue = typeof value === 'string' ? value.trim() : null;
+  const numeric = typeof value === 'number'
+    ? value
+    : (trimmedValue ? Number(trimmedValue) : Number.NaN);
+  if (!Number.isFinite(numeric) || numeric < 0) {
+    return fallback;
+  }
+  return Math.trunc(numeric);
+};
+
+export const buildEquipUpgradeCostsForLimit = (
+  value: unknown,
+  targetCount: number,
+  templateValue?: unknown,
+): EquipUpgradeCostEntry[] => {
+  const count = Math.max(0, toIntOrZero(targetCount));
+  if (count === 0) return [];
+  const source = normalizeEquipUpgradeCosts(value);
+  const template = normalizeEquipUpgradeCosts(templateValue);
+  const normalized = new Array<EquipUpgradeCostEntry>(count);
+
+  for (let index = 0; index < count; index++) {
+    normalized[index] = source[index]
+      ? { ...source[index] }
+      : (template[index] ? { ...template[index] } : createEquipUpgradeCostTemplateEntry(index));
+  }
+
+  return normalized;
+};
+
 const normalizeParamGroup = <T extends ParamTemplate[]>(
   value: unknown,
   fields: FixedParamFieldDefinition[],
@@ -303,6 +416,7 @@ export function normalizeEquipmentDataEntry(
     }
     normalized.upgradeParams = normalizeParamGroup<EquipUpgradeParamMap>(item.upgradeParams, UPGRADE_PARAM_FIELDS);
     normalized.upgradeCosts = normalizeEquipUpgradeCosts(item.upgradeCosts);
+    normalized.revertTimes = normalizeEquipmentRevertTimes(item.revertTimes, normalized.upgradeParams);
     Object.assign(normalized, normalizeEquipmentQualityFields(item));
   }
 

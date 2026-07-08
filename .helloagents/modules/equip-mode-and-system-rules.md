@@ -49,7 +49,10 @@
     - `successRate` 是该目标强化等级的基础成功率百分比，范围 `0-100`，缺失时按旧公式 `100 / 目标强化等级` 补齐；
     - 金币和必需物品属于普通强化消耗，失败也消耗；保底物品仅在玩家选择保底强化时消耗，并使本次成功率视为 100%；
     - 固定字段 `value/floatValue` 表示获得装备时的“基准 ± 随机浮动”；`upgradeValue/upgradeFloatValue` 表示每一级强化的“基准 ± 随机浮动”，不是当前强化等级的累计总量。例：防御 `upgradeValue=2, upgradeFloatValue=2` 表示每级随机 `0..4`。
-    - 缺失 `upgradeCosts` 时，标准化链和修复模式统一补为空数组。
+    - 编辑器在修改 `upgradeParams[0].value/floatValue` 时会把 `upgradeCosts[]` 自动对齐到 `value + max(0, floatValue)`：已有行保留，缺失行优先从当前数据里可覆盖目标等级的装备模板复制（40 级优先命中 `暴君` 这类完整模板），无来源时使用内置 1-40 级预填链；目标降为 0 时清空需求表。
+    - 缺失 `upgradeCosts` 时，标准化链和修复模式统一补为空数组，不在无明确用户编辑动作时主动生成费用表，避免修复模式把占位装备误改成可强化装备。
+  - `PropertyPanel` 会在武器、防具属性模式下维护顶层 `revertTimes`（还原次数上限）：该字段供运行时在旧存档缺少实例 `revertTimesLimit` 时回读当前数据库；缺失或非法时 `EquipmentPropertyService.normalizeEquipmentDataEntry()` 会按强化上限补默认值，用户手填的非负整数会保留。
+  - `PropertyPanel` 会在防具属性模式下维护顶层 `elementRates / elementRateFloats`：基础值和浮动值都必须参与变更判断；任一字段变化都应写回 `Armors.json` 并标记当前文件和条目为 dirty。
   - `PropertyPanel` 会在武器、防具属性模式下维护顶级 `qualityLock + qualityLevel`：
     - `qualityLock` 为布尔值，表示游戏内新生成独立装备实例是否锁定品质。
     - `qualityLevel` 是整数等级，固定 clamp 到 `0-6`，缺失或非法值归一为 `0`。

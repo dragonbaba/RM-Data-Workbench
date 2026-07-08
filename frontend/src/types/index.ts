@@ -309,6 +309,7 @@ export interface RPGItem {
   elementRateFloats?: number[];
   qualityLock?: boolean;
   qualityLevel?: number;
+  revertTimes?: number;
   wtypeId?: number;
   atypeId?: number;
   etypeId?: number;

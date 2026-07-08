@@ -1,12 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildEquipUpgradeCostsForLimit,
+  createEquipUpgradeCostTemplateEntry,
   getExpectedArmorEquipTypeId,
   getExpectedWeaponEquipTypeId,
   normalizeArmorElementRateFloats,
   normalizeArmorElementRates,
   normalizeEquipUpgradeCosts,
   normalizeEquipmentDataEntry,
+  resolveEquipUpgradeCostTargetCount,
 } from './EquipmentPropertyService';
+
+const createEquipmentUpgradeParam = (value: number) => ({
+  value,
+  floatValue: 0,
+  upgradeValue: 0,
+  upgradeFloatValue: 0,
+});
 
 describe('EquipmentPropertyService', () => {
   it('会补齐武器固定结构字段', () => {
@@ -38,6 +48,7 @@ describe('EquipmentPropertyService', () => {
       repeatTimeFloat: 0,
       qualityLock: false,
       qualityLevel: 0,
+      revertTimes: 0,
       upgradeCosts: [],
       vehicleParams: [
         { value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 },
@@ -213,6 +224,7 @@ describe('EquipmentPropertyService', () => {
       hiddenAttackSkillId: 0,
       qualityLock: true,
       qualityLevel: 0,
+      revertTimes: 0,
       floatParams: [0, 0, 0, 0, 0, 0, 0, 0],
       elementRates: [0, 0, 0],
       elementRateFloats: [0, 0, 0],
@@ -224,6 +236,92 @@ describe('EquipmentPropertyService', () => {
     expect(normalized?.extraParams?.[0]).toEqual({ value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 });
     expect(normalized?.vehicleParams?.[7]).toEqual({ value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 });
     expect(normalized?.upgradeParams?.[0]).toEqual({ value: 0, floatValue: 0, upgradeValue: 0, upgradeFloatValue: 0 });
+  });
+
+  it('会按强化上限补齐并保留装备还原次数', () => {
+    expect(normalizeEquipmentDataEntry(
+      {
+        id: 16,
+        name: '高阶炮',
+        upgradeParams: [
+          createEquipmentUpgradeParam(40),
+          createEquipmentUpgradeParam(0),
+          createEquipmentUpgradeParam(0),
+        ],
+      },
+      { isWeapon: true },
+    )).toMatchObject({
+      revertTimes: 3,
+    });
+
+    expect(normalizeEquipmentDataEntry(
+      {
+        id: 20,
+        name: '入门炮',
+        upgradeParams: [
+          createEquipmentUpgradeParam(1),
+          createEquipmentUpgradeParam(0),
+          createEquipmentUpgradeParam(0),
+        ],
+      },
+      { isWeapon: true },
+    )).toMatchObject({
+      revertTimes: 1,
+    });
+
+    expect(normalizeEquipmentDataEntry(
+      {
+        id: 17,
+        name: '中阶甲',
+        revertTimes: -1,
+        upgradeParams: [
+          createEquipmentUpgradeParam(35),
+          createEquipmentUpgradeParam(0),
+          createEquipmentUpgradeParam(0),
+        ],
+      },
+      {
+        isArmor: true,
+        systemData: { elements: ['', '通常'] },
+      },
+    )).toMatchObject({
+      revertTimes: 2,
+    });
+
+    expect(normalizeEquipmentDataEntry(
+      {
+        id: 18,
+        name: '保留炮',
+        revertTimes: 6,
+        upgradeParams: [
+          createEquipmentUpgradeParam(40),
+          createEquipmentUpgradeParam(0),
+          createEquipmentUpgradeParam(0),
+        ],
+      },
+      { isWeapon: true },
+    )).toMatchObject({
+      revertTimes: 6,
+    });
+
+    expect(normalizeEquipmentDataEntry(
+      {
+        id: 19,
+        name: '零阶甲',
+        revertTimes: 0,
+        upgradeParams: [
+          createEquipmentUpgradeParam(0),
+          createEquipmentUpgradeParam(0),
+          createEquipmentUpgradeParam(0),
+        ],
+      },
+      {
+        isArmor: true,
+        systemData: { elements: ['', '通常'] },
+      },
+    )).toMatchObject({
+      revertTimes: 0,
+    });
   });
 
   it('会在装备修复中保留武器受控线形范围', () => {
@@ -303,6 +401,62 @@ describe('EquipmentPropertyService', () => {
         protectItemAmount: 0,
       },
     ]);
+  });
+
+  it('会按强化次数与浮动次数计算应生成的耗材等级数', () => {
+    expect(resolveEquipUpgradeCostTargetCount([{ value: 30, floatValue: 5 }])).toBe(35);
+    expect(resolveEquipUpgradeCostTargetCount({ times: { value: 40, floatValue: 0 } })).toBe(40);
+  });
+
+  it('会用模板补齐到目标强化等级并保留已有手填行', () => {
+    const template = Array.from({ length: 40 }, (_, index) => ({
+      successRate: index === 39 ? 1 : 90,
+      goldCost: (index + 1) * 1000,
+      requiredItemId: 183,
+      requiredItemAmount: index + 1,
+      protectItemId: index >= 31 ? 167 : 166,
+      protectItemAmount: index + 2,
+    }));
+
+    const costs = buildEquipUpgradeCostsForLimit([
+      {
+        successRate: 88,
+        goldCost: 123,
+        requiredItemId: 90,
+        requiredItemAmount: 5,
+        protectItemId: 162,
+        protectItemAmount: 1,
+      },
+    ], 40, template);
+
+    expect(costs).toHaveLength(40);
+    expect(costs[0]).toEqual({
+      successRate: 88,
+      goldCost: 123,
+      requiredItemId: 90,
+      requiredItemAmount: 5,
+      protectItemId: 162,
+      protectItemAmount: 1,
+    });
+    expect(costs[39]).toEqual({
+      successRate: 1,
+      goldCost: 40000,
+      requiredItemId: 183,
+      requiredItemAmount: 40,
+      protectItemId: 167,
+      protectItemAmount: 41,
+    });
+  });
+
+  it('没有来源模板时会使用暴君 40 级预填口径兜底', () => {
+    expect(createEquipUpgradeCostTemplateEntry(39)).toEqual({
+      successRate: 1,
+      goldCost: 223000,
+      requiredItemId: 183,
+      requiredItemAmount: 40,
+      protectItemId: 167,
+      protectItemAmount: 30,
+    });
   });
 
   it('非底盘与C装置防具不会补 hiddenAttackSkillId', () => {

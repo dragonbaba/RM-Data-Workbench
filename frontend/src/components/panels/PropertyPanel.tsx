@@ -63,12 +63,16 @@ import { EnemyActionOverridesCard } from './EnemyActionOverridesCard';
 import { NotePanel } from './NotePanel';
 import { ClassLevelExtensionsPanel } from './ClassLevelExtensionsPanel';
 import {
+  buildEquipUpgradeCostsForLimit,
   COMPLETE_VEHICLE_PARAM_FIELDS,
+  createEquipUpgradeCostTemplateEntry,
   EXTRA_PARAM_FIELDS,
   normalizeArmorElementRateFloats,
   normalizeArmorElementRates,
   normalizeEquipUpgradeCosts,
   normalizeEquipmentDataEntry,
+  normalizeEquipmentRevertTimes,
+  resolveEquipUpgradeCostTargetCount,
   UPGRADE_PARAM_FIELDS,
 } from '../../services/EquipmentPropertyService';
 import { normalizeEquipmentQualityLevel } from '../../services/EquipmentQualityProtocolService';
@@ -363,6 +367,10 @@ const readFormIntField = (
 };
 
 const hasOwn = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key);
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+};
+
 
 const normalizeParamTemplate = (value: ParamTemplateInput | undefined): ParamTemplate => {
   const record = value ?? {};
@@ -408,19 +416,6 @@ const areParamGroupsEqual = (
   right,
 );
 
-const getDefaultUpgradeSuccessRate = (index: number): number => {
-  const nextLevel = Math.max(1, index + 1);
-  return Math.min(100, Math.max(0, 100 / nextLevel));
-};
-
-const createEmptyUpgradeCostEntry = (index: number): EquipUpgradeCostEntry => ({
-  successRate: getDefaultUpgradeSuccessRate(index),
-  goldCost: 0,
-  requiredItemId: 0,
-  requiredItemAmount: 0,
-  protectItemId: 0,
-  protectItemAmount: 0,
-});
 
 const getFloatFieldKey = (key: string) => `${key}_float`;
 const EQUIP_TYPE_FIELD_KEY = 'etypeId';
@@ -433,6 +428,7 @@ const ELEMENT_RATES_FIELD_KEY = 'elementRates';
 const ELEMENT_RATE_FLOATS_FIELD_KEY = 'elementRateFloats';
 const QUALITY_LOCK_FIELD_KEY = 'qualityLock';
 const QUALITY_LEVEL_FIELD_KEY = 'qualityLevel';
+const REVERT_TIMES_FIELD_KEY = 'revertTimes';
 const UPGRADE_COSTS_FIELD_KEY = 'upgradeCosts';
 const TARGET_CAMP_FIELD_KEY = 'targetCamp';
 const TARGET_LIFE_STATE_FIELD_KEY = 'targetLifeState';
@@ -1375,6 +1371,7 @@ export function PropertyPanel() {
       if (isWeaponItem || isArmorItem) {
         baseFormValues[QUALITY_LOCK_FIELD_KEY] = item.qualityLock === true;
         baseFormValues[QUALITY_LEVEL_FIELD_KEY] = normalizeEquipmentQualityLevel(item.qualityLevel);
+        baseFormValues[REVERT_TIMES_FIELD_KEY] = normalizeEquipmentRevertTimes(item.revertTimes, item.upgradeParams);
       }
       if (isActorFile) {
         const actorValues = normalizeActorEditorValues(item);
@@ -1570,7 +1567,71 @@ export function PropertyPanel() {
     }
   }, [isWeaponItem, watchedAreaOverride, watchedAreaMode, watchedShapeType, form]);
 
-  const handleValuesChange = () => {
+  const isUpgradeTimesValueChange = (changedValues: unknown): boolean => {
+    if (!isRecord(changedValues) || !hasOwn(changedValues, 'upgradeParams')) return false;
+    const changedUpgradeParams = changedValues.upgradeParams;
+    if (Array.isArray(changedUpgradeParams)) {
+      const times = changedUpgradeParams[0];
+      return isRecord(times) && (hasOwn(times, 'value') || hasOwn(times, 'floatValue'));
+    }
+    if (isRecord(changedUpgradeParams) && isRecord(changedUpgradeParams.times)) {
+      return hasOwn(changedUpgradeParams.times, 'value') || hasOwn(changedUpgradeParams.times, 'floatValue');
+    }
+    return false;
+  };
+
+  const resolveUpgradeCostTemplate = (targetCount: number): EquipUpgradeCostEntry[] | undefined => {
+    const pools = [
+      currentData,
+      DataLoaderService.getCachedDataByName<RPGItem[]>(WEAPONS_FILE_NAME),
+      DataLoaderService.getCachedDataByName<RPGItem[]>(ARMORS_FILE_NAME),
+    ];
+    let bestCosts: EquipUpgradeCostEntry[] | undefined;
+    let bestScore = Number.NEGATIVE_INFINITY;
+
+    for (let poolIndex = 0; poolIndex < pools.length; poolIndex++) {
+      const pool = pools[poolIndex];
+      if (!Array.isArray(pool)) continue;
+      for (let index = 1; index < pool.length; index++) {
+        const candidate = pool[index] as RPGItem | null;
+        if (!candidate || typeof candidate !== 'object') continue;
+        const candidateCosts = normalizeEquipUpgradeCosts(candidate.upgradeCosts);
+        if (candidateCosts.length < targetCount) continue;
+        const candidateLimit = resolveEquipUpgradeCostTargetCount(candidate.upgradeParams);
+        if (candidateLimit < targetCount) continue;
+        const candidateName = typeof candidate.name === 'string' ? candidate.name : '';
+        let score = poolIndex === 0 ? 1000 : 0;
+        if (candidateLimit === targetCount) score += 200;
+        if (candidateCosts.length === targetCount) score += 100;
+        if (targetCount >= 40 && candidateName.includes('暴君')) score += 300;
+        if (index === currentItemIndex && pool === currentData) score -= 500;
+        if (score > bestScore) {
+          bestScore = score;
+          bestCosts = candidateCosts;
+        }
+      }
+    }
+
+    return bestCosts;
+  };
+
+  const syncUpgradeCostsForEditedLimit = () => {
+    const values = form.getFieldsValue(true) as Record<string, unknown>;
+    const targetCount = resolveEquipUpgradeCostTargetCount(values.upgradeParams);
+    const currentCosts = normalizeEquipUpgradeCosts(values[UPGRADE_COSTS_FIELD_KEY]);
+    if (currentCosts.length === targetCount) return;
+    const nextCosts = buildEquipUpgradeCostsForLimit(
+      currentCosts,
+      targetCount,
+      resolveUpgradeCostTemplate(targetCount),
+    );
+    form.setFieldsValue({ [UPGRADE_COSTS_FIELD_KEY]: nextCosts });
+  };
+
+  const handleValuesChange = (changedValues: Record<string, unknown>) => {
+    if (supportsTemplateParams && isUpgradeTimesValueChange(changedValues)) {
+      syncUpgradeCostsForEditedLimit();
+    }
     setHasBaseChanges(true);
   };
 
@@ -1839,6 +1900,9 @@ export function PropertyPanel() {
     const nextUpgradeCosts = supportsTemplateParams
       ? normalizeEquipUpgradeCosts(values[UPGRADE_COSTS_FIELD_KEY])
       : null;
+    const nextRevertTimes = (isWeaponItem || isArmorItem)
+      ? normalizeEquipmentRevertTimes(values[REVERT_TIMES_FIELD_KEY], nextUpgradeParams)
+      : 0;
     const nextOwnerBaseParams = supportsOwnerParams
       ? normalizeOwnerNumberGroupValues<OwnerBaseParamMap>(ownerValues.baseParams, OWNER_BASE_PARAM_FIELDS)
       : null;
@@ -1877,6 +1941,9 @@ export function PropertyPanel() {
 
     const currentCommonRangeValues = supportsCommonRange ? getCommonRangeValues(sourceItem) : null;
     const currentWeaponRangeValues = isWeaponItem ? getWeaponRangeValues(sourceItem) : null;
+    const currentRevertTimes = (isWeaponItem || isArmorItem)
+      ? normalizeEquipmentRevertTimes(sourceItem.revertTimes, sourceItem.upgradeParams)
+      : 0;
 
     const nextEquipTypeId = isWeaponItem ? toIntOrZero(values[EQUIP_TYPE_FIELD_KEY]) : 0;
     const shouldUpdateItem = (supportsFlatBaseAttributes && !areNumberArraysEqual(sourceItem.params, newParams))
@@ -1921,6 +1988,7 @@ export function PropertyPanel() {
       || (supportsOwnerParams && sourceItem.ownerParams == null)
       || (isStateFile && (sourceItem.forbidHeal === true) !== nextStateForbidHeal)
       || (supportsPassiveStates && !arePassiveStatesEqual(sourceItem.passiveStates, nextPassiveStates))
+      || (isArmorItem && nextArmorElementRates !== null && !areFloatArraysEqual(sourceItem.elementRates, nextArmorElementRates))
       || (isArmorItem && nextElementRateFloats !== null && !areFloatArraysEqual(sourceItem.elementRateFloats, nextElementRateFloats))
       || (isEnemyFile && nextEnemyBaseWeaknessGroup !== null && !areEnemyWeaknessGroupsEqual((sourceItem as RPGEnemy).baseWeaknessGroup, nextEnemyBaseWeaknessGroup))
       || (isEnemyFile && nextEnemyDynamicWeaknessGroups !== null && !areEnemyWeaknessGroupListsEqual((sourceItem as RPGEnemy).dynamicWeaknessGroups, nextEnemyDynamicWeaknessGroups))
@@ -1931,6 +1999,7 @@ export function PropertyPanel() {
       || (isActorFile && nextActorValues !== null && hasActorEditorChanges(sourceItem, nextActorValues))
       || ((isWeaponItem || isArmorItem) && (sourceItem.qualityLock === true) !== nextQualityLock)
       || ((isWeaponItem || isArmorItem) && normalizeEquipmentQualityLevel(sourceItem.qualityLevel) !== nextQualityLevel)
+      || ((isWeaponItem || isArmorItem) && currentRevertTimes !== nextRevertTimes)
       || (isWeaponItem && toIntOrZero(sourceItem.etypeId) !== nextEquipTypeId)
       || (isEnemyFile && nextEnemyValues !== null && hasEnemyEditorChanges(sourceItem as RPGEnemy, nextEnemyValues, skillsData))
       || (isItemFile && getLevelLimitBreakAmount(sourceItem) !== itemLevelCapBonus);
@@ -1971,6 +2040,7 @@ export function PropertyPanel() {
           dynamicWeaknessGroups: nextEnemyDynamicWeaknessGroups ?? [],
         } : {}),
         ...((isWeaponItem || isArmorItem) ? { qualityLock: nextQualityLock, qualityLevel: nextQualityLevel } : {}),
+        ...(isWeaponItem || isArmorItem ? { revertTimes: nextRevertTimes } : {}),
         ...(isWeaponItem ? { etypeId: nextEquipTypeId } : {}),
         ...(supportsCommonRange && nextCommonRangeValues ? nextCommonRangeValues : {}),
         ...(supportsCommonRange && nextOrderEffects ? { orderEffects: nextOrderEffects as BattleOrderEffects } : {}),
@@ -2359,7 +2429,7 @@ export function PropertyPanel() {
                   type="dashed"
                   size="small"
                   icon={<PlusOutlined />}
-                  onClick={() => add(createEmptyUpgradeCostEntry(fields.length))}
+                  onClick={() => add(createEquipUpgradeCostTemplateEntry(fields.length))}
                 >
                   添加一级
                 </Button>
@@ -3248,6 +3318,20 @@ export function PropertyPanel() {
                     step={1}
                     className="w-full"
                     placeholder="0-6"
+                  />
+                </Form.Item>
+                <Form.Item
+                  key={REVERT_TIMES_FIELD_KEY}
+                  name={REVERT_TIMES_FIELD_KEY}
+                  label={<span className="text-xs text-gray-400">还原次数</span>}
+                  className="mb-0"
+                >
+                  <InputNumber
+                    min={0}
+                    precision={0}
+                    step={1}
+                    className="w-full"
+                    placeholder="0"
                   />
                 </Form.Item>
               </>
